@@ -1,4 +1,4 @@
-"""Atrial fibrillation check on the MIT-BIH Atrial Fibrillation Database.
+"""Atrial fibrillation check on the MIT-BIH Atrial Fibrillation Database (development).
 
 AF makes the heartbeat irregularly irregular, so we detect R-peaks with our
 adaptive detector and measure RR-interval irregularity in 60 s windows:
@@ -15,10 +15,12 @@ Classifiers compared, all by leave-one-record-out cross-validation (each
 record is classified by a model fitted on the other 22 records only):
   - threshold rule: AF when both CV and nRMSSD exceed grid-searched thresholds
   - logistic regression on CV + nRMSSD, on all 5 features, and on pNN50 alone
+Each is reported at two operating points: its default (balanced accuracy /
+probability 0.5) and a cutoff chosen on the training folds to reach 95%
+sensitivity.
 
-Only the first 2 hours of each record are used, because downloading the
-full database (~635 MB) from PhysioNet is slow. Signals are cached in
-data/afdb/ after the first run.
+This script uses only the first 2 hours of each record. Hours 2-10 are kept
+as an untouched test set for afib_test.py. Signals are cached in data/afdb/.
 """
 
 import os
@@ -27,167 +29,44 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
-import wfdb
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
+from af import (RECORDS, FEATURES_5, TARGET_SENS, load_af_record, window_features,
+                fit_thresholds, model_inputs, make_logreg, cutoff_for_sensitivity,
+                auc, summarise)
 from ecg import bandpass, detect_peaks_adaptive, score
 
-NO_SIGNAL = ["00735", "03665"]   # these two records ship without ECG signals
-RECORDS = [r for r in wfdb.get_record_list("afdb") if r not in NO_SIGNAL]
-HOURS = 2
-WINDOW_SEC = 60
-MIN_RR = 20                      # skip windows with fewer valid RR intervals (noise/dropout)
-CACHE_DIR = "data/afdb"
 
-
-def load_af_record(rec_id):
-    """Return (ECG1 signal, fs, rhythm annotation, qrs annotation sample indices).
-
-    The signal is cached as .npy because PhysioNet downloads are slow.
-    """
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    cache = os.path.join(CACHE_DIR, f"{rec_id}_{HOURS}h.npy")
-    fs = 250
-    n = HOURS * 3600 * fs
-    if os.path.exists(cache):
-        sig = np.load(cache)
-    else:
-        rec = wfdb.rdrecord(rec_id, pn_dir="afdb", channels=[0], sampto=n)
-        sig, fs = rec.p_signal[:, 0], rec.fs
-        np.save(cache, sig)
-    rhythm = wfdb.rdann(rec_id, "atr", pn_dir="afdb", sampto=n)
-    qrs = wfdb.rdann(rec_id, "qrs", pn_dir="afdb", sampto=n).sample
-    return sig, fs, rhythm, qrs
-
-
-def af_mask(rhythm, n):
-    """Boolean array, True where the rhythm annotation is (AFIB."""
-    mask = np.zeros(n, dtype=bool)
-    bounds = list(rhythm.sample) + [n]
-    for start, end, label in zip(bounds[:-1], bounds[1:], rhythm.aux_note):
-        if label.strip("\x00 ") == "(AFIB":
-            mask[start:end] = True
-    return mask
-
-
-def shannon_entropy(rr, bins=16):
-    """Entropy of the RR histogram (bins span the window's own range), scaled to 0-1."""
-    counts, _ = np.histogram(rr, bins=bins)
-    p = counts[counts > 0] / len(rr)
-    return -np.sum(p * np.log(p)) / np.log(bins)
-
-
-def turning_points_ratio(rr):
-    """Fraction of interior RR intervals that are a local peak or trough.
-
-    About 2/3 for a random series; near 0 for a smooth trend.
-    """
-    d = np.diff(rr)
-    return np.mean(d[:-1] * d[1:] < 0)
-
-
-def window_features(peaks, fs, n, is_af):
-    """One row per 60 s window: AF label and RR-irregularity features."""
-    rows = []
-    win = WINDOW_SEC * fs
-    for start in range(0, n - win + 1, win):
-        p = peaks[(peaks >= start) & (peaks < start + win)]
-        rr = np.diff(p) / fs
-        rr = rr[(rr > 0.25) & (rr < 2.5)]          # 24-240 BPM
-        if len(rr) < MIN_RR:
-            continue
-        mean = rr.mean()
-        rows.append({
-            "start_min": start / fs / 60,
-            "af": is_af[start:start + win].mean() >= 0.5,
-            "cv": rr.std() / mean,
-            "nrmssd": np.sqrt(np.mean(np.diff(rr) ** 2)) / mean,
-            "entropy": shannon_entropy(rr),
-            "tpr": turning_points_ratio(rr),
-            "pnn50": np.mean(np.abs(np.diff(rr)) > 0.05),
-        })
-    return rows
-
-
-def fit_thresholds(df):
-    """Grid-search (cv, nrmssd) thresholds maximising balanced accuracy.
-
-    A window is called AF when both features exceed their thresholds.
-    """
-    best = (-1, None, None)
-    af, cv, nr = df.af.values, df.cv.values, df.nrmssd.values
-    for t_cv in np.arange(0.02, 0.30, 0.005):
-        for t_nr in np.arange(0.02, 0.40, 0.005):
-            pred = (cv > t_cv) & (nr > t_nr)
-            sens = pred[af].mean()
-            spec = (~pred[~af]).mean()
-            bal = (sens + spec) / 2
-            if bal > best[0]:
-                best = (bal, t_cv, t_nr)
-    return best[1], best[2]
-
-
-def auc(score_, label):
-    """ROC AUC via the Mann-Whitney rank statistic."""
-    ranks = pd.Series(score_).rank().values
-    n_pos, n_neg = label.sum(), (~label).sum()
-    return (ranks[label].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
-
-
-def leave_one_record_out(df):
-    """Add a 'pred' column; each record uses thresholds fitted on the others.
-
-    Returns the list of fitted (cv, nrmssd) thresholds.
-    """
-    df["pred"] = False
+def rule_leave_one_record_out(df, min_sens=None):
+    """Out-of-fold rule predictions; returns (pred, list of fitted thresholds)."""
+    pred = np.zeros(len(df), dtype=bool)
     fitted = []
     for rec_id in df.record.unique():
-        test = df.record == rec_id
-        t_cv, t_nr = fit_thresholds(df[~test])
+        test = (df.record == rec_id).values
+        t_cv, t_nr = fit_thresholds(df[~test], min_sens)
         fitted.append((t_cv, t_nr))
-        df.loc[test, "pred"] = (df.cv[test] > t_cv) & (df.nrmssd[test] > t_nr)
-    return fitted
-
-
-def model_inputs(df, features):
-    """Feature matrix; CV and nRMSSD are log-transformed (they span two decades)."""
-    X = df[features].copy()
-    for col in ("cv", "nrmssd"):
-        if col in X:
-            X[col] = np.log(X[col])
-    return X.values
-
-
-def make_logreg():
-    # Standardised inputs make coefficients comparable; balanced class
-    # weights match the threshold rule's balanced-accuracy objective.
-    return make_pipeline(StandardScaler(),
-                         LogisticRegression(class_weight="balanced", max_iter=1000))
+        pred[test] = (df.cv[test] > t_cv) & (df.nrmssd[test] > t_nr)
+    return pred, fitted
 
 
 def logreg_leave_one_record_out(df, features):
-    """Out-of-fold AF probability for each window, plus each fold's coefficients."""
+    """Out-of-fold results for each window.
+
+    Returns (probability, AF prediction at a cutoff giving 95% sensitivity
+    on the training folds, each fold's coefficients).
+    """
     prob = np.zeros(len(df))
+    pred_sens = np.zeros(len(df), dtype=bool)
     coefs = []
     for rec_id in df.record.unique():
         test = (df.record == rec_id).values
         model = make_logreg().fit(model_inputs(df[~test], features), df.af[~test])
+        train_prob = model.predict_proba(model_inputs(df[~test], features))[:, 1]
+        cutoff = cutoff_for_sensitivity(train_prob, df.af[~test].values)
         prob[test] = model.predict_proba(model_inputs(df[test], features))[:, 1]
+        pred_sens[test] = prob[test] >= cutoff
         coefs.append(model[-1].coef_[0])
-    return prob, np.array(coefs)
-
-
-def summarise(name, af, pred, prob=None):
-    tp, fn = (pred & af).sum(), (~pred & af).sum()
-    tn, fp = (~pred & ~af).sum(), (pred & ~af).sum()
-    return {"classifier": name,
-            "sensitivity": tp / (tp + fn), "specificity": tn / (tn + fp),
-            "precision": tp / (tp + fp), "balanced_accuracy": (tp / (tp + fn) + tn / (tn + fp)) / 2,
-            "auc": auc(prob, af) if prob is not None else np.nan,
-            "false_alarms": fp, "missed_af": fn}
+    return prob, pred_sens, np.array(coefs)
 
 
 # ----------------------------------------- detect beats, build windows
@@ -198,9 +77,8 @@ os.makedirs("figures", exist_ok=True)
 windows, ref_windows, det_rows, examples = [], [], [], {}
 for rec_id in RECORDS:
     print(f"record {rec_id} ...", flush=True)
-    sig, fs, rhythm, qrs = load_af_record(rec_id)
+    sig, fs, is_af, qrs = load_af_record(rec_id, 0, 2)
     peaks = detect_peaks_adaptive(sig, fs)
-    is_af = af_mask(rhythm, len(sig))
 
     tp, fp, fn, sens, ppv = score(qrs, peaks, int(0.15 * fs))
     det_rows.append((rec_id, tp, fp, fn, sens, ppv))
@@ -226,43 +104,30 @@ for label, d in [("all records", det), ("excluding 07162", det[det.record != "07
     print(f"  {label:<16} sensitivity={tot.TP / (tot.TP + tot.FN):.4f}  "
           f"precision={tot.TP / (tot.TP + tot.FP):.4f}")
 print(f"{len(df)} windows used ({df.af.sum()} AF, {(~df.af).sum()} non-AF) from {df.record.nunique()} records")
+af = df.af.values
 
 
 # -------------------------------------- leave-one-record-out evaluation
 
-fitted = leave_one_record_out(df)
-
-af, pred = df.af.values, df.pred.values
-tp, fn = (pred & af).sum(), (~pred & af).sum()
-tn, fp = (~pred & ~af).sum(), (pred & ~af).sum()
+df["pred"], fitted = rule_leave_one_record_out(df)
 t_cv_med, t_nr_med = np.median(fitted, axis=0)
-
-print("\nAF detection, 60 s windows, leave-one-record-out:")
-print(f"  sensitivity  {tp / (tp + fn):.3f}   ({tp}/{tp + fn} AF windows caught)")
-print(f"  specificity  {tn / (tn + fp):.3f}   ({tn}/{tn + fp} non-AF windows correctly passed)")
-print(f"  precision    {tp / (tp + fp):.3f}")
-print(f"  accuracy     {(tp + tn) / len(df):.3f}")
-print(f"  thresholds (median over folds): CV > {t_cv_med:.3f} and nRMSSD > {t_nr_med:.3f}")
-print(f"\nROC AUC of each feature alone (no threshold needed): "
-      f"CV={auc(df.cv.values, af):.3f}  nRMSSD={auc(df.nrmssd.values, af):.3f}")
+print(f"\nThreshold rule, median thresholds over folds: CV > {t_cv_med:.3f} and nRMSSD > {t_nr_med:.3f}")
+print(f"ROC AUC of each feature alone (no fitting needed): " + "  ".join(
+    f"{f}={auc(df[f].values, af):.3f}" for f in FEATURES_5))
 
 ref_df = pd.DataFrame(ref_windows)
-leave_one_record_out(ref_df)
-r_af, r_pred = ref_df.af.values, ref_df.pred.values
-print(f"\nSame method on PhysioNet's qrs beat positions instead of ours: "
-      f"sensitivity {r_pred[r_af].mean():.3f}  specificity {(~r_pred[~r_af]).mean():.3f}")
+ref_pred, _ = rule_leave_one_record_out(ref_df)
+r_af = ref_df.af.values
+print(f"Threshold rule on PhysioNet's qrs beat positions instead of ours: "
+      f"sensitivity {ref_pred[r_af].mean():.3f}  specificity {(~ref_pred[~r_af]).mean():.3f}")
 
-
-# ------------------------------------ logistic regression, more features
-
-FEATURES_2 = ["cv", "nrmssd"]
-FEATURES_5 = ["cv", "nrmssd", "entropy", "tpr", "pnn50"]
-
-prob2, _ = logreg_leave_one_record_out(df, FEATURES_2)
-prob5, fold_coefs = logreg_leave_one_record_out(df, FEATURES_5)
+prob2, pred2_sens, _ = logreg_leave_one_record_out(df, ["cv", "nrmssd"])
+prob5, pred5_sens, fold_coefs = logreg_leave_one_record_out(df, FEATURES_5)
 # pNN50 alone was added after seeing that its single-feature AUC
 # matched the 5-feature model's.
-prob1, _ = logreg_leave_one_record_out(df, ["pnn50"])
+prob1, pred1_sens, _ = logreg_leave_one_record_out(df, ["pnn50"])
+rule_sens, _ = rule_leave_one_record_out(df, min_sens=TARGET_SENS)
+
 df["prob_logreg2"], df["prob_logreg5"], df["prob_pnn50"] = prob2, prob5, prob1
 df.to_csv("results/afib_windows.csv", index=False)
 
@@ -273,11 +138,18 @@ comparison = pd.DataFrame([
     summarise("logistic regression (pNN50 only)", af, prob1 >= 0.5, prob1),
 ])
 comparison.to_csv("results/afib_classifiers.csv", index=False)
-print("\nClassifier comparison, leave-one-record-out:")
+print("\nDefault operating points (rule: best balanced accuracy; logistic: probability >= 0.5):")
 print(comparison.set_index("classifier").round(3).to_string())
 
-print("\nROC AUC of each new feature alone: " + "  ".join(
-    f"{f}={auc(df[f].values, af):.3f}" for f in ["entropy", "tpr", "pnn50"]))
+at_sens = pd.DataFrame([
+    summarise("threshold rule (CV, nRMSSD)", af, rule_sens),
+    summarise("logistic regression (CV, nRMSSD)", af, pred2_sens, prob2),
+    summarise("logistic regression (5 features)", af, pred5_sens, prob5),
+    summarise("logistic regression (pNN50 only)", af, pred1_sens, prob1),
+])
+at_sens.to_csv("results/afib_classifiers_95sens.csv", index=False)
+print(f"\nCutoffs chosen on the training folds for {TARGET_SENS:.0%} sensitivity:")
+print(at_sens.set_index("classifier").round(3).to_string())
 
 # Coefficients of a model fitted on all windows (standardised inputs, so
 # each is the change in log-odds of AF per standard deviation), with the
@@ -323,15 +195,16 @@ plt.tight_layout()
 plt.savefig("figures/afib_scatter.png", dpi=120)
 plt.show()
 
-# ROC curves: every operating point of each model, vs the rule's single point
+# ROC curves: every operating point of each model, vs the rule's points
 plt.figure(figsize=(5.5, 5))
 for name, prob in [("logistic, CV + nRMSSD", prob2),
                    ("logistic, 5 features", prob5),
                    ("logistic, pNN50 only", prob1)]:
     fpr, tpr_, _ = roc_curve(af, prob)
     plt.plot(fpr, tpr_, label=f"{name} (AUC {auc(prob, af):.3f})")
-rule = comparison.iloc[0]
-plt.plot(1 - rule.specificity, rule.sensitivity, "ko", label="threshold rule")
+for row, marker, label in [(comparison.iloc[0], "ko", "threshold rule, balanced"),
+                           (at_sens.iloc[0], "ks", "threshold rule, 95% sens. target")]:
+    plt.plot(1 - row.specificity, row.sensitivity, marker, label=label)
 plt.plot([0, 1], [0, 1], color="0.7", linestyle=":", linewidth=0.8)
 plt.xlabel("False alarm rate (1 - specificity)")
 plt.ylabel("Sensitivity")
@@ -361,7 +234,7 @@ plt.savefig("figures/afib_tachogram.png", dpi=120)
 plt.show()
 
 # Record 07162: our detections vs the unaudited qrs annotations
-sig, fs, _, qrs = load_af_record("07162")
+sig, fs, _, qrs = load_af_record("07162", 0, 2)
 peaks = examples["07162"][0]
 filt = bandpass(sig, fs)
 i0, i1 = 600 * fs, 608 * fs
