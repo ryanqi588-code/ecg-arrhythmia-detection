@@ -1,14 +1,16 @@
 # ECG arrhythmia detection
 
 R-peak (heartbeat) detection and atrial fibrillation (AF) screening on
-PhysioNet's MIT-BIH databases, written from scratch with NumPy and SciPy
-and benchmarked against an established detector.
+PhysioNet's MIT-BIH databases. Beat detection is written from scratch
+with NumPy and SciPy and benchmarked against an established detector;
+AF screening uses RR-interval features and logistic regression.
 
 | | Result |
 |---|---|
 | Beat detection, 36 held-out MIT-BIH records | sensitivity **99.57%**, precision **99.57%** |
 | `wfdb`'s XQRS on the same records | sensitivity 98.82%, precision 99.96% |
-| AF detection, 60 s windows, 23 AFDB records | sensitivity **95.6%**, specificity **76.3%** |
+| AF detection, 5-feature logistic regression, 23 AFDB records | ROC AUC **0.951**; sensitivity 86.6%, specificity 87.8% |
+| AF detection, original two-threshold rule | sensitivity 95.6%, specificity 76.3% |
 
 ## 1. Beat detection
 
@@ -68,28 +70,86 @@ In AF the heartbeat becomes irregularly irregular.
 and measures how irregular the RR intervals (times between beats) are in
 each 60 s window:
 
-- **CV**: standard deviation of RR / mean RR
-- **nRMSSD**: root-mean-square of successive RR differences / mean RR
+| Feature | Definition | AUC alone |
+|---|---|---|
+| **CV** | standard deviation of RR / mean RR | 0.895 |
+| **nRMSSD** | root-mean-square of successive RR differences / mean RR | 0.896 |
+| **Shannon entropy** | entropy of a 16-bin histogram of the window's RR intervals, scaled to 0–1 | 0.721 |
+| **TPR** (turning points ratio) | fraction of RR intervals that are a local peak or trough (≈ 2/3 for a random series) | 0.843 |
+| **pNN50** | fraction of successive RR differences over 50 ms | 0.957 |
 
-A window is called AF when both exceed a threshold. The thresholds are
-fitted by **leave-one-record-out cross-validation**: each record is
-classified with thresholds chosen on the other 22 records only. A window
-is labelled AF if at least half of it is annotated `(AFIB`; atrial
-flutter and junctional rhythm count as non-AF.
+A window is labelled AF if at least half of it is annotated `(AFIB`;
+atrial flutter and junctional rhythm count as non-AF. That gives 2759
+windows (610 AF, 2149 non-AF) from the first 2 hours of 23 records.
+
+Every classifier is evaluated by **leave-one-record-out
+cross-validation**: each record is classified by a model fitted on the
+other 22 records only, so no record is ever scored by a model that saw it.
+
+### Classifiers
+
+1. **Threshold rule** (the first version): AF when both CV and nRMSSD
+   exceed thresholds, grid-searched for the best balanced accuracy.
+2. **Logistic regression** on CV + nRMSSD, and on all 5 features. CV and
+   nRMSSD are log-transformed, since they span two orders of magnitude.
+   All inputs are standardized, and classes are weighted equally, matching
+   the threshold rule's objective. Windows with probability ≥ 0.5 are
+   called AF.
+3. **Logistic regression on pNN50 alone.** I added this *after* seeing
+   that pNN50 alone scores as well as the 5-feature model, so treat it as
+   a follow-up observation, not a planned comparison.
 
 ### Results
 
-2759 windows (610 AF, 2149 non-AF) from the first 2 hours of 23 records:
+| Classifier | Sensitivity | Specificity | Precision | False alarms | Missed AF | ROC AUC |
+|---|---|---|---|---|---|---|
+| Threshold rule (CV, nRMSSD) | 95.6% | 76.3% | 53.4% | 509 | 27 | – |
+| Logistic (CV, nRMSSD) | 88.5% | 78.0% | 53.3% | 473 | 70 | 0.889 |
+| **Logistic (5 features)** | 86.6% | **87.8%** | 66.8% | **262** | 82 | **0.951** |
+| Logistic (pNN50 only) | 97.2% | 87.8% | 69.4% | 262 | 17 | 0.953 |
 
-| Metric | Value |
-|---|---|
-| Sensitivity (AF windows caught) | 95.6% (583 / 610) |
-| Specificity (non-AF windows passed) | 76.3% (1640 / 2149) |
-| Precision | 53.4% |
-| ROC AUC, CV alone / nRMSSD alone | 0.895 / 0.896 |
-| Median thresholds | CV > 0.120 and nRMSSD > 0.170 |
+Sensitivity and specificity depend on where the 0.5 cutoff happens to
+fall, so the ROC curves are the fairer comparison:
 
-![CV vs nRMSSD for every window](figures/afib_scatter.png)
+![ROC curves](figures/afib_roc.png)
+
+What this shows:
+
+- **The new features help.** AUC rises from 0.889 to 0.951, and at the
+  0.5 cutoff false alarms nearly halve (509 → 262). The cost at that
+  particular cutoff is more missed AF (27 → 82).
+- **pNN50 carries almost all of it.** On its own it matches the
+  5-feature model at every operating point. A plausible reason: one
+  ectopic beat creates two large RR jumps. Those inflate CV and nRMSSD,
+  which measure how *big* the changes are, but move pNN50 only slightly,
+  because it *counts* how many changes exceed 50 ms.
+- **The threshold rule beats logistic regression on the same two
+  features.** Requiring *both* features to be high draws a rectangular
+  boundary, and that suits this data better than logistic regression's
+  straight line.
+
+### Reading the coefficients
+
+Coefficients of the 5-feature model fitted on all windows, in log-odds
+of AF per standard deviation of each feature, with the range across the
+23 cross-validation folds:
+
+| Feature | Coefficient | Fold range |
+|---|---|---|
+| log CV | +1.89 | +1.28 to +2.68 |
+| log nRMSSD | −1.28 | −1.70 to −0.58 |
+| entropy | +1.07 | +0.81 to +2.65 |
+| TPR | −0.30 | −0.65 to −0.07 |
+| pNN50 | +2.86 | +2.14 to +3.25 |
+
+Every sign is stable across folds, but two of them shouldn't be read at
+face value. **log CV and log nRMSSD are 97% correlated**, so the model
+gives one a positive weight and the other a negative one; together they
+add up to "overall variability". The negative nRMSSD weight doesn't mean
+nRMSSD argues against AF; on its own it rises with AF (AUC 0.896). TPR's
+small negative weight is similar: it is 66% correlated with pNN50 and
+only adjusts what pNN50 already says. pNN50 has the largest, most
+stable weight, which agrees with its single-feature AUC.
 
 ### Where it fails
 
@@ -101,11 +161,16 @@ is ectopy, not AF, but it scores as irregular:
 
 ![Record 08378 RR intervals](figures/afib_tachogram.png)
 
-This is a limit of the method, not of the beat detector. Re-running the
-analysis on PhysioNet's reference beat positions instead of ours gives
-similar results: 79.4% specificity and 91.1% sensitivity. Telling AF apart
-from ectopy would need features beyond RR irregularity, such as removing
-ectopic beats first or checking for missing P waves.
+For the threshold rule this is a limit of the method, not of the beat
+detector. Using PhysioNet's reference beat positions in place of ours
+gives similar results: 79.4% specificity and 91.1% sensitivity. The
+5-feature model handles ectopy better. Accuracy on record 08378 rises
+from 66% to 91%, and on 05261 from 48% to 73%. Record 08219 is still
+poor, at 40%. Separating AF from heavy ectopy reliably would probably
+need information beyond RR intervals, such as checking for missing
+P waves.
+
+![CV vs nRMSSD for every window](figures/afib_scatter.png)
 
 ### A wrong reference annotation
 

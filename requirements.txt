@@ -2,4 +2,5 @@ numpy
 scipy
 pandas
 matplotlib
+scikit-learn
 wfdb>=4.1
