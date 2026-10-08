@@ -109,12 +109,27 @@ def auc(score_, label):
     return (ranks[label].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
 
 
+def leave_one_record_out(df):
+    """Add a 'pred' column; each record uses thresholds fitted on the others.
+
+    Returns the list of fitted (cv, nrmssd) thresholds.
+    """
+    df["pred"] = False
+    fitted = []
+    for rec_id in df.record.unique():
+        test = df.record == rec_id
+        t_cv, t_nr = fit_thresholds(df[~test])
+        fitted.append((t_cv, t_nr))
+        df.loc[test, "pred"] = (df.cv[test] > t_cv) & (df.nrmssd[test] > t_nr)
+    return fitted
+
+
 # ----------------------------------------- detect beats, build windows
 
 os.makedirs("results", exist_ok=True)
 os.makedirs("figures", exist_ok=True)
 
-windows, det_rows, examples = [], [], {}
+windows, ref_windows, det_rows, examples = [], [], [], {}
 for rec_id in RECORDS:
     print(f"record {rec_id} ...", flush=True)
     sig, fs, rhythm, qrs = load_af_record(rec_id)
@@ -124,9 +139,12 @@ for rec_id in RECORDS:
     tp, fp, fn, sens, ppv = score(qrs, peaks, int(0.15 * fs))
     det_rows.append((rec_id, tp, fp, fn, sens, ppv))
 
-    for row in window_features(peaks, fs, len(sig), is_af):
-        row["record"] = rec_id
-        windows.append(row)
+    # Same windows built from PhysioNet's beat positions, to separate
+    # beat-detector errors from limits of the RR-irregularity method.
+    for out, beats in [(windows, peaks), (ref_windows, np.asarray(qrs))]:
+        for row in window_features(beats, fs, len(sig), is_af):
+            row["record"] = rec_id
+            out.append(row)
     examples[rec_id] = (peaks, fs, is_af)
 
 df = pd.DataFrame(windows)
@@ -146,15 +164,7 @@ print(f"{len(df)} windows used ({df.af.sum()} AF, {(~df.af).sum()} non-AF) from 
 
 # -------------------------------------- leave-one-record-out evaluation
 
-df["pred"] = False
-fitted = []
-for rec_id in RECORDS:
-    test = df.record == rec_id
-    if not test.any():
-        continue
-    t_cv, t_nr = fit_thresholds(df[~test])
-    fitted.append((t_cv, t_nr))
-    df.loc[test, "pred"] = (df.cv[test] > t_cv) & (df.nrmssd[test] > t_nr)
+fitted = leave_one_record_out(df)
 df.to_csv("results/afib_windows.csv", index=False)
 
 af, pred = df.af.values, df.pred.values
@@ -170,6 +180,12 @@ print(f"  accuracy     {(tp + tn) / len(df):.3f}")
 print(f"  thresholds (median over folds): CV > {t_cv_med:.3f} and nRMSSD > {t_nr_med:.3f}")
 print(f"\nROC AUC of each feature alone (no threshold needed): "
       f"CV={auc(df.cv.values, af):.3f}  nRMSSD={auc(df.nrmssd.values, af):.3f}")
+
+ref_df = pd.DataFrame(ref_windows)
+leave_one_record_out(ref_df)
+r_af, r_pred = ref_df.af.values, ref_df.pred.values
+print(f"\nSame method on PhysioNet's qrs beat positions instead of ours: "
+      f"sensitivity {r_pred[r_af].mean():.3f}  specificity {(~r_pred[~r_af]).mean():.3f}")
 
 per_rec = df.groupby("record").apply(
     lambda g: pd.Series({"windows": len(g), "af_windows": g.af.sum(),
