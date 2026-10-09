@@ -83,9 +83,12 @@ print("\n5-feature model, per record:")
 print(per_rec.to_string())
 
 plt.figure(figsize=(5.5, 5))
+colors = {"logistic regression (5 features)": "tab:orange",   # same as afib_roc.png
+          "logistic regression (pNN50 only)": "tab:green"}
 for name, prob in probs.items():
     fpr, tpr_, _ = roc_curve(af, prob)
-    plt.plot(fpr, tpr_, label=f"{name.replace('logistic regression', 'logistic')} (AUC {auc(prob, af):.3f})")
+    plt.plot(fpr, tpr_, color=colors[name],
+             label=f"{name.replace('logistic regression', 'logistic')} (AUC {auc(prob, af):.3f})")
 plt.plot(1 - rows[0]["specificity"], rows[0]["sensitivity"], "ks", label="threshold rule")
 plt.plot([0, 1], [0, 1], color="0.7", linestyle=":", linewidth=0.8)
 plt.xlabel("False alarm rate (1 - specificity)")
