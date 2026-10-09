@@ -8,7 +8,7 @@ AF screening uses RR-interval features and logistic regression.
 | | Result |
 |---|---|
 | Beat detection, 36 held-out MIT-BIH records | sensitivity **99.57%**, precision **99.57%** |
-| `wfdb`'s XQRS on the same records | sensitivity 98.82%, precision 99.96% |
+| wfdb's XQRS on the same records | sensitivity 98.82%, precision 99.96% |
 | AF detection, 5-feature logistic regression, held-out 8 h per record | ROC AUC **0.990**; sensitivity 92.5%, specificity **98.0%** |
 | AF detection, original two-threshold rule, same data | sensitivity 96.8%, specificity 80.6% |
 
