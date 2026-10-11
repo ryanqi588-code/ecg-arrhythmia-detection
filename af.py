@@ -139,20 +139,33 @@ def turning_points_ratio(rr):
     return np.mean(d[:-1] * d[1:] < 0)
 
 
-def window_features(peaks, fs, n, is_af):
-    """One row per 60 s window: AF label and RR-irregularity features."""
+def window_features(peaks, fs, n, is_af, ectopic=None):
+    """One row per 60 s window: AF label and RR-irregularity features.
+
+    With `ectopic` (one flag per peak, from ecg.flag_ectopic), RR intervals
+    that start or end at a flagged beat are dropped first. The intervals
+    either side of a dropped beat are both normal, so joining them doesn't
+    create a large artificial jump. If that leaves too few intervals, the
+    window falls back to its unfiltered intervals rather than being
+    skipped, so every window still gets a decision.
+    """
     rows = []
     win = WINDOW_SEC * fs
+    ectopic = np.zeros(len(peaks), dtype=bool) if ectopic is None else np.asarray(ectopic)
     for start in range(0, n - win + 1, win):
-        p = peaks[(peaks >= start) & (peaks < start + win)]
+        in_win = (peaks >= start) & (peaks < start + win)
+        p, e = peaks[in_win], ectopic[in_win]
         rr = np.diff(p) / fs
-        rr = rr[(rr > 0.25) & (rr < 2.5)]          # 24-240 BPM
+        plausible = (rr > 0.25) & (rr < 2.5)                    # 24-240 BPM
+        filtered = plausible & ~e[:-1] & ~e[1:]                  # neither end ectopic
+        rr = rr[filtered] if filtered.sum() >= MIN_RR else rr[plausible]
         if len(rr) < MIN_RR:
             continue
         mean = rr.mean()
         rows.append({
             "start_min": start / fs / 60,
             "af": is_af[start:start + win].mean() >= 0.5,
+            "ectopic_frac": e.mean() if len(e) else 0.0,
             "cv": rr.std() / mean,
             "nrmssd": np.sqrt(np.mean(np.diff(rr) ** 2)) / mean,
             "entropy": shannon_entropy(rr),

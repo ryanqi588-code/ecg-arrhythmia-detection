@@ -56,6 +56,29 @@ def test_window_features_irregular_rhythm():
         assert row["cv"] > 0.15 and row["pnn50"] > 0.5 and row["af"]
 
 
+def test_window_features_drops_rr_around_ectopic_beats():
+    # Regular rhythm with a premature beat + pause every 10 beats.
+    rr = np.tile(np.r_[np.full(8, 0.8), 0.5, 1.1], 20)
+    peaks = peaks_from_rr(rr)
+    ectopic = np.zeros(len(peaks), dtype=bool)
+    ectopic[9::10] = True                              # the early beats
+    n = peaks[-1] + FS
+    no_af = np.zeros(n, dtype=bool)
+    raw = window_features(peaks, FS, n, no_af)
+    clean = window_features(peaks, FS, n, no_af, ectopic)
+    assert all(r["cv"] > 0.15 for r in raw)            # ectopy looks irregular
+    assert all(c["cv"] < 0.01 for c in clean)          # gone once removed
+
+
+def test_window_features_falls_back_when_too_few_beats_remain():
+    rr = np.full(200, 0.8)
+    peaks = peaks_from_rr(rr)
+    n = peaks[-1] + FS
+    every_beat = np.ones(len(peaks), dtype=bool)
+    no_af = np.zeros(n, dtype=bool)
+    assert len(window_features(peaks, FS, n, no_af, every_beat)) == len(window_features(peaks, FS, n, no_af))
+
+
 def test_window_features_skips_sparse_windows():
     peaks = peaks_from_rr(np.full(10, 0.8))        # too few beats for a 60 s window
     assert window_features(peaks, FS, 60 * FS, np.zeros(60 * FS, dtype=bool)) == []

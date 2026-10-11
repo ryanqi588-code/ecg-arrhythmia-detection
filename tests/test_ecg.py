@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ecg import bandpass, detect_peaks_adaptive, detect_peaks_fixed, score
+from ecg import bandpass, detect_peaks_adaptive, detect_peaks_fixed, flag_ectopic, score
 
 FS = 360
 
@@ -71,6 +71,38 @@ def test_one_tall_spike_fixed_vs_adaptive():
     far = np.abs(times - times[spike]) > 1.0
     _, _, fn_far, *_ = score(beat_samples(times[far]), det, tol)
     assert fn_far == 0
+
+
+def add_pvc(sig, at):
+    """A wide, inverted, biphasic complex: a stand-in for a premature ventricular beat."""
+    t = np.arange(len(sig)) / FS
+    sig = sig - 1.0 * np.exp(-0.5 * ((t - at) / 0.035) ** 2)
+    return sig + 0.5 * np.exp(-0.5 * ((t - at - 0.07) / 0.03) ** 2)
+
+
+def test_flag_ectopic_catches_premature_ventricular_beats():
+    normal = np.arange(1, 29, 0.8)
+    pvc_times = normal[[5, 15, 25]] - 0.3                  # early, then the next normal beat
+    keep = np.ones(len(normal), dtype=bool)
+    keep[[5, 15, 25]] = False                              # beat replaced by the PVC
+    sig = synthetic_ecg(normal[keep])
+    for at in pvc_times:
+        sig = add_pvc(sig, at)
+    peaks = detect_peaks_adaptive(sig, FS)
+    flags = flag_ectopic(sig, FS, peaks)
+    near_pvc = np.array([np.min(np.abs(pvc_times - p / FS)) < 0.1 for p in peaks])
+    assert near_pvc.sum() == 3
+    assert flags[near_pvc].all()
+    assert flags[~near_pvc].mean() < 0.1
+
+
+def test_flag_ectopic_leaves_irregular_normal_beats_mostly_alone():
+    # AF-like: irregular timing but every beat has the normal shape.
+    rng = np.random.default_rng(1)
+    times = np.cumsum(rng.uniform(0.4, 1.0, 45)) + 0.5
+    sig = synthetic_ecg(times[times < 29])
+    flags = flag_ectopic(sig, FS, detect_peaks_adaptive(sig, FS))
+    assert flags.mean() < 0.25        # only the timing rule can fire, by chance
 
 
 def test_score_counts():

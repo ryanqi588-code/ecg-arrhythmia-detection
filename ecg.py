@@ -75,6 +75,44 @@ def detect_peaks_adaptive(sig, fs, window_sec=2.0, frac=0.4,
     return np.array(peaks, dtype=int)
 
 
+def flag_ectopic(sig, fs, peaks, shape_corr=0.9, early=0.8, pause=1.15):
+    """Flag likely ectopic beats among detected peaks.
+
+    A beat is flagged if either
+      - its shape is unlike its neighbours': correlation with the median of
+        the surrounding +/-15 beats (+/-80 ms around each peak) is below
+        shape_corr. This catches ventricular ectopics, whose QRS is wide and
+        differently shaped. AF beats keep their normal shape, so this cue
+        doesn't remove AF irregularity.
+      - its timing is premature-then-pause: the RR before it is under
+        `early` x the local median RR and the RR after it is over `pause` x.
+
+    On the first 5 minutes of 46 MIT-BIH records this catches 97.6% of
+    ventricular ectopic beats and flags 3.5% of normal beats, but only 5% of
+    supraventricular ectopics, which look normal and are often only slightly
+    early. (Thresholds were chosen on that same data.)
+    """
+    peaks = np.asarray(peaks)
+    flags = np.zeros(len(peaks), dtype=bool)
+    if len(peaks) < 3:
+        return flags
+    filt = bandpass(sig, fs)
+    h = int(0.08 * fs)
+    segs = np.zeros((len(peaks), 2 * h))
+    for i, c in enumerate(peaks):
+        if h <= c <= len(filt) - h:
+            segs[i] = filt[c - h:c + h]
+    rr = np.diff(peaks) / fs
+    for i in range(len(peaks)):
+        template = np.median(segs[max(0, i - 15):i + 16], axis=0)
+        if segs[i].std() > 0 and template.std() > 0:
+            flags[i] |= np.corrcoef(segs[i], template)[0, 1] < shape_corr
+        if 1 <= i <= len(rr) - 1:
+            med = np.median(rr[max(0, i - 8):i + 8])
+            flags[i] |= rr[i - 1] < early * med and rr[i] > pause * med
+    return flags
+
+
 def score(ref, det, tol, excluded=()):
     """Greedy one-to-one match of reference beats to detections within tol samples.
 
