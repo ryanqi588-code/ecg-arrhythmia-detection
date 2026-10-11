@@ -17,6 +17,7 @@ AF screening uses RR-interval features and logistic regression.
 | AF vs atrial premature beats, 777 clinical recordings (CPSC 2018), 5-feature model + P-wave override | sensitivity 92.3%; false alarms 10.4% on PAC (18.4% without the override), 3.2% on normal |
 | 917 further clinical recordings (CPSC 2018 extra), clinical cutoff + P-wave override | sensitivity 88.9% (95% CI 77–95%, 45 AF), specificity 95.8% |
 | 2938 10 s clinical recordings (Georgia), 12-lead clinical model | sensitivity 68.5%; false alarms 7.3% on PAC, 0.9% on normal (see the caveat on its AF labels) |
+| 2867 10 s recordings with per-recording labels (PTB-XL), same model | sensitivity 87.4% (95% CI 85–89%); false alarms 10.3% on PAC, 1.0% on sinus; ROC AUC 0.976 |
 
 ## 1. Beat detection
 
@@ -564,6 +565,52 @@ the model gets wrong. The registered numbers above stand. A fair verdict
 on this model needs AF labels that describe the rhythm in each
 recording.
 
+### Re-test on PTB-XL, whose labels describe each recording
+
+**The test** ([`afib_ptbxl_test.py`](afib_ptbxl_test.py)):
+[PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/), 10 s 12-lead
+recordings at 500 Hz, chosen from the label table alone and keeping only
+reports validated by a cardiologist. Its rhythm statements describe the
+ECG itself, not the patient's history. AF = AFIB without atrial flutter
+(all 984); PAC = PAC without AF or flutter (all 391); sinus = SR with no
+AF, flutter, ectopy or pacing (1500 drawn at random, seed 0). The models
+are exactly the Georgia ones; nothing was retrained or re-tuned. The plan
+was committed before the run, and it was run once. (17 downloads were
+incomplete and were re-fetched before the run; every file was then
+checked for its expected size.)
+
+| PTB-XL (2867 scored: 978 AF, 389 PAC, 1500 sinus) | Catches AF (95% CI) | False alarms, PAC | False alarms, sinus | ROC AUC |
+|---|---|---|---|---|
+| Current (AFDB model, clinical cutoff) | **92.4%** (91–94%) | 46.8% | 6.6% | 0.942 |
+| Current + P-wave override | 87.2% (85–89%) | 14.9% | 0.9% | – |
+| Clinical model (registered primary) | 87.4% (85–89%) | **10.3%** | **1.0%** | **0.976** |
+| Clinical model + P-wave override | 86.2% (84–88%) | 8.7% | 0.8% | – |
+
+![PTB-XL ROC](figures/afib_ptbxl_test_roc.png)
+
+- **The labels explain most of the Georgia gap.** With labels that describe
+  each recording, the clinical model's AUC is 0.976, the same as in
+  development (0.978) and far above Georgia's 0.881. Its sensitivity rose
+  from 68.5% to 87.4%, and only 4 of its 123 missed AF recordings are
+  perfectly regular with consistent P waves (Georgia: 67 of 179).
+- **The model still misses its 95% target.** 87.4% (CI 85–89%) is in
+  line with the CPSC-extra test (88.9%). It's the same shortfall as
+  before, now measured cleanly.
+- **The ranking transfers but the cutoff doesn't.** On the same
+  recordings, catching 95% of AF would need a cutoff of 0.27 instead of
+  0.61, which would raise false alarms on PAC to 25% (sinus 2.1%). This
+  was worked out after the run and isn't a test result.
+
+**Why it misses (after the run; nothing was changed in response).** The
+missed AF recordings are clearly irregular (median CV 0.13, pNN50 0.56;
+sinus: 0.02 and 0.00), but their median `p_match_regular` is 0.90, close
+to sinus (1.00) and far from the AF it catches (0.43). With only a few
+regular beats in 10 s of AF, the lead II window before each QRS can look
+alike by chance, and the model, which leans on that feature to reject
+PAC, then talks itself out of AF. The fix to try next is a P-wave measure
+that doesn't depend on picking out a few regular beats; it would need
+fresh data to test.
+
 ### Reading the coefficients
 
 Coefficients of the 5-feature model fitted on all development windows, in
@@ -631,6 +678,7 @@ python afib_handheld_cv.py # handheld-only model, 5-fold CV on Challenge 2017
 python afib_cpscx_test.py  # clinical-cutoff test; needs CPSC 2018 and CPSC 2018 extra (below)
 python afib_clinical_dev.py   # clinical 12-lead model development on CPSC crops
 python afib_georgia_test.py   # clinical model test on Georgia 10 s recordings (below)
+python afib_ptbxl_test.py     # re-test on PTB-XL 10 s recordings (below)
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -662,6 +710,14 @@ Georgia works the same way, from
 [`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/)
 into `data/georgia/`. `SELECTED` lists one `record label` pair per line
 (A, PAC or N, as defined above; 2942 recordings, about 350 MB).
+
+For PTB-XL, choose recordings from
+[`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv)
+as defined above and download their `records500/` `.hea` and `.dat`
+files into `data/ptbxl/` (2875 recordings, about 350 MB). `SELECTED`
+lists one `records500/xxxxx/yyyyy_hr label` pair per line;
+[`results/afib_ptbxl_test_recordings.csv`](results/afib_ptbxl_test_recordings.csv)
+lists the 2867 scored.
 
 ### Tests
 
@@ -709,10 +765,11 @@ every push.
   in cross-validation (92.7% with the override), but there's no unused
   handheld AF data left to confirm it.
 - On clinical recordings, sensitivity was 87–92% across the two CPSC
-  tests and 68–75% on Georgia's 10 s recordings, below the 95% target.
-  Neither a clinical cutoff nor a 12-lead clinical model fixed it, though
-  Georgia's recording-level AF labels may overstate how many recordings
-  are actually in AF.
+  tests, 87% on PTB-XL and 68–75% on Georgia's 10 s recordings, below
+  the 95% target. PTB-XL showed that Georgia's low numbers were mostly
+  its labels, but neither a clinical cutoff nor a 12-lead clinical model
+  reached 95%: on short AF recordings the lead II P-wave feature is
+  often fooled.
 - Recordings under about 20 beats can't be scored (154 of 931 in the
   CPSC test).
 - SVDB has no rhythm labels, so its specificity assumes none of its
@@ -751,6 +808,8 @@ every push.
 - Clifford GD, Liu C, Moody B, et al. *AF classification from a short
   single lead ECG recording: the PhysioNet/Computing in Cardiology
   Challenge 2017.* Computing in Cardiology 44 (2017).
+- Wagner P, Strodthoff N, Bousseljot RD, et al. *PTB-XL, a large
+  publicly available electrocardiography dataset.* Sci Data 7:154 (2020).
 - Greenwald SD, Patil RS, Mark RG. *Improved detection and
   classification of arrhythmias in noise-corrupted electrocardiograms
   using contextual information.* Computers in Cardiology 461-464 (1990).
