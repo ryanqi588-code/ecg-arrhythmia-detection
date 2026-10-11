@@ -120,6 +120,29 @@ def flag_atrial_ectopic(sig, fs, peaks, early=0.85, p_corr=0.8):
     return flags
 
 
+def f_wave_activity(sig, fs, peaks, pre=0.25, post=0.55):
+    """Atrial (fibrillatory) activity not locked to the beats, relative to beat size.
+
+    Subtract the median beat (P wave, QRS and T, from `pre` s before to
+    `post` s after each peak) from the band-passed signal, band-pass what's
+    left to 4-9 Hz (the range of AF's fibrillatory waves) and return its RMS
+    divided by the median beat's peak-to-peak size. Best in lead V1. Returns
+    NaN with fewer than 3 complete beats.
+    """
+    filt = bandpass(sig, fs)
+    a, b = int(pre * fs), int(post * fs)
+    ok = [p for p in peaks if p - a >= 0 and p + b <= len(filt)]
+    if len(ok) < 3:
+        return np.nan
+    template = np.median([filt[p - a:p + b] for p in ok], axis=0)
+    resid = filt.copy()
+    for p in ok:
+        resid[p - a:p + b] -= template
+    bb, aa = butter(3, [4 / (fs / 2), 9 / (fs / 2)], btype="band")
+    f = filtfilt(bb, aa, resid)[ok[0] - a:ok[-1] + b]
+    return np.sqrt(np.mean(f ** 2)) / np.ptp(template)
+
+
 def flag_ectopic(sig, fs, peaks, shape_corr=0.9, early=0.8, pause=1.15):
     """Flag likely ectopic beats among detected peaks.
 

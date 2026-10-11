@@ -183,6 +183,44 @@ def load_cpsc_record(rec_id, directory=CPSC_DIR):
     return rec.p_signal[:, 0], rec.fs
 
 
+CLINICAL_FEATURES = FEATURES_5N + ["p_match_regular", "log_f_wave"]
+CLINICAL_MIN_RR = 6        # 10 s clinical recordings give ~8-15 RR intervals
+# Fewest regular beats for p_match_regular in a 10 s recording (60 s windows
+# use 5). With 5, many 10 s normal recordings had too few and were scored as
+# P-wave-free; chosen on the CPSC development crops.
+CLINICAL_MIN_REGULAR = 3
+
+
+def load_12lead(path):
+    """Leads I, II and V1 of a Challenge 2020 12-lead recording. Returns (n x 3 array, fs)."""
+    rec = wfdb.rdrecord(path, channels=[0, 1, 6])
+    assert rec.sig_name == ["I", "II", "V1"], rec.sig_name
+    return rec.p_signal, rec.fs
+
+
+def clinical_features(leads3, fs, is_af):
+    """Features of one short clinical recording (leads I, II, V1), or None if too few beats.
+
+    R peaks are found on lead II. RR features (FEATURES_5N) after removing
+    ventricular ectopics, with a minimum of CLINICAL_MIN_RR intervals;
+    p_match_regular from lead II, where P waves are clearest; and the log of
+    fibrillatory-wave activity in V1 (ecg.f_wave_activity).
+    """
+    from ecg import bandpass, detect_peaks_adaptive, f_wave_activity, flag_ectopic, pr_segments
+    lead2 = leads3[:, 1]
+    peaks = detect_peaks_adaptive(lead2, fs)
+    if len(peaks) < CLINICAL_MIN_RR + 1:
+        return None
+    rows = window_features(peaks, fs, len(lead2), np.full(len(lead2), is_af), flag_ectopic(lead2, fs, peaks),
+                           pr_segments(bandpass(lead2, fs), peaks, fs), regular_beats(peaks, fs),
+                           window_sec=len(lead2) / fs, min_rr=CLINICAL_MIN_RR,
+                           min_regular=CLINICAL_MIN_REGULAR)
+    if not rows:
+        return None
+    f = f_wave_activity(leads3[:, 2], fs, peaks)
+    return {**rows[0], "log_f_wave": np.log(max(f, 1e-4)) if np.isfinite(f) else np.nan}
+
+
 def prefetch_svdb(workers=4):
     with ThreadPoolExecutor(workers) as pool:
         for rec_id in pool.map(lambda r: (load_svdb_record(r), r)[1], SVDB_RECORDS):
@@ -314,7 +352,7 @@ def p_wave_override(pred, df, threshold=P_OVERRIDE):
 
 
 def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=None,
-                    window_sec=WINDOW_SEC):
+                    window_sec=WINDOW_SEC, min_rr=MIN_RR, min_regular=5):
     """One row per 60 s window: AF label and RR-irregularity features.
 
     With `pr_segs` (ecg.pr_segments for all peaks), the P-wave presence
@@ -337,8 +375,8 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=Non
         rr = np.diff(p) / fs
         plausible = (rr > 0.25) & (rr < 2.5)                    # 24-240 BPM
         filtered = plausible & ~e[:-1] & ~e[1:]                  # neither end ectopic
-        rr = rr[filtered] if filtered.sum() >= MIN_RR else rr[plausible]
-        if len(rr) < MIN_RR:
+        rr = rr[filtered] if filtered.sum() >= min_rr else rr[plausible]
+        if len(rr) < min_rr:
             continue
         mean = rr.mean()
         rows.append({
@@ -359,7 +397,7 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=Non
             if regular is not None:
                 # Same, over regular beats only (not early, not ventricular ectopic).
                 use = regular[in_win] & ~e
-                if use.sum() >= 5:
+                if use.sum() >= min_regular:
                     pw = p_wave_features(pr_segs[in_win][use])
                     rows[-1]["p_match_regular"] = pw["p_match"]
                 else:
