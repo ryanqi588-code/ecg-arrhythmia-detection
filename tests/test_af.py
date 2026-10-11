@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 
 from af import (FEATURES_5, af_mask, cutoff_for_sensitivity, make_logreg, model_inputs,
-                p_wave_features, shannon_entropy, turning_points_ratio, window_features)
+                p_wave_features, p_wave_override, regular_beats, shannon_entropy,
+                turning_points_ratio, window_features)
 
 FS = 250
 
@@ -126,6 +127,22 @@ def test_p_wave_features_sinus_vs_fibrillation():
     s, f = p_wave_features(sinus), p_wave_features(fib)
     assert s["p_match"] > 0.9 and f["p_match"] < 0.5
     assert s["p_snr"] > 3 * f["p_snr"]
+
+
+def test_regular_beats_excludes_early_beats_only():
+    rr = np.tile(np.r_[np.full(6, 0.8), 0.5, 1.1], 10)        # an early beat every 8
+    peaks = peaks_from_rr(rr)
+    regular = regular_beats(peaks, FS)
+    early = np.r_[False, rr < 0.6]                             # beat i ends interval i-1
+    assert not regular[early].any()
+    assert regular[1:][~early[1:]].all()
+
+
+def test_p_wave_override_only_clears_windows_with_shared_p_waves():
+    df = pd.DataFrame({"p_match_regular": [0.99, 0.96, 0.94, 0.3]})
+    pred = np.array([True, True, True, True])
+    assert p_wave_override(pred, df).tolist() == [False, False, True, True]
+    assert p_wave_override(np.zeros(4, dtype=bool), df).tolist() == [False] * 4
 
 
 def test_cutoff_for_sensitivity():

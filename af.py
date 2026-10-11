@@ -27,6 +27,9 @@ LTAF_RECORDS = ["00", "01", "03", "05", "06", "07", "08", "10", "100", "101", "1
 # supraventricular ectopy, used only as the final test of atrial-ectopy handling.
 SVDB_RECORDS = [str(r) for r in [*range(800, 813), *range(820, 830), *range(840, 895)]]
 SVDB_CACHE_DIR = "data/svdb"
+# PhysioNet/CinC Challenge 2017 training set, downloaded and unzipped by hand
+# (see README); used only as the final test of the P-wave override.
+CINC_DIR = "data/cinc2017"
 FS = 250
 WINDOW_SEC = 60
 MIN_RR = 20                      # skip windows with fewer valid RR intervals (noise/dropout)
@@ -40,6 +43,7 @@ FEATURES_5 = ["cv", "nrmssd", "entropy", "tpr", "pnn50"]
 # nothing (AUC 0.984 with both vs 0.985 with p_match alone), and its weight
 # came out with the wrong sign.
 FEATURES_6 = FEATURES_5 + ["p_match"]
+FEATURES_6R = FEATURES_5 + ["p_match_regular"]
 
 
 # ------------------------------------------------------------ loading
@@ -106,6 +110,18 @@ def load_svdb_record(rec_id):
         np.save(cache, sig)
     ann = wfdb.rdann(rec_id, "atr", pn_dir="svdb")
     return sig, fs, af_mask(ann, 0, len(sig)), np.asarray(ann.sample), np.asarray(ann.symbol)
+
+
+def cinc_labels():
+    """PhysioNet/CinC Challenge 2017 labels: record -> N (normal), A (AF), O (other rhythm), ~ (noisy)."""
+    ref = pd.read_csv(os.path.join(CINC_DIR, "REFERENCE-v3.csv"), header=None, names=["record", "label"])
+    return dict(zip(ref.record, ref.label))
+
+
+def load_cinc_record(rec_id):
+    """One single-lead Challenge 2017 recording (300 Hz, 9-61 s). Returns (signal, fs)."""
+    rec = wfdb.rdrecord(os.path.join(CINC_DIR, "training2017", rec_id))
+    return rec.p_signal[:, 0], rec.fs
 
 
 def prefetch_svdb(workers=4):
@@ -192,7 +208,42 @@ def p_wave_features(segs):
             "p_match": np.mean(corr > 0.5)}
 
 
-def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None):
+def regular_beats(peaks, fs, early=0.9):
+    """True for beats that aren't early: RR before them >= `early` x the local median RR.
+
+    Atrial ectopics are early; the beats between them are ordinary sinus
+    beats that share one P wave. In AF no beats share a P wave, early or not.
+    """
+    peaks = np.asarray(peaks)
+    rr = np.diff(peaks) / fs
+    regular = np.zeros(len(peaks), dtype=bool)
+    for i in range(1, len(peaks)):
+        regular[i] = rr[i - 1] >= early * np.median(rr[max(0, i - 8):i + 8])
+    return regular
+
+
+P_OVERRIDE = 0.95
+
+
+def p_wave_override(pred, df, threshold=P_OVERRIDE):
+    """Overrule AF calls in windows whose regular beats share a P wave.
+
+    AF means no P waves. If at least `threshold` of a window's regular beats
+    (not early, not ventricular ectopic) match the window's typical P wave,
+    the window isn't called AF, however irregular its RR intervals. This is
+    a rule rather than a model feature because the AFDB training data has
+    almost no irregular-but-P-waves windows to learn it from.
+
+    Chosen on development data: on AFDB (leave-one-record-out) it overrides
+    0.5% of AF windows, keeping sensitivity at 96.1%, and cuts false alarms
+    100 -> 71; on SVDB (a second look) 390 -> 277. Lower thresholds remove
+    more false alarms but drop sensitivity below 95%.
+    """
+    return np.asarray(pred) & (df.p_match_regular.values < threshold)
+
+
+def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=None,
+                    window_sec=WINDOW_SEC):
     """One row per 60 s window: AF label and RR-irregularity features.
 
     With `pr_segs` (ecg.pr_segments for all peaks), the P-wave presence
@@ -207,7 +258,7 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None):
     skipped, so every window still gets a decision.
     """
     rows = []
-    win = WINDOW_SEC * fs
+    win = int(window_sec * fs)
     ectopic = np.zeros(len(peaks), dtype=bool) if ectopic is None else np.asarray(ectopic)
     for start in range(0, n - win + 1, win):
         in_win = (peaks >= start) & (peaks < start + win)
@@ -231,6 +282,14 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None):
         })
         if pr_segs is not None:
             rows[-1].update(p_wave_features(pr_segs[in_win]))
+            if regular is not None:
+                # Same, over regular beats only (not early, not ventricular ectopic).
+                use = regular[in_win] & ~e
+                if use.sum() >= 5:
+                    pw = p_wave_features(pr_segs[in_win][use])
+                    rows[-1]["p_match_regular"] = pw["p_match"]
+                else:
+                    rows[-1]["p_match_regular"] = 0.0      # too few regular beats: AF-like
     return rows
 
 

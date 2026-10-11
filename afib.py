@@ -19,6 +19,8 @@ record is classified by a model fitted on the other 22 records only):
     likely ectopic beats (ecg.flag_ectopic)
   - the same plus p_match, the fraction of beats preceded by the window's
     typical P wave (af.p_wave_features)
+  - the ectopic-removed 5-feature model with a P-wave override: windows
+    whose regular beats share a P wave aren't called AF (af.p_wave_override)
 Each is reported at two operating points: its default (balanced accuracy /
 probability 0.5) and a cutoff chosen on the training folds to reach 95%
 sensitivity, averaged over records (see af.fit_with_cutoff).
@@ -36,6 +38,7 @@ from matplotlib.ticker import NullFormatter
 from sklearn.metrics import roc_curve
 
 from af import (RECORDS, FEATURES_5, FEATURES_6, TARGET_SENS, load_af_record, window_features,
+                regular_beats, p_wave_override,
                 fit_thresholds, model_inputs, make_logreg, fit_with_cutoff,
                 auc, summarise)
 from ecg import bandpass, detect_peaks_adaptive, flag_ectopic, pr_segments, score
@@ -85,7 +88,7 @@ for rec_id in RECORDS:
     # Same windows with RR intervals around likely ectopic beats removed.
     # P-wave presence features (p_snr, p_match) are added to these windows.
     for row in window_features(peaks, fs, len(sig), is_af, flag_ectopic(sig, fs, peaks),
-                               pr_segments(bandpass(sig, fs), peaks, fs)):
+                               pr_segments(bandpass(sig, fs), peaks, fs), regular_beats(peaks, fs)):
         row["record"] = rec_id
         ect_windows.append(row)
 
@@ -144,7 +147,9 @@ prob6e, pred6e_sens, _ = logreg_leave_one_record_out(ect_df, FEATURES_6)
 ect_df["prob_logreg5_ectopic_removed"] = prob5e
 ect_df["prob_logreg6_ectopic_removed"] = prob6e
 print(f"ROC AUC alone, P-wave features: p_match={auc(-ect_df.p_match.values, af):.3f}  "
+      f"p_match_regular={auc(-ect_df.p_match_regular.values, af):.3f}  "
       f"p_snr={auc(-ect_df.p_snr.values, af):.3f}  (lower = more likely AF)")
+pred5e_override = p_wave_override(pred5e_sens, ect_df)
 ect_df.to_csv("results/afib_windows_ectopic_removed.csv", index=False)
 print(f"\nBeats flagged ectopic: {ect_df[ect_df.af].ectopic_frac.mean():.1%} in AF windows, "
       f"{ect_df[~ect_df.af].ectopic_frac.mean():.1%} in non-AF windows")
@@ -169,6 +174,7 @@ at_sens = pd.DataFrame([
     summarise("logistic regression (pNN50 only)", af, pred1_sens, prob1),
     summarise("logistic regression (5 features, ectopic beats removed)", af, pred5e_sens, prob5e),
     summarise("logistic regression (5 features + p_match, ectopic beats removed)", af, pred6e_sens, prob6e),
+    summarise("logistic regression (5 features, ectopic beats removed) + P-wave override", af, pred5e_override),
 ])
 at_sens.to_csv("results/afib_classifiers_95sens.csv", index=False)
 print(f"\nCutoffs chosen on the training folds for {TARGET_SENS:.0%} sensitivity (records weighted equally):")
