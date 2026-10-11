@@ -176,9 +176,9 @@ def cpsc_selected():
     return out
 
 
-def load_cpsc_record(rec_id):
+def load_cpsc_record(rec_id, directory=CPSC_DIR):
     """Lead I of a CPSC 2018 12-lead recording (500 Hz). Returns (signal, fs)."""
-    rec = wfdb.rdrecord(os.path.join(CPSC_DIR, rec_id), channels=[0])
+    rec = wfdb.rdrecord(os.path.join(directory, rec_id), channels=[0])
     assert rec.sig_name[0] == "I"
     return rec.p_signal[:, 0], rec.fs
 
