@@ -1,0 +1,5 @@
+classifier,sensitivity,specificity,precision,balanced_accuracy,auc,false_alarms,missed_af
+"threshold rule (CV, nRMSSD)",,0.5935897435897436,0.0,,,951,0
+logistic regression (5 features),,0.7837606837606838,0.0,,,506,0
+"logistic regression (5 features, ectopic beats removed)",,0.8333333333333334,0.0,,,390,0
+"logistic regression (5 features + p_match, ectopic beats removed)",,0.8282051282051283,0.0,,,402,0

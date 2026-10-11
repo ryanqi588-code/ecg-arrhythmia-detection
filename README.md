@@ -240,7 +240,86 @@ from 10 of the 84 records**, and those fall into three groups:
 
 So the next improvements would be atrial-ectopy handling (probably needing
 P-wave information), a noise check that skips unreadable stretches, and
-training on more varied patients.
+training on more varied patients. The first of these is tried below.
+
+### Trying P waves against atrial ectopy
+
+AF has no P waves, only chaotic fibrillatory activity. Atrial ectopy is
+mostly normal beats *with* P waves. I tried using that in two ways, both
+looking at the 300–60 ms before each R peak:
+
+**1. Detecting individual atrial ectopic beats** ([`ecg.flag_atrial_ectopic`](ecg.py)):
+flag a beat that comes early (< 0.85× the local RR) and whose pre-QRS
+stretch correlates < 0.8 with its neighbours'. On a single lead this works
+poorly. On the full 30 minutes of 46 MIT-BIH records (excluding record 232,
+whose long pauses distort timing), it catches 55% of supraventricular
+ectopics but also flags 2.3% of normal beats. Normal beats vastly
+outnumber ectopics, so only about 10% of its flags are real atrial
+ectopics, and the P-wave check adds little to timing alone. Removing the
+flagged beats also cost AF sensitivity in development, because the rule
+flags 15% of beats inside AF windows. **No model uses it.**
+
+**2. P-wave presence per window** ([`af.p_wave_features`](af.py)):
+`p_match` is the fraction of a window's beats whose pre-QRS stretch
+correlates > 0.5 with the window's median one. Averaging over a minute of
+beats beats the noise that defeats the beat-level check: on its own,
+`p_match` separates AF from non-AF development windows with **AUC 0.937**
+(median 0.94 in non-AF windows, 0.38 in AF). A second measure, `p_snr`,
+was 85% correlated with it, added nothing and got a wrong-signed weight,
+so it was dropped. In development, adding `p_match` to the ectopy-filtered
+5-feature model gave AUC 0.985 (vs 0.982), 97.4% sensitivity and 94.5%
+specificity: essentially no change. But AFDB's development records
+contain little atrial ectopy, so they couldn't show whether it helps.
+
+**The test: 78 new patients with frequent atrial ectopy.** The
+[MIT-BIH Supraventricular Arrhythmia Database](https://physionet.org/content/svdb/1.0.0/)
+(SVDB) was chosen for exactly this problem: 30 minutes each, 128 Hz,
+12,188 labelled supraventricular ectopic beats. The test
+([`afib_svdb_test.py`](afib_svdb_test.py)) was committed before it was run,
+and run once.
+
+| Classifier (78 patients, 2340 windows) | Specificity | False alarms |
+|---|---|---|
+| Threshold rule (CV, nRMSSD) | 59.4% | 951 |
+| Logistic (5 features) | 78.4% | 506 |
+| **Logistic (5 features, ectopic beats removed)** | **83.3%** | **390** |
+| Logistic (5 features + `p_match`, ectopic beats removed) | 82.8% | 402 |
+
+There are no labelled AF windows here, so only specificity can be
+measured (see the caveat below).
+
+- **`p_match` didn't reduce false alarms** (402 vs 390). Removing
+  ventricular ectopics did, by 23% (506 → 390).
+- **Atrial ectopy drives the false alarms.** The 14 records where over
+  10% of beats are supraventricular ectopics have a 40% false-alarm rate;
+  the other 64 have 12%. `p_match` changes neither.
+- **Why `p_match` fails here:** P waves do come through (median `p_match`
+  0.91, close to development's 0.94), but atrial ectopic beats bring their
+  own, different P waves. When 20–30% of beats are ectopic, `p_match` falls
+  to about 0.7 (median 0.69 in the windows the model wrongly flags), which
+  overlaps with real AF windows in development (0.4–0.85). So atrial
+  ectopy pushes the P-wave feature towards AF, just as it does the RR
+  features.
+- **On the same data, the beat-level atrial detector** catches 54% of the
+  supraventricular ectopics and flags 1.8% of normal beats; 41% of its
+  flags are real atrial ectopics (more than on MIT-BIH, because ectopics
+  are far more common here). It also flags 66% of ventricular ectopics,
+  which are early and lack a normal P wave too. The ventricular detector
+  catches 84% of ventricular ectopics here, against 97.6% on the MIT-BIH
+  data its thresholds were chosen on.
+
+**A caveat I should have caught beforehand:** SVDB has **no rhythm labels**
+(only one `(N` annotation in all 78 records). The registered rule counted
+unlabelled windows as non-AF, so if any of these patients were actually in
+AF, some "false alarms" are correct and true specificity is higher than
+shown. Record 804, flagged in all 30 windows despite having no ectopic
+beats, is a candidate. The comparison *between* models is unaffected,
+since they're all scored on the same windows.
+
+**What might work next:** compute `p_match` only over the *non-premature*
+beats. With atrial ectopy, the regular beats between ectopics still share
+one sinus P wave; in AF, no beats do. Testing that fairly needs another
+fresh dataset, since SVDB has now been used.
 
 ### Reading the coefficients
 
@@ -302,6 +381,7 @@ python afib.py             # development; first run downloads 2 h of each AFDB r
 python afib_test.py        # held-out tests; first run downloads AFDB's other ~8 h per record
                            # and 2 h of 84 LTAFDB records (~2-3 h in total); ~15 min after that
 python ltaf_errors.py      # breakdown of the new-patient false alarms (run after afib_test.py)
+python afib_svdb_test.py   # atrial-ectopy test on 78 SVDB patients; first run downloads ~55 MB
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -323,8 +403,11 @@ for example TPR = 1 for alternating intervals and ≈ 2/3 for random
 ones, and that entropy ignores a single long pause. The ectopic-beat
 tests check that a synthetic premature ventricular beat is flagged,
 irregular normal-shaped beats mostly aren't, and the RR intervals around
-flagged beats are removed. GitHub Actions runs the tests on Python 3.11
-and 3.12 on every push.
+flagged beats are removed. The P-wave tests check that `p_match` is high
+when every beat shares a P wave and low for fibrillation-like activity,
+and that the atrial detector flags early beats without a P wave and
+nothing else. GitHub Actions runs the tests on Python 3.11 and 3.12 on
+every push.
 
 ## Limitations
 
@@ -336,6 +419,11 @@ and 3.12 on every push.
 - The ectopic-beat filter catches ventricular ectopics but almost no
   atrial ones, and its thresholds were chosen on the same MIT-BIH data
   used to measure it.
+- Atrial ectopy remains the main source of false alarms. Neither
+  beat-level atrial detection nor the window-level P-wave feature
+  reduced them on the SVDB test.
+- SVDB has no rhythm labels, so its specificity assumes none of its
+  patients were in AF.
 - The AFDB later-hours results are a second look at that data, after
   the cutoff method was changed in response to the first.
 - One very tall beat or artefact (several times the height of its
@@ -360,5 +448,9 @@ and 3.12 on every push.
   wave characteristics at the termination of paroxysmal atrial
   fibrillation in humans.* Europace 9(7):466-470 (2007). (Long-Term AF
   Database)
+- Greenwald SD, Patil RS, Mark RG. *Improved detection and
+  classification of arrhythmias in noise-corrupted electrocardiograms
+  using contextual information.* Computers in Cardiology 461-464 (1990).
+  (Supraventricular Arrhythmia Database)
 - Dash S, Chon KH, Lu S, Raeder EA. *Automatic real time detection of
   atrial fibrillation.* Ann Biomed Eng 37(9):1701-1709 (2009).
