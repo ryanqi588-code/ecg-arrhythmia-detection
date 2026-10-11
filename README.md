@@ -1,5 +1,7 @@
 # ECG arrhythmia detection
 
+[![tests](https://github.com/ryanqi588-code/ecg-arrhythmia-detection/actions/workflows/tests.yml/badge.svg)](https://github.com/ryanqi588-code/ecg-arrhythmia-detection/actions/workflows/tests.yml)
+
 R-peak (heartbeat) detection and atrial fibrillation (AF) screening on
 PhysioNet's MIT-BIH databases. Beat detection is written from scratch
 with NumPy and SciPy and benchmarked against an established detector;
@@ -231,6 +233,22 @@ python afib_test.py        # held-out test; first run downloads the other ~8 h p
 Per-record numbers are written to [`results/`](results/) and plots to
 [`figures/`](figures/).
 
+### Tests
+
+```bash
+pip install pytest
+pytest
+```
+
+The tests in [`tests/`](tests/) use synthetic ECG and RR series, so they
+run offline in about a second. They check that the detector finds
+upside-down beats, rejects T waves and copes with one tall spike, and
+that `score()` counts matches correctly. They also check that each AF
+feature gives the expected value on series where the answer is known,
+for example TPR = 1 for alternating intervals and ≈ 2/3 for random
+ones, and that entropy ignores a single long pause. GitHub Actions runs
+them on Python 3.11 and 3.12 on every push.
+
 ## Limitations
 
 - Beat detection is scored on the first 5 minutes of each MIT-BIH record,
@@ -240,6 +258,10 @@ Per-record numbers are written to [`results/`](results/) and plots to
 - The 5-feature AF model missed its 95% sensitivity target on the test
   data (92.5%), because the cutoff chosen on development data didn't
   transfer exactly.
+- One very tall beat or artefact (several times the height of its
+  neighbours) still hides the beats within about 1 s of it from the
+  adaptive detector, because it raises that window's threshold. The
+  fixed threshold loses the whole recording in the same situation.
 - Only one ECG lead is used (MLII for MIT-BIH, ECG1 for AFDB).
 - This is a learning project, not a medical device.
 

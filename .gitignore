@@ -6,3 +6,4 @@ __pycache__/
 
 # downloaded PhysioNet signals (re-fetched automatically)
 data/
+.pytest_cache/

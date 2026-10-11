@@ -10,8 +10,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-NO_SIGNAL = ["00735", "03665"]   # these two records ship without ECG signals
-RECORDS = [r for r in wfdb.get_record_list("afdb") if r not in NO_SIGNAL]
+# The 23 AFDB records with ECG signals (00735 and 03665 ship without them).
+# Listed here rather than fetched so importing this module needs no network.
+RECORDS = ["04015", "04043", "04048", "04126", "04746", "04908", "04936", "05091",
+           "05121", "05261", "06426", "06453", "06995", "07162", "07859", "07879",
+           "07910", "08215", "08219", "08378", "08405", "08434", "08455"]
 FS = 250
 WINDOW_SEC = 60
 MIN_RR = 20                      # skip windows with fewer valid RR intervals (noise/dropout)
