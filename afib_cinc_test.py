@@ -107,3 +107,24 @@ test.drop(columns=plain_cols.columns).to_csv("results/afib_cinc_test_recordings.
 print(results.set_index("classifier")[["sensitivity", "specificity", "precision", "auc",
                                        "false_alarm_rate_N", "false_alarm_rate_O",
                                        "false_alarms", "missed_af"]].round(3).to_string())
+
+# ------------------- error analysis (added after the test was first run)
+# Nothing above was changed in response; this only explains the results.
+
+test["seconds"] = [len(load_cinc_record(r)[0]) / 300 for r in test.record]
+test["length"] = pd.cut(test.seconds, [0, 20, 35, 50, 70], labels=["<20 s", "20-35 s", "35-50 s", "50-61 s"])
+by_len = test.groupby("length", observed=True).apply(
+    lambda d: pd.Series({"af": (d.label == "A").sum(), "non_af": (d.label != "A").sum(),
+                         "sens_ectopic_removed": d.pred_3[d.label == "A"].mean(),
+                         "sens_override": d.pred_4[d.label == "A"].mean(),
+                         "fa_rate_O_override": d.pred_4[d.label == "O"].mean()}),
+    include_groups=False)
+print("\nBy recording length:")
+print(by_len.round(3).to_string())
+
+dev = pd.read_csv("results/afib_windows_ectopic_removed.csv")
+cols = ["cv", "pnn50", "entropy", "tpr", "p_match_regular"]
+print("\nMedian features in AF: AFDB 60 s windows vs Challenge recordings")
+print(pd.DataFrame({"AFDB dev AF": dev[dev.af][cols].median(),
+                    "Challenge AF": test[af][cols].median(),
+                    "Challenge AF missed": test[af & ~test.pred_3.values][cols].median()}).round(3).to_string())

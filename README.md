@@ -316,10 +316,75 @@ shown. Record 804, flagged in all 30 windows despite having no ectopic
 beats, is a candidate. The comparison *between* models is unaffected,
 since they're all scored on the same windows.
 
-**What might work next:** compute `p_match` only over the *non-premature*
-beats. With atrial ectopy, the regular beats between ectopics still share
-one sinus P wave; in AF, no beats do. Testing that fairly needs another
-fresh dataset, since SVDB has now been used.
+### P waves over regular beats only: an override rule
+
+**The fix.** `p_match` failed because the ectopic beats themselves have
+odd P waves. The *regular* beats between them (not early, not ventricular
+ectopic) still share one sinus P wave, while in AF no beats do. So
+`p_match_regular` measures P-wave consistency over regular beats only
+([`af.regular_beats`](af.py)). On AFDB development windows its AUC alone
+is **0.962** (vs 0.937 for `p_match`). In SVDB's high-ectopy records the
+median is 0.97, against 0.81 for `p_match`, so it sees through the ectopy.
+
+**As a model feature it barely helped** (SVDB false alarms 409 vs 390),
+because the AFDB training data has almost no "irregular, but with P
+waves" windows for the model to learn from. The definition of AF settles
+it instead: AF means no P waves. So it's applied as a **rule**
+([`af.p_wave_override`](af.py)): a window isn't called AF if at least 95%
+of its regular beats share its typical P wave.
+
+| Override threshold | AFDB sensitivity | AFDB false alarms | SVDB false alarms |
+|---|---|---|---|
+| none | 96.6% | 100 | 390 |
+| **0.95** | **96.1%** | **71** | **277** |
+| 0.90 | 93.3% | 60 | 251 |
+| 0.85 | 89.2% | 47 | 217 |
+
+0.95 is the lowest threshold that keeps AFDB sensitivity above 95%. It was
+chosen while looking at SVDB, so SVDB's 29% drop isn't independent
+evidence. That's what the next test is for.
+
+**The test: PhysioNet/CinC Challenge 2017.** 8528 single-lead recordings
+from a handheld device (300 Hz, 9–61 s), each labelled by experts as
+Normal, AF, Other rhythm or Noisy. "Other" covers ectopy and other
+non-AF arrhythmias, exactly the hard case. Each recording is scored as
+one window. The test ([`afib_cinc_test.py`](afib_cinc_test.py)) was
+committed before it was run, and run once. 7903 recordings were scored
+(279 noisy excluded, 346 with fewer than 20 usable beats skipped).
+
+| Classifier | Catches AF | False alarms, Normal | False alarms, Other | False alarms | Missed AF | ROC AUC |
+|---|---|---|---|---|---|---|
+| Threshold rule | 87.9% | 40.5% | 59.5% | 3361 | 84 | – |
+| Logistic (5 features) | **79.2%** | 12.3% | 19.1% | 1045 | **145** | **0.881** |
+| Logistic (5 features, ectopic removed) | 77.8% | 12.4% | 20.3% | 1077 | 155 | 0.868 |
+| **+ P-wave override** | 76.0% | **10.3%** | **16.3%** | **882** | 167 | – |
+
+- **The override does what it was built for.** False alarms on "Other"
+  rhythms fall by 20% (20.3% → 16.3%) and 18% overall, for 12 more missed
+  AF recordings. That matches what development predicted.
+- **But the pipeline transfers poorly to these recordings.** Sensitivity
+  is about 78%, far below the 95% target, and AUC 0.87–0.88 against
+  0.94–0.99 on Holter data. Removing ventricular ectopics doesn't help
+  here either.
+
+**Why sensitivity falls (error analysis only; nothing was changed in
+response):**
+
+- **Not mainly recording length.** Sensitivity is 81% on 50–61 s
+  recordings and 77% on 20–35 s ones.
+- **The missed AF is less irregular.** Median CV 0.126 and pNN50 0.47,
+  against 0.19 and 0.72 for typical AF. RR features struggle with AF that
+  has a fairly regular pulse.
+- **Entropy depends on the number of beats.** About 30 beats can't fill a
+  16-bin histogram the way a minute of Holter beats does, so AF entropy
+  falls from 0.92 to 0.86 for purely technical reasons. Normalizing it for
+  beat count would fix that.
+- **The handheld device shows more P-wave-like activity during AF**
+  (median `p_match_regular` 0.48 vs 0.33 on Holter), which is probably
+  why the override cost some sensitivity here.
+
+Each of these would need yet another fresh dataset to test fairly, since
+the Challenge data has now been used.
 
 ### Reading the coefficients
 
@@ -382,10 +447,17 @@ python afib_test.py        # held-out tests; first run downloads AFDB's other ~8
                            # and 2 h of 84 LTAFDB records (~2-3 h in total); ~15 min after that
 python ltaf_errors.py      # breakdown of the new-patient false alarms (run after afib_test.py)
 python afib_svdb_test.py   # atrial-ectopy test on 78 SVDB patients; first run downloads ~55 MB
+python afib_cinc_test.py   # P-wave override test; needs the Challenge 2017 data (below)
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
 [`figures/`](figures/).
+
+The Challenge 2017 recordings aren't fetched automatically. Download
+[`training2017.zip`](https://physionet.org/files/challenge-2017/1.0.0/training2017.zip)
+(99 MB) and
+[`REFERENCE-v3.csv`](https://physionet.org/files/challenge-2017/1.0.0/REFERENCE-v3.csv)
+into `data/cinc2017/`, then unzip the zip there.
 
 ### Tests
 
@@ -406,7 +478,9 @@ irregular normal-shaped beats mostly aren't, and the RR intervals around
 flagged beats are removed. The P-wave tests check that `p_match` is high
 when every beat shares a P wave and low for fibrillation-like activity,
 and that the atrial detector flags early beats without a P wave and
-nothing else. GitHub Actions runs the tests on Python 3.11 and 3.12 on
+nothing else. Others check that `regular_beats` excludes exactly the early
+beats, and that the P-wave override only clears windows whose regular
+beats share a P wave. GitHub Actions runs the tests on Python 3.11 and 3.12 on
 every push.
 
 ## Limitations
@@ -419,9 +493,13 @@ every push.
 - The ectopic-beat filter catches ventricular ectopics but almost no
   atrial ones, and its thresholds were chosen on the same MIT-BIH data
   used to measure it.
-- Atrial ectopy remains the main source of false alarms. Neither
-  beat-level atrial detection nor the window-level P-wave feature
-  reduced them on the SVDB test.
+- Atrial ectopy remains the main source of false alarms. Beat-level
+  atrial detection and the plain `p_match` feature didn't reduce them;
+  the P-wave override cut false alarms on "Other" rhythms by 20% on the
+  Challenge data, but most remain.
+- On short handheld recordings (Challenge 2017), AF sensitivity falls
+  to about 78%. The models are trained only on Holter data, and entropy
+  isn't normalized for beat count.
 - SVDB has no rhythm labels, so its specificity assumes none of its
   patients were in AF.
 - The AFDB later-hours results are a second look at that data, after
@@ -448,6 +526,9 @@ every push.
   wave characteristics at the termination of paroxysmal atrial
   fibrillation in humans.* Europace 9(7):466-470 (2007). (Long-Term AF
   Database)
+- Clifford GD, Liu C, Moody B, et al. *AF classification from a short
+  single lead ECG recording: the PhysioNet/Computing in Cardiology
+  Challenge 2017.* Computing in Cardiology 44 (2017).
 - Greenwald SD, Patil RS, Mark RG. *Improved detection and
   classification of arrhythmias in noise-corrupted electrocardiograms
   using contextual information.* Computers in Cardiology 461-464 (1990).
