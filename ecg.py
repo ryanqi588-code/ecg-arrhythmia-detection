@@ -75,6 +75,51 @@ def detect_peaks_adaptive(sig, fs, window_sec=2.0, frac=0.4,
     return np.array(peaks, dtype=int)
 
 
+def pr_segments(filt, peaks, fs, start=0.30, end=0.06):
+    """The stretch from `start` to `end` seconds before each peak, where the P wave sits.
+
+    One row per peak, mean removed; zeros for peaks too close to the start.
+    """
+    a, b = int(start * fs), int(end * fs)
+    segs = np.zeros((len(peaks), a - b))
+    for i, c in enumerate(peaks):
+        if c - a >= 0:
+            segs[i] = filt[c - a:c - b] - filt[c - a:c - b].mean()
+    return segs
+
+
+def _corr(x, y):
+    return np.corrcoef(x, y)[0, 1] if x.std() > 0 and y.std() > 0 else 0.0
+
+
+def flag_atrial_ectopic(sig, fs, peaks, early=0.85, p_corr=0.8):
+    """Flag likely atrial (supraventricular) ectopic beats: early, with an unusual P wave.
+
+    A beat is flagged if its RR is under `early` x the local median and its
+    pre-QRS stretch correlates under `p_corr` with the median of its
+    neighbours' (+/-15 beats, itself excluded).
+
+    This works poorly on a single lead. On the full 30 minutes of 46 MIT-BIH
+    records (excluding record 232, whose long pauses distort timing) it
+    catches 55% of supraventricular ectopics but also flags 2.3% of normal
+    beats, so only ~10% of flagged beats are truly atrial ectopics. The P-wave
+    check adds little to timing alone (58% caught, 2.75% of normal beats).
+    """
+    peaks = np.asarray(peaks)
+    flags = np.zeros(len(peaks), dtype=bool)
+    if len(peaks) < 3:
+        return flags
+    segs = pr_segments(bandpass(sig, fs), peaks, fs)
+    rr = np.diff(peaks) / fs
+    for i in range(1, len(peaks)):
+        med = np.median(rr[max(0, i - 8):i + 8])
+        if rr[i - 1] >= early * med:
+            continue
+        neighbours = np.r_[max(0, i - 15):i, i + 1:min(len(peaks), i + 16)]
+        flags[i] = _corr(segs[i], np.median(segs[neighbours], axis=0)) < p_corr
+    return flags
+
+
 def flag_ectopic(sig, fs, peaks, shape_corr=0.9, early=0.8, pause=1.15):
     """Flag likely ectopic beats among detected peaks.
 

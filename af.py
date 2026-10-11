@@ -23,6 +23,10 @@ LTAF_RECORDS = ["00", "01", "03", "05", "06", "07", "08", "10", "100", "101", "1
                 "22", "23", "24", "25", "26", "28", "30", "32", "33", "34", "35", "37", "38",
                 "39", "42", "43", "44", "45", "47", "48", "49", "51", "53", "54", "55", "56",
                 "58", "60", "62", "64", "65", "68", "69", "70", "71", "72", "74", "75"]
+# MIT-BIH Supraventricular Arrhythmia Database: 78 patients with frequent
+# supraventricular ectopy, used only as the final test of atrial-ectopy handling.
+SVDB_RECORDS = [str(r) for r in [*range(800, 813), *range(820, 830), *range(840, 895)]]
+SVDB_CACHE_DIR = "data/svdb"
 FS = 250
 WINDOW_SEC = 60
 MIN_RR = 20                      # skip windows with fewer valid RR intervals (noise/dropout)
@@ -31,6 +35,11 @@ LTAF_CACHE_DIR = "data/ltafdb"
 TARGET_SENS = 0.95               # operating point for choosing cutoffs
 
 FEATURES_5 = ["cv", "nrmssd", "entropy", "tpr", "pnn50"]
+# p_match is the one P-wave feature used. p_snr is still computed for reference
+# but left out: on development data it is 85% correlated with p_match, adds
+# nothing (AUC 0.984 with both vs 0.985 with p_match alone), and its weight
+# came out with the wrong sign.
+FEATURES_6 = FEATURES_5 + ["p_match"]
 
 
 # ------------------------------------------------------------ loading
@@ -78,6 +87,31 @@ def load_ltaf_record(rec_id, hours=2):
         np.save(cache, sig)
     ann = wfdb.rdann(rec_id, "atr", pn_dir="ltafdb", sampto=n)
     return sig, fs, af_mask(ann, 0, len(sig))
+
+
+def load_svdb_record(rec_id):
+    """A full 30-minute MIT-BIH Supraventricular Arrhythmia Database record.
+
+    Returns (ECG1, fs, AF mask, beat annotation samples, beat symbols).
+    Used only as the final test set for atrial-ectopy handling.
+    """
+    os.makedirs(SVDB_CACHE_DIR, exist_ok=True)
+    cache = os.path.join(SVDB_CACHE_DIR, f"{rec_id}.npy")
+    fs = 128
+    if os.path.exists(cache):
+        sig = np.load(cache)
+    else:
+        rec = wfdb.rdrecord(rec_id, pn_dir="svdb", channels=[0])
+        sig, fs = rec.p_signal[:, 0], rec.fs
+        np.save(cache, sig)
+    ann = wfdb.rdann(rec_id, "atr", pn_dir="svdb")
+    return sig, fs, af_mask(ann, 0, len(sig)), np.asarray(ann.sample), np.asarray(ann.symbol)
+
+
+def prefetch_svdb(workers=4):
+    with ThreadPoolExecutor(workers) as pool:
+        for rec_id in pool.map(lambda r: (load_svdb_record(r), r)[1], SVDB_RECORDS):
+            print(f"cached {rec_id}", flush=True)
 
 
 def prefetch_ltaf(hours=2, workers=4):
@@ -139,8 +173,31 @@ def turning_points_ratio(rr):
     return np.mean(d[:-1] * d[1:] < 0)
 
 
-def window_features(peaks, fs, n, is_af, ectopic=None):
+def p_wave_features(segs):
+    """P-wave presence in one window, from its beats' pre-QRS stretches (ecg.pr_segments).
+
+    p_snr   - peak-to-peak size of the window's median pre-QRS stretch,
+              relative to how much individual beats deviate from it
+    p_match - fraction of beats whose stretch correlates > 0.5 with that median
+
+    In sinus rhythm, even with ectopic beats, most beats share a P wave, so
+    both are high. In AF there is no P wave; fibrillatory waves average out,
+    so both are low.
+    """
+    template = np.median(segs, axis=0)
+    resid = (segs - template).std()
+    corr = np.array([np.corrcoef(s, template)[0, 1] if s.std() > 0 and template.std() > 0 else 0.0
+                     for s in segs])
+    return {"p_snr": np.ptp(template) / resid if resid > 0 else 0.0,
+            "p_match": np.mean(corr > 0.5)}
+
+
+def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None):
     """One row per 60 s window: AF label and RR-irregularity features.
+
+    With `pr_segs` (ecg.pr_segments for all peaks), the P-wave presence
+    features p_snr and p_match are added, computed over every beat in the
+    window.
 
     With `ectopic` (one flag per peak, from ecg.flag_ectopic), RR intervals
     that start or end at a flagged beat are dropped first. The intervals
@@ -172,6 +229,8 @@ def window_features(peaks, fs, n, is_af, ectopic=None):
             "tpr": turning_points_ratio(rr),
             "pnn50": np.mean(np.abs(np.diff(rr)) > 0.05),
         })
+        if pr_segs is not None:
+            rows[-1].update(p_wave_features(pr_segs[in_win]))
     return rows
 
 
@@ -211,11 +270,11 @@ def fit_thresholds(df, min_sens=None):
 
 
 def model_inputs(df, features):
-    """Feature matrix; CV and nRMSSD are log-transformed (they span two decades)."""
+    """Feature matrix; CV, nRMSSD and p_snr are log-transformed (each spans a decade or more)."""
     X = df[features].copy()
-    for col in ("cv", "nrmssd"):
+    for col in ("cv", "nrmssd", "p_snr"):
         if col in X:
-            X[col] = np.log(X[col])
+            X[col] = np.log(np.maximum(X[col], 1e-3))
     return X.values
 
 

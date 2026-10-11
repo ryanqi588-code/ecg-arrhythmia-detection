@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from ecg import bandpass, detect_peaks_adaptive, detect_peaks_fixed, flag_ectopic, score
+from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, flag_atrial_ectopic,
+                 flag_ectopic, score)
 
 FS = 360
 
@@ -103,6 +104,23 @@ def test_flag_ectopic_leaves_irregular_normal_beats_mostly_alone():
     sig = synthetic_ecg(times[times < 29])
     flags = flag_ectopic(sig, FS, detect_peaks_adaptive(sig, FS))
     assert flags.mean() < 0.25        # only the timing rule can fire, by chance
+
+
+def test_flag_atrial_ectopic_needs_early_beat_and_odd_p_wave():
+    # Sinus beats with a P wave 0.16 s before each QRS; two early beats with no P wave.
+    normal = np.arange(1, 29, 0.8)
+    times = normal.copy()
+    times[[10, 20]] -= 0.25                                   # premature
+    sig = synthetic_ecg(times)
+    t = np.arange(len(sig)) / FS
+    for i, bt in enumerate(times):
+        if i not in (10, 20):
+            sig += 0.15 * np.exp(-0.5 * ((t - bt + 0.16) / 0.025) ** 2)
+    peaks = detect_peaks_adaptive(sig, FS)
+    flags = flag_atrial_ectopic(sig, FS, peaks)
+    early = np.array([np.min(np.abs(times[[10, 20]] - p / FS)) < 0.05 for p in peaks])
+    assert flags[early].all()
+    assert not flags[~early].any()
 
 
 def test_score_counts():

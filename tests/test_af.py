@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from af import (FEATURES_5, af_mask, cutoff_for_sensitivity, make_logreg, model_inputs,
-                shannon_entropy, turning_points_ratio, window_features)
+                p_wave_features, shannon_entropy, turning_points_ratio, window_features)
 
 FS = 250
 
@@ -114,6 +114,18 @@ def test_logistic_regression_separates_regular_from_irregular():
     model = make_logreg().fit(model_inputs(df, FEATURES_5), df.af)
     prob = model.predict_proba(model_inputs(df, FEATURES_5))[:, 1]
     assert ((prob >= 0.5) == df.af).mean() > 0.95
+
+
+def test_p_wave_features_sinus_vs_fibrillation():
+    rng = np.random.default_rng(0)
+    t = np.linspace(0, 1, 60)
+    p_wave = 0.15 * np.exp(-0.5 * ((t - 0.4) / 0.08) ** 2)
+    sinus = p_wave + 0.01 * rng.standard_normal((70, 60))           # same P wave every beat
+    phases = rng.uniform(0, 2 * np.pi, (70, 1))
+    fib = 0.05 * np.sin(2 * np.pi * 6 * t + phases) + 0.01 * rng.standard_normal((70, 60))
+    s, f = p_wave_features(sinus), p_wave_features(fib)
+    assert s["p_match"] > 0.9 and f["p_match"] < 0.5
+    assert s["p_snr"] > 3 * f["p_snr"]
 
 
 def test_cutoff_for_sensitivity():
