@@ -15,10 +15,19 @@ from sklearn.preprocessing import StandardScaler
 RECORDS = ["04015", "04043", "04048", "04126", "04746", "04908", "04936", "05091",
            "05121", "05261", "06426", "06453", "06995", "07162", "07859", "07879",
            "07910", "08215", "08219", "08378", "08405", "08434", "08455"]
+# Long-Term AF Database: 84 different patients, used only as a final test set.
+LTAF_RECORDS = ["00", "01", "03", "05", "06", "07", "08", "10", "100", "101", "102", "103",
+                "104", "105", "11", "110", "111", "112", "113", "114", "115", "116", "117",
+                "118", "119", "12", "120", "121", "122", "13", "15", "16", "17", "18", "19",
+                "20", "200", "201", "202", "203", "204", "205", "206", "207", "208", "21",
+                "22", "23", "24", "25", "26", "28", "30", "32", "33", "34", "35", "37", "38",
+                "39", "42", "43", "44", "45", "47", "48", "49", "51", "53", "54", "55", "56",
+                "58", "60", "62", "64", "65", "68", "69", "70", "71", "72", "74", "75"]
 FS = 250
 WINDOW_SEC = 60
 MIN_RR = 20                      # skip windows with fewer valid RR intervals (noise/dropout)
 CACHE_DIR = "data/afdb"
+LTAF_CACHE_DIR = "data/ltafdb"
 TARGET_SENS = 0.95               # operating point for choosing cutoffs
 
 FEATURES_5 = ["cv", "nrmssd", "entropy", "tpr", "pnn50"]
@@ -52,6 +61,31 @@ def load_af_record(rec_id, start_h, end_h=None):
     return sig, FS, af_mask(rhythm, sampfrom, end), qrs
 
 
+def load_ltaf_record(rec_id, hours=2):
+    """First `hours` of a Long-Term AF Database record, used as a new-patient test set.
+
+    Returns (ECG channel 0, fs, AF mask). LTAFDB is sampled at 128 Hz.
+    """
+    os.makedirs(LTAF_CACHE_DIR, exist_ok=True)
+    cache = os.path.join(LTAF_CACHE_DIR, f"{rec_id}_0-{hours}h.npy")
+    fs = 128
+    n = int(hours * 3600 * fs)
+    if os.path.exists(cache):
+        sig = np.load(cache)
+    else:
+        rec = wfdb.rdrecord(rec_id, pn_dir="ltafdb", channels=[0], sampto=n)
+        sig, fs = rec.p_signal[:, 0], rec.fs
+        np.save(cache, sig)
+    ann = wfdb.rdann(rec_id, "atr", pn_dir="ltafdb", sampto=n)
+    return sig, fs, af_mask(ann, 0, len(sig))
+
+
+def prefetch_ltaf(hours=2, workers=4):
+    with ThreadPoolExecutor(workers) as pool:
+        for rec_id in pool.map(lambda r: (load_ltaf_record(r, hours), r)[1], LTAF_RECORDS):
+            print(f"cached {rec_id}", flush=True)
+
+
 def prefetch(start_h, end_h=None, workers=4):
     """Download and cache every record's segment, several at a time."""
     with ThreadPoolExecutor(workers) as pool:
@@ -65,9 +99,13 @@ def af_mask(rhythm, start, end):
     Uses the full-record rhythm annotation so a segment that begins
     mid-episode still gets the right label.
     """
+    # Keep only rhythm-change annotations ("+"); LTAFDB mixes beat labels in.
+    keep = np.array(rhythm.symbol) == "+"
+    samples = np.asarray(rhythm.sample)[keep]
+    notes = np.asarray(rhythm.aux_note, dtype=object)[keep]
     mask = np.zeros(end - start, dtype=bool)
-    bounds = list(rhythm.sample) + [np.iinfo(np.int64).max]
-    for s, e, label in zip(bounds[:-1], bounds[1:], rhythm.aux_note):
+    bounds = list(samples) + [np.iinfo(np.int64).max]
+    for s, e, label in zip(bounds[:-1], bounds[1:], notes):
         if label.strip("\x00 ") == "(AFIB":
             lo, hi = max(s, start), min(e, end)
             if lo < hi:
@@ -126,18 +164,27 @@ def window_features(peaks, fs, n, is_af):
 
 # -------------------------------------------------------- classifiers
 
+def record_weights(records):
+    """Weight each window by 1 / (its record's window count), so records count equally."""
+    records = pd.Series(np.asarray(records))
+    return (1.0 / records.map(records.value_counts())).values
+
+
 def fit_thresholds(df, min_sens=None):
     """Grid-search (cv, nrmssd) thresholds for the rule "AF if both exceed".
 
     With min_sens=None, maximise balanced accuracy. Otherwise maximise
-    specificity among thresholds whose sensitivity is at least min_sens.
+    specificity among thresholds whose sensitivity is at least min_sens,
+    with sensitivity averaged over records (each record's AF windows count
+    equally, as in cutoff_for_sensitivity).
     """
     best = (-1, None, None)
     af, cv, nr = df.af.values, df.cv.values, df.nrmssd.values
+    w_af = record_weights(df.record.values[af])
     for t_cv in np.arange(0.02, 0.30, 0.005):
         for t_nr in np.arange(0.02, 0.40, 0.005):
             pred = (cv > t_cv) & (nr > t_nr)
-            sens = pred[af].mean()
+            sens = pred[af].mean() if min_sens is None else np.sum(w_af * pred[af]) / w_af.sum()
             spec = (~pred[~af]).mean()
             if min_sens is None:
                 objective = (sens + spec) / 2
@@ -166,9 +213,35 @@ def make_logreg():
                          LogisticRegression(class_weight="balanced", max_iter=1000))
 
 
-def cutoff_for_sensitivity(prob, af, target=TARGET_SENS):
-    """Highest probability cutoff that still catches `target` of the AF windows."""
-    return np.quantile(prob[af], 1 - target)
+def cutoff_for_sensitivity(prob, af, records=None, target=TARGET_SENS):
+    """Highest probability cutoff that still catches `target` of the AF windows.
+
+    With `records`, each record's AF windows are weighted equally, so a few
+    records with long AF episodes can't set the cutoff on their own.
+    """
+    p = prob[af]
+    w = np.ones(len(p)) if records is None else record_weights(np.asarray(records)[af])
+    order = np.argsort(p)
+    cum = np.cumsum(w[order]) / w.sum()
+    return p[order][np.searchsorted(cum, 1 - target)]
+
+
+def fit_with_cutoff(train, features, target=TARGET_SENS):
+    """Fit logistic regression on `train` and choose its cutoff for `target` sensitivity.
+
+    The cutoff is set on out-of-fold probabilities (each training record
+    scored by a model that didn't see it), not in-sample ones, which are
+    overconfident, and with records weighted equally. Both fixes were chosen
+    on development data after cutoffs set the old way (in-sample, per
+    window) undershot their target on new data.
+    """
+    oof = np.zeros(len(train))
+    for rec_id in train.record.unique():
+        held = (train.record == rec_id).values
+        inner = make_logreg().fit(model_inputs(train[~held], features), train.af[~held])
+        oof[held] = inner.predict_proba(model_inputs(train[held], features))[:, 1]
+    model = make_logreg().fit(model_inputs(train, features), train.af)
+    return model, cutoff_for_sensitivity(oof, train.af.values, train.record.values, target)
 
 
 # ------------------------------------------------------------ metrics

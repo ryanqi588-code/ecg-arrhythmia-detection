@@ -17,7 +17,7 @@ record is classified by a model fitted on the other 22 records only):
   - logistic regression on CV + nRMSSD, on all 5 features, and on pNN50 alone
 Each is reported at two operating points: its default (balanced accuracy /
 probability 0.5) and a cutoff chosen on the training folds to reach 95%
-sensitivity.
+sensitivity, averaged over records (see af.fit_with_cutoff).
 
 This script uses only the first 2 hours of each record. Hours 2-10 are kept
 as an untouched test set for afib_test.py. Signals are cached in data/afdb/.
@@ -32,7 +32,7 @@ from matplotlib.ticker import NullFormatter
 from sklearn.metrics import roc_curve
 
 from af import (RECORDS, FEATURES_5, TARGET_SENS, load_af_record, window_features,
-                fit_thresholds, model_inputs, make_logreg, cutoff_for_sensitivity,
+                fit_thresholds, model_inputs, make_logreg, fit_with_cutoff,
                 auc, summarise)
 from ecg import bandpass, detect_peaks_adaptive, score
 
@@ -60,9 +60,7 @@ def logreg_leave_one_record_out(df, features):
     coefs = []
     for rec_id in df.record.unique():
         test = (df.record == rec_id).values
-        model = make_logreg().fit(model_inputs(df[~test], features), df.af[~test])
-        train_prob = model.predict_proba(model_inputs(df[~test], features))[:, 1]
-        cutoff = cutoff_for_sensitivity(train_prob, df.af[~test].values)
+        model, cutoff = fit_with_cutoff(df[~test], features)
         prob[test] = model.predict_proba(model_inputs(df[test], features))[:, 1]
         pred_sens[test] = prob[test] >= cutoff
         coefs.append(model[-1].coef_[0])
@@ -148,7 +146,7 @@ at_sens = pd.DataFrame([
     summarise("logistic regression (pNN50 only)", af, pred1_sens, prob1),
 ])
 at_sens.to_csv("results/afib_classifiers_95sens.csv", index=False)
-print(f"\nCutoffs chosen on the training folds for {TARGET_SENS:.0%} sensitivity:")
+print(f"\nCutoffs chosen on the training folds for {TARGET_SENS:.0%} sensitivity (records weighted equally):")
 print(at_sens.set_index("classifier").round(3).to_string())
 
 # Coefficients of a model fitted on all windows (standardised inputs, so

@@ -63,9 +63,19 @@ def test_window_features_skips_sparse_windows():
 
 def test_af_mask_handles_segments_starting_mid_episode():
     rhythm = SimpleNamespace(sample=np.array([0, 1000, 3000]),
+                             symbol=["+", "+", "+"],
                              aux_note=["(N", "(AFIB", "(N"])
     mask = af_mask(rhythm, 2000, 4000)          # segment begins inside the AF episode
     assert mask[:1000].all() and not mask[1000:].any()
+
+
+def test_af_mask_ignores_beat_annotations():
+    # LTAFDB's annotation file mixes beat labels ("N") in with rhythm changes ("+").
+    rhythm = SimpleNamespace(sample=np.array([0, 500, 1000, 1500, 3000]),
+                             symbol=["+", "N", "+", "N", "+"],
+                             aux_note=["(N", "", "(AFIB", "", "(N"])
+    mask = af_mask(rhythm, 0, 4000)
+    assert mask[1000:3000].all() and not mask[:1000].any() and not mask[3000:].any()
 
 
 def test_logistic_regression_separates_regular_from_irregular():
