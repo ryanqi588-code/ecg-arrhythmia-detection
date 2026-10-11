@@ -116,3 +116,35 @@ plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
 plt.savefig("figures/afib_georgia_test_roc.png", dpi=120)
 plt.show()
+
+# ------------------- error analysis (added after the test was first run)
+# Nothing above was changed in response; this only describes the missed AF.
+
+from ecg import bandpass
+
+missed = test[is_af & ~preds["clinical model (primary)"][0]]
+regular_with_p = missed[(missed.cv < 0.05) & (missed.p_match_regular >= 0.99)]
+print(f"\nClinical model missed {len(missed)} AF recordings; {len(regular_with_p)} of them are "
+      f"perfectly regular (CV < 0.05) with consistent P waves (p_match_regular >= 0.99)")
+cols = ["cv", "pnn50", "entropy_norm", "p_match_regular", "log_f_wave"]
+caught = test[is_af & preds["clinical model (primary)"][0]]
+print(pd.DataFrame({"caught AF": caught[cols].median(), "missed AF": missed[cols].median(),
+                    "normal": test[test.label == "N"][cols].median()}).round(3).to_string())
+
+examples = regular_with_p.sample(4, random_state=0).record.tolist()
+fig, axes = plt.subplots(4, 1, figsize=(12, 9))
+for ax, rec_id in zip(axes, examples):
+    sig, fs = load_12lead(os.path.join(GEORGIA_DIR, rec_id))
+    lead2 = bandpass(sig[:, 1], fs)
+    peaks = detect_peaks_adaptive(sig[:, 1], fs)
+    dx = next(l for l in open(os.path.join(GEORGIA_DIR, rec_id + ".hea")).read().splitlines()
+              if l.startswith("# Dx")).split(":")[1].strip()
+    ax.plot(np.arange(len(lead2)) / fs, lead2, linewidth=0.7)
+    ax.plot(peaks / fs, lead2[peaks], "r.")
+    ax.set_xlim(0, 10)
+    ax.set_title(f"{rec_id}, lead II; diagnoses (SNOMED): {dx}", fontsize=9)
+axes[-1].set_xlabel("Time (s)")
+plt.suptitle("Georgia recordings labelled AF that the clinical model missed: regular, with P waves", fontsize=10)
+plt.tight_layout()
+plt.savefig("figures/georgia_missed_af.png", dpi=110)
+plt.show()

@@ -16,6 +16,7 @@ AF screening uses RR-interval features and logistic regression.
 | Original two-threshold rule, same patients | sensitivity 94.3%, specificity 59.1% |
 | AF vs atrial premature beats, 777 clinical recordings (CPSC 2018), 5-feature model + P-wave override | sensitivity 92.3%; false alarms 10.4% on PAC (18.4% without the override), 3.2% on normal |
 | 917 further clinical recordings (CPSC 2018 extra), clinical cutoff + P-wave override | sensitivity 88.9% (95% CI 77–95%, 45 AF), specificity 95.8% |
+| 2938 10 s clinical recordings (Georgia), 12-lead clinical model | sensitivity 68.5%; false alarms 7.3% on PAC, 0.9% on normal (see the caveat on its AF labels) |
 
 ## 1. Beat detection
 
@@ -492,6 +493,77 @@ all correct for every model). Nothing was changed after it.
   with a regular pulse or heavy ventricular ectopy remains the hard case
   for RR-interval features.
 
+### A clinical 12-lead model, tested on 10 s recordings (Georgia)
+
+**The idea.** Clinical recordings have 12 leads, so atrial activity can be
+read where it's clearest: P-wave consistency over regular beats in
+**lead II**, and fibrillatory-wave activity in **V1**
+([`ecg.f_wave_activity`](ecg.py): subtract the median beat, then measure
+the 4–9 Hz activity left, relative to beat size). These go into a model
+trained on clinical recordings ([`af.clinical_features`](af.py)).
+
+**Development** ([`afib_clinical_dev.py`](afib_clinical_dev.py)): the
+used CPSC 2018 and CPSC-extra recordings, cut into 10 s crops (3942 crops,
+654 AF), compared by 5-fold cross-validation grouped by recording. Each
+cutoff aims at 95% sensitivity.
+
+| Model (development) | AUC | Sensitivity | False alarms |
+|---|---|---|---|
+| AFDB model, clinical cutoff | 0.959 | 95.6% | 13.0% |
+| Clinical model, RR only | 0.950 | 95.4% | 11.5% |
+| Clinical model, RR + P waves (II) | 0.976 | 95.7% | 5.1% |
+| **Clinical model, RR + P waves (II) + f-waves (V1)** | **0.978** | **95.9%** | **4.7%** |
+
+Lead II P waves work as a model feature here, unlike with AFDB training,
+because clinical training data includes PAC and other rhythms. For 10 s
+recordings the RR minimum is 6 intervals and `p_match_regular` needs 3
+regular beats; with 5, many normal recordings had too few and were scored
+as P-wave-free.
+
+**The test: Georgia** ([`afib_georgia_test.py`](afib_georgia_test.py)),
+from the PhysioNet/CinC Challenge 2020: 2942 10 s clinical recordings
+chosen from headers only. AF = AF among the diagnoses (570); PAC = PAC
+without AF or flutter (620); normal = sinus rhythm as the only diagnosis
+(1752). The plan was committed before the run. (The first attempt crashed
+on three truncated downloads before producing any result; they were
+re-downloaded, and every file was checked against its header's size.)
+
+| Georgia (2938 scored: 569 AF, 618 PAC, 1751 normal) | Catches AF (95% CI) | False alarms, PAC | False alarms, normal | ROC AUC |
+|---|---|---|---|---|
+| Current (AFDB model, clinical cutoff) | **75.2%** (72–79%) | 35.0% | 3.6% | 0.844 |
+| Current + P-wave override | 71.0% (67–75%) | 12.9% | 1.1% | – |
+| Clinical model (registered primary) | 68.5% (65–72%) | **7.3%** | **0.9%** | **0.881** |
+| Clinical model + P-wave override | 67.7% (64–71%) | 6.3% | 0.8% | – |
+
+![Georgia ROC](figures/afib_georgia_test_roc.png)
+
+- **The fix failed its main goal.** The clinical model ranks better (AUC
+  0.881 vs 0.844) and cuts false alarms on PAC recordings from 35% to
+  7%, but it catches *less* AF (68.5% vs 75.2%), far below the 95% target.
+- **Both models do much worse than in development** (AUC 0.98 there,
+  0.84–0.88 here), so Georgia's AF recordings differ from CPSC's.
+
+**Why (error analysis after the run; nothing was changed in response).**
+Many of the missed "AF" recordings don't look like AF. Their median CV
+is 0.067 and pNN50 0.23, close to normal rhythm, and their median
+`p_match_regular` is 1.000: every regular beat has the same P wave, which
+AF by definition doesn't. 67 of the clinical model's 179 missed AF
+recordings are perfectly regular (CV < 0.05) with consistent P waves.
+Four of them, at random:
+
+![Missed Georgia AF](figures/georgia_missed_af.png)
+
+Georgia lists every diagnosis attached to the patient's ECG, so "AF" may
+mean paroxysmal AF elsewhere in the patient's history rather than AF in
+this 10 s. One of the four (E03935) is coded with both AF and sinus
+bradycardia, which can't both describe one 10 s strip. Others look like
+sinus rhythm with visible P waves, and one has a wavy baseline that could
+be flutter or noise. I'm not a cardiologist and haven't excluded these
+recordings: dropping them after the fact would remove exactly the cases
+the model gets wrong. The registered numbers above stand. A fair verdict
+on this model needs AF labels that describe the rhythm in each
+recording.
+
 ### Reading the coefficients
 
 Coefficients of the 5-feature model fitted on all development windows, in
@@ -557,6 +629,8 @@ python afib_cinc_test.py   # P-wave override test; needs the Challenge 2017 data
 python afib_cpsc_test.py   # handheld-training test; needs the Challenge 2017 data and CPSC 2018 (below)
 python afib_handheld_cv.py # handheld-only model, 5-fold CV on Challenge 2017
 python afib_cpscx_test.py  # clinical-cutoff test; needs CPSC 2018 and CPSC 2018 extra (below)
+python afib_clinical_dev.py   # clinical 12-lead model development on CPSC crops
+python afib_georgia_test.py   # clinical model test on Georgia 10 s recordings (below)
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -583,6 +657,11 @@ into `data/cpsc2018_extra/`. `SELECTED` lists every recording of at least
 (1236 recordings, about 370 MB);
 [`results/afib_cpscx_test_recordings.csv`](results/afib_cpscx_test_recordings.csv)
 lists the 917 scored.
+
+Georgia works the same way, from
+[`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/)
+into `data/georgia/`. `SELECTED` lists one `record label` pair per line
+(A, PAC or N, as defined above; 2942 recordings, about 350 MB).
 
 ### Tests
 
@@ -630,8 +709,10 @@ every push.
   in cross-validation (92.7% with the override), but there's no unused
   handheld AF data left to confirm it.
 - On clinical recordings, sensitivity was 87–92% across the two CPSC
-  tests, below the 95% target. Calibrating the cutoff on clinical data
-  made little difference.
+  tests and 68–75% on Georgia's 10 s recordings, below the 95% target.
+  Neither a clinical cutoff nor a 12-lead clinical model fixed it, though
+  Georgia's recording-level AF labels may overstate how many recordings
+  are actually in AF.
 - Recordings under about 20 beats can't be scored (154 of 931 in the
   CPSC test).
 - SVDB has no rhythm labels, so its specificity assumes none of its

@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, flag_atrial_ectopic,
-                 flag_ectopic, score)
+from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, f_wave_activity,
+                 flag_atrial_ectopic, flag_ectopic, score)
 
 FS = 360
 
@@ -121,6 +121,15 @@ def test_flag_atrial_ectopic_needs_early_beat_and_odd_p_wave():
     early = np.array([np.min(np.abs(times[[10, 20]] - p / FS)) < 0.05 for p in peaks])
     assert flags[early].all()
     assert not flags[~early].any()
+
+
+def test_f_wave_activity_ignores_beat_locked_waves_but_not_fibrillation():
+    times = np.arange(1, 29, 0.8)
+    sinus = synthetic_ecg(times, t_wave=0.3)                 # T waves are locked to the beats
+    t = np.arange(len(sinus)) / FS
+    fib = sinus + 0.08 * np.sin(2 * np.pi * 6.3 * t)          # 6.3 Hz activity, not locked
+    peaks = detect_peaks_adaptive(sinus, FS)
+    assert f_wave_activity(fib, FS, peaks) > 3 * f_wave_activity(sinus, FS, peaks)
 
 
 def test_score_counts():
