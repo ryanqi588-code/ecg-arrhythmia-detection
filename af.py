@@ -1,5 +1,6 @@
 """Shared AF helpers: loading AFDB records, RR features, classifiers, metrics."""
 
+import functools
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -44,6 +45,9 @@ FEATURES_5 = ["cv", "nrmssd", "entropy", "tpr", "pnn50"]
 # came out with the wrong sign.
 FEATURES_6 = FEATURES_5 + ["p_match"]
 FEATURES_6R = FEATURES_5 + ["p_match_regular"]
+# Same 5 features with entropy normalised for the number of beats, for
+# models that mix 60 s Holter windows with short handheld recordings.
+FEATURES_5N = ["cv", "nrmssd", "entropy_norm", "tpr", "pnn50"]
 
 
 # ------------------------------------------------------------ loading
@@ -124,6 +128,61 @@ def load_cinc_record(rec_id):
     return rec.p_signal[:, 0], rec.fs
 
 
+def clean_windows(peaks_fn, sig, fs, is_af, window_sec):
+    """Windows with ventricular ectopics removed, plus P-wave features (as the override needs)."""
+    from ecg import bandpass, flag_ectopic, pr_segments   # ecg imports nothing from here
+    peaks = peaks_fn(sig, fs)
+    return window_features(peaks, fs, len(sig), is_af, flag_ectopic(sig, fs, peaks),
+                           pr_segments(bandpass(sig, fs), peaks, fs), regular_beats(peaks, fs),
+                           window_sec=window_sec)
+
+
+def cinc_windows(cache="data/cinc2017/windows.pkl"):
+    """One clean window per Challenge 2017 recording (noisy ones excluded), cached.
+
+    Columns as window_features, plus record, label (N / A / O) and seconds.
+    """
+    if os.path.exists(cache):
+        return pd.read_pickle(cache)
+    from ecg import detect_peaks_adaptive
+    rows = []
+    for rec_id, label in sorted(cinc_labels().items()):
+        if label == "~":
+            continue
+        sig, fs = load_cinc_record(rec_id)
+        w = clean_windows(detect_peaks_adaptive, sig, fs, np.full(len(sig), label == "A"), len(sig) / fs)
+        if w:
+            rows.append({**w[0], "record": rec_id, "label": label, "seconds": len(sig) / fs})
+    df = pd.DataFrame(rows)
+    df.to_pickle(cache)
+    return df
+
+
+CPSC_DIR = "data/cpsc2018"
+CPSC_CODES = {"164889003": "A", "284470004": "PAC", "426783006": "N"}   # SNOMED CT
+
+
+def cpsc_selected():
+    """The registered CPSC 2018 test recordings: record -> label (A / PAC / N).
+
+    Single-diagnosis AF, PAC or normal sinus rhythm recordings at least 15 s
+    long, chosen from the headers before any signal was looked at.
+    """
+    out = {}
+    for rec_id in open(os.path.join(CPSC_DIR, "SELECTED")).read().split():
+        lines = open(os.path.join(CPSC_DIR, rec_id + ".hea")).read().splitlines()
+        dx = next(l for l in lines if l.startswith("# Dx")).split(":")[1].strip()
+        out[rec_id] = CPSC_CODES[dx]
+    return out
+
+
+def load_cpsc_record(rec_id):
+    """Lead I of a CPSC 2018 12-lead recording (500 Hz). Returns (signal, fs)."""
+    rec = wfdb.rdrecord(os.path.join(CPSC_DIR, rec_id), channels=[0])
+    assert rec.sig_name[0] == "I"
+    return rec.p_signal[:, 0], rec.fs
+
+
 def prefetch_svdb(workers=4):
     with ThreadPoolExecutor(workers) as pool:
         for rec_id in pool.map(lambda r: (load_svdb_record(r), r)[1], SVDB_RECORDS):
@@ -178,6 +237,18 @@ def shannon_entropy(rr, bins=16):
     counts, _ = np.histogram(rr, bins=bins)
     p = counts[counts > 0] / len(rr)
     return -np.sum(p * np.log(p)) / np.log(bins)
+
+
+@functools.lru_cache(maxsize=None)
+def random_entropy(n, bins=16, trials=400):
+    """Mean shannon_entropy of n uniformly random RR intervals (fixed seed).
+
+    A completely random series of n intervals can't fill 16 bins evenly when
+    n is small, so its entropy is below 1 and depends on n. This is the
+    baseline that entropy_norm divides by.
+    """
+    rng = np.random.default_rng(n)
+    return float(np.mean([shannon_entropy(rng.uniform(0.4, 1.0, n), bins) for _ in range(trials)]))
 
 
 def turning_points_ratio(rr):
@@ -277,6 +348,9 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=Non
             "cv": rr.std() / mean,
             "nrmssd": np.sqrt(np.mean(np.diff(rr) ** 2)) / mean,
             "entropy": shannon_entropy(rr),
+            # Entropy relative to a random series of the same length: ~1 for
+            # AF however many beats there are (entropy alone falls with fewer).
+            "entropy_norm": shannon_entropy(rr) / random_entropy(len(rr)),
             "tpr": turning_points_ratio(rr),
             "pnn50": np.mean(np.abs(np.diff(rr)) > 0.05),
         })
@@ -367,12 +441,43 @@ def fit_with_cutoff(train, features, target=TARGET_SENS):
     window) undershot their target on new data.
     """
     oof = np.zeros(len(train))
-    for rec_id in train.record.unique():
-        held = (train.record == rec_id).values
+    records = train.record.unique()
+    # Leave one record out; with many short single-window records (Challenge
+    # 2017) that would mean thousands of fits, so use 10 folds of records.
+    folds = ([[r] for r in records] if len(records) <= 30
+             else np.array_split(np.random.default_rng(0).permutation(records), 10))
+    for fold in folds:
+        held = train.record.isin(fold).values
         inner = make_logreg().fit(model_inputs(train[~held], features), train.af[~held])
         oof[held] = inner.predict_proba(model_inputs(train[held], features))[:, 1]
     model = make_logreg().fit(model_inputs(train, features), train.af)
     return model, cutoff_for_sensitivity(oof, train.af.values, train.record.values, target)
+
+
+def fit_with_source_cutoffs(train, features, target=TARGET_SENS):
+    """One model fitted on several kinds of recording, with a separate cutoff for each.
+
+    `train` needs a `source` column (e.g. "holter", "short"). Out-of-fold
+    probabilities come from 10 folds of records; each source's cutoff is the
+    one giving `target` sensitivity on that source's windows, records weighted
+    equally (as fit_with_cutoff).
+
+    Chosen on development data: training on AFDB + Challenge 2017 with one
+    shared cutoff let short recordings drag the cutoff down and cut AFDB
+    specificity from 95% to 83-86%; per-source cutoffs restored it to ~91%
+    while keeping handheld sensitivity at 95%.
+    """
+    oof = np.zeros(len(train))
+    for fold in np.array_split(np.random.default_rng(0).permutation(train.record.unique()), 10):
+        held = train.record.isin(fold).values
+        inner = make_logreg().fit(model_inputs(train[~held], features), train.af[~held])
+        oof[held] = inner.predict_proba(model_inputs(train[held], features))[:, 1]
+    model = make_logreg().fit(model_inputs(train, features), train.af)
+    cutoffs = {}
+    for src in train.source.unique():
+        s = (train.source == src).values
+        cutoffs[src] = cutoff_for_sensitivity(oof[s], train.af.values[s], train.record.values[s], target)
+    return model, cutoffs
 
 
 # ------------------------------------------------------------ metrics

@@ -145,6 +145,35 @@ def test_p_wave_override_only_clears_windows_with_shared_p_waves():
     assert p_wave_override(np.zeros(4, dtype=bool), df).tolist() == [False] * 4
 
 
+def test_entropy_norm_is_about_one_for_random_rr_at_any_length():
+    rng = np.random.default_rng(3)
+    for n_beats in (30, 150):
+        rr = rng.uniform(0.4, 1.0, n_beats)
+        peaks = peaks_from_rr(rr)
+        n = peaks[-1] + FS
+        row = window_features(peaks, FS, n, np.ones(n, dtype=bool), window_sec=n / FS)[0]
+        assert abs(row["entropy_norm"] - 1) < 0.1
+    short = peaks_from_rr(rng.uniform(0.4, 1.0, 25))
+    n = short[-1] + FS
+    row = window_features(short, FS, n, np.ones(n, dtype=bool), window_sec=n / FS)[0]
+    assert row["entropy"] < row["entropy_norm"]          # raw entropy is biased low
+
+
+def test_fit_with_source_cutoffs_gives_each_source_its_own_cutoff():
+    from af import fit_with_source_cutoffs
+    rng = np.random.default_rng(0)
+    rows = []
+    for src, shift in (("holter", 0.0), ("short", -0.08)):   # short recordings look less irregular
+        for rec in range(40):
+            af = rec % 2 == 0
+            for _ in range(3):
+                cv = (0.2 if af else 0.03) + shift * af + 0.02 * rng.standard_normal()
+                rows.append({"record": f"{src}{rec}", "source": src, "af": af, "cv": abs(cv) + 1e-3})
+    model, cutoffs = fit_with_source_cutoffs(pd.DataFrame(rows), ["cv"])
+    assert set(cutoffs) == {"holter", "short"}
+    assert cutoffs["short"] < cutoffs["holter"]
+
+
 def test_cutoff_for_sensitivity():
     prob = np.linspace(0, 1, 101)
     af = np.ones(101, dtype=bool)
