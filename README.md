@@ -15,6 +15,7 @@ AF screening uses RR-interval features and logistic regression.
 | Same, with ectopic beats removed first | sensitivity 95.8%, specificity **84.3%** |
 | Original two-threshold rule, same patients | sensitivity 94.3%, specificity 59.1% |
 | AF vs atrial premature beats, 777 clinical recordings (CPSC 2018), 5-feature model + P-wave override | sensitivity 92.3%; false alarms 10.4% on PAC (18.4% without the override), 3.2% on normal |
+| 917 further clinical recordings (CPSC 2018 extra), clinical cutoff + P-wave override | sensitivity 88.9% (95% CI 77–95%, 45 AF), specificity 95.8% |
 
 ## 1. Beat detection
 
@@ -442,6 +443,55 @@ usable RR intervals, mostly normal recordings with slow heart rates.
 - **Best on this test: the AFDB-only model + P-wave override**: 92.3%
   sensitivity, 10.4% false alarms on PAC, 3.2% on normal.
 
+### Routing by device instead of length
+
+| Device | Model | Cutoff |
+|---|---|---|
+| Holter | AFDB-trained | from AFDB |
+| Clinical 12-lead | AFDB-trained (it ranked CPSC best) | for 95% sensitivity on the 777 used CPSC 2018 recordings: 0.398, against 0.552 from AFDB |
+| Handheld | trained on Challenge 2017 only | from Challenge 2017 |
+
+All three apply the P-wave override.
+
+**Handheld: cross-validation only.** No unused public handheld AF data is
+left, so the only evidence is 5-fold cross-validation on Challenge 2017
+([`afib_handheld_cv.py`](afib_handheld_cv.py)). There, the handheld-only
+model with the override catches 92.7% of AF with false alarms of 14.8% on
+normal and 28.5% on other rhythms, against 93.0% / 19.2% / 31.8% for the
+AFDB + Challenge model. `entropy_norm` makes no difference when all the
+recordings come from one device.
+
+**Clinical: tested on CPSC 2018 "extra" recordings**
+([`afib_cpscx_test.py`](afib_cpscx_test.py)): a second, unused batch from
+the same challenge, with no records shared with the CPSC set. AF only
+occurs alongside other diagnoses there, so AF = "AF among the diagnoses"
+and non-AF = "neither AF nor atrial flutter". Lead I, recordings of at
+least 15 s chosen from headers; the plan was committed before the run.
+*Disclosure:* a dry run of the script accidentally used the first 25
+downloaded test files instead of stand-ins (19 scored: 1 AF, 18 non-AF,
+all correct for every model). Nothing was changed after it.
+
+| CPSC-extra (917 recordings: 45 AF, 32 PAC, 840 other) | Catches AF (95% CI) | Specificity | False alarms, PAC | False alarms, other | Missed AF |
+|---|---|---|---|---|---|
+| Holter cutoff | 86.7% (74–94%) | 95.0% | 6.2% | 5.0% | 6 |
+| Holter cutoff + override | 86.7% (74–94%) | **96.0%** | 6.2% | 3.9% | 6 |
+| Clinical cutoff | 88.9% (77–95%) | 94.0% | 15.6% | 5.6% | 5 |
+| **Clinical cutoff + override** | **88.9% (77–95%)** | 95.8% | 9.4% | 4.0% | **5** |
+
+- **The clinical cutoff made only a small difference:** one more AF
+  recording caught (5 missed instead of 6) for 2 more false alarms with
+  the override. With 45 AF recordings that's well within the noise.
+  Neither cutoff reaches the 95% target here.
+- **The model ranks well on this new clinical data** (AUC 0.96).
+- **The P-wave override helped for the third time on unseen data:**
+  20–30% fewer false alarms at no sensitivity cost.
+- **The missed AF has mixed causes:** two recordings with frequent PVCs
+  (one has 30% of beats flagged ectopic and very clumped RR intervals),
+  one with a fairly regular ventricular response (CV 0.087), one labelled
+  "atrial fibrillation and flutter", and two just under the cutoff. AF
+  with a regular pulse or heavy ventricular ectopy remains the hard case
+  for RR-interval features.
+
 ### Reading the coefficients
 
 Coefficients of the 5-feature model fitted on all development windows, in
@@ -505,6 +555,8 @@ python ltaf_errors.py      # breakdown of the new-patient false alarms (run afte
 python afib_svdb_test.py   # atrial-ectopy test on 78 SVDB patients; first run downloads ~55 MB
 python afib_cinc_test.py   # P-wave override test; needs the Challenge 2017 data (below)
 python afib_cpsc_test.py   # handheld-training test; needs the Challenge 2017 data and CPSC 2018 (below)
+python afib_handheld_cv.py # handheld-only model, 5-fold CV on Challenge 2017
+python afib_cpscx_test.py  # clinical-cutoff test; needs CPSC 2018 and CPSC 2018 extra (below)
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -523,6 +575,14 @@ into `data/cpsc2018/`. List the single-diagnosis AF (164889003), PAC
 15 s in `data/cpsc2018/SELECTED`, one per line, and download their `.mat`
 files too (about 280 MB). [`results/afib_cpsc_test_recordings.csv`](results/afib_cpsc_test_recordings.csv)
 lists the 777 that were scored.
+
+CPSC 2018 extra works the same way, from
+[`training/cpsc_2018_extra/g1`–`g4`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018_extra/)
+into `data/cpsc2018_extra/`. `SELECTED` lists every recording of at least
+15 s that either includes AF or includes neither AF nor atrial flutter
+(1236 recordings, about 370 MB);
+[`results/afib_cpscx_test_recordings.csv`](results/afib_cpscx_test_recordings.csv)
+lists the 917 scored.
 
 ### Tests
 
@@ -566,9 +626,12 @@ every push.
   Challenge data and halved them on CPSC 2018's PAC recordings, but about
   10% of PAC recordings are still called AF.
 - On short handheld recordings (Challenge 2017), AF sensitivity falls
-  to about 78% with Holter-only training. Training on handheld data fixes
-  that in development but transferred badly to clinical recordings
-  (CPSC 2018), so the best tested model is still Holter-trained.
+  to about 78% with Holter-only training. A handheld-only model fixes that
+  in cross-validation (92.7% with the override), but there's no unused
+  handheld AF data left to confirm it.
+- On clinical recordings, sensitivity was 87–92% across the two CPSC
+  tests, below the 95% target. Calibrating the cutoff on clinical data
+  made little difference.
 - Recordings under about 20 beats can't be scored (154 of 931 in the
   CPSC test).
 - SVDB has no rhythm labels, so its specificity assumes none of its
