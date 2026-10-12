@@ -18,6 +18,7 @@ AF screening uses RR-interval features and logistic regression.
 | 917 further clinical recordings (CPSC 2018 extra), clinical cutoff + P-wave override | sensitivity 88.9% (95% CI 77–95%, 45 AF), specificity 95.8% |
 | 2938 10 s clinical recordings (Georgia), 12-lead clinical model | sensitivity 68.5%; false alarms 7.3% on PAC, 0.9% on normal (see the caveat on its AF labels) |
 | 2867 10 s recordings with per-recording labels (PTB-XL), same model | sensitivity 87.4% (95% CI 85–89%); false alarms 10.3% on PAC, 1.0% on sinus; ROC AUC 0.976 |
+| 3813 new 10 s recordings (Chapman-Shaoxing), model retrained on CPSC + PTB-XL | sensitivity **98.9%** (95% CI 98.3–99.3%); false alarms 24.0% on PAC, 1.5% on sinus; ROC AUC 0.990 |
 
 ## 1. Beat detection
 
@@ -611,6 +612,63 @@ PAC, then talks itself out of AF. The fix to try next is a P-wave measure
 that doesn't depend on picking out a few regular beats; it would need
 fresh data to test.
 
+### A sturdier P-wave measure (didn't help) and more training data (did)
+
+**Development** ([`afib_pwave_dev.py`](afib_pwave_dev.py)), on data
+already used as tests: the CPSC crops and the 2867 PTB-XL recordings
+(6809 units, 1632 AF), 5-fold cross-validation grouped by recording or
+patient. [`ecg.p_wave_consistency`](ecg.py) tackles the two suspected
+causes above: it compares each beat with the median of the *other* beats
+(leave-one-out), and it can first subtract the median QRS-T complex so
+the previous beat's T wave can't pass for a P wave.
+
+| Model: RR + P-wave measure + f-waves (CV) | AUC | Sens., CPSC | Sens., PTB-XL | False alarms, PAC | False alarms, sinus |
+|---|---|---|---|---|---|
+| `p_match_regular` (as before), shared cutoff | 0.975 | 98.2% | 93.1% | 12.3% | 1.3% |
+| leave-one-out, all beats | 0.975 | 98.0% | 93.7% | 12.8% | 1.4% |
+| leave-one-out + QRS-T removed | 0.973 | 97.9% | 93.9% | 17.9% | 1.6% |
+| `p_match_regular`, **strictest per-source cutoff** | 0.975 | 98.5% | **94.6%** | 16.9% | 1.8% |
+
+- **The P-wave idea was wrong.** Leave-one-out matching changes almost
+  nothing, and removing the QRS-T complex adds PAC false alarms. Neither
+  self-matching nor T-wave overlap was what fooled the feature, so the
+  existing feature was kept.
+- **Training data mattered more.** With PTB-XL among the training data,
+  cross-validated PTB-XL sensitivity is 93.1%, against 87.4% when the
+  CPSC-only model was tested on it. One shared cutoff still lets the easier
+  source (CPSC) set it, so the cutoff became the *strictest* of the
+  per-source 95% cutoffs: every training source reaches 95%, at the cost
+  of more PAC false alarms.
+
+**The test: Chapman-Shaoxing** ([`afib_chapman_test.py`](afib_chapman_test.py)),
+from the PhysioNet/CinC Challenge 2021: 10 s 12-lead recordings at 500 Hz
+with rhythm labelled per ECG by physicians, none used before. Every
+recording that qualified from its header: AF without flutter (1780), PAC
+without AF or flutter (258), and sinus rhythm with no AF, flutter, ectopy
+or pacing (1777). The plan was committed and pushed before the signals
+were downloaded; it was run once. Every file was checked for its expected
+size first.
+
+| Chapman-Shaoxing (3813 scored: 1778 AF, 258 PAC, 1777 sinus) | Catches AF (95% CI) | False alarms, PAC | False alarms, sinus | ROC AUC |
+|---|---|---|---|---|
+| **Retrained, strictest-source cutoff (registered primary)** | **98.9%** (98.3–99.3%) | 24.0% | 1.5% | 0.990 |
+| Retrained, shared cutoff | 98.3% (97.5–98.8%) | 19.4% | 1.3% | – |
+| Previous clinical model | 94.1% (92.9–95.1%) | **9.7%** | **0.8%** | **0.991** |
+
+![Chapman-Shaoxing ROC](figures/afib_chapman_test_roc.png)
+
+- **The 95% target is met on new data**: 98.9%, with the whole
+  confidence interval above 95%. It misses 20 of 1778 AF recordings,
+  against 105 for the previous model.
+- **But it's the same trade, not a better model.** The two models rank
+  recordings equally well (AUC 0.990 vs 0.991); the gain comes from a
+  lower cutoff (0.42 vs 0.61). Its price shows on PAC: 24% are called
+  AF, against 9.7% before. Sinus false alarms stay under 2%.
+- **Chapman is easier than PTB-XL.** Even the previous model reaches
+  94.1% here (87.4% on PTB-XL), so 98.9% here doesn't mean 98.9% on
+  every hospital's recordings; it does show the cutoff now errs on the
+  side of catching AF.
+
 ### Reading the coefficients
 
 Coefficients of the 5-feature model fitted on all development windows, in
@@ -679,6 +737,8 @@ python afib_cpscx_test.py  # clinical-cutoff test; needs CPSC 2018 and CPSC 2018
 python afib_clinical_dev.py   # clinical 12-lead model development on CPSC crops
 python afib_georgia_test.py   # clinical model test on Georgia 10 s recordings (below)
 python afib_ptbxl_test.py     # re-test on PTB-XL 10 s recordings (below)
+python afib_pwave_dev.py      # P-wave measure and cutoff development on CPSC crops + PTB-XL
+python afib_chapman_test.py   # retrained clinical model test on Chapman-Shaoxing (below)
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -718,6 +778,14 @@ files into `data/ptbxl/` (2875 recordings, about 350 MB). `SELECTED`
 lists one `records500/xxxxx/yyyyy_hr label` pair per line;
 [`results/afib_ptbxl_test_recordings.csv`](results/afib_ptbxl_test_recordings.csv)
 lists the 2867 scored.
+
+For Chapman-Shaoxing, download the `.hea` files from
+[`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/)
+of the Challenge 2021 data into `data/chapman/` (each folder's `RECORDS`
+also names the first recording of the next folder, which lives there),
+choose recordings as defined above, and download their `.mat` files into
+the same folder (3815 recordings, about 460 MB). `SELECTED` lists one
+`gN/JSxxxxx label` pair per line.
 
 ### Tests
 
@@ -764,12 +832,12 @@ every push.
   to about 78% with Holter-only training. A handheld-only model fixes that
   in cross-validation (92.7% with the override), but there's no unused
   handheld AF data left to confirm it.
-- On clinical recordings, sensitivity was 87–92% across the two CPSC
-  tests, 87% on PTB-XL and 68–75% on Georgia's 10 s recordings, below
-  the 95% target. PTB-XL showed that Georgia's low numbers were mostly
-  its labels, but neither a clinical cutoff nor a 12-lead clinical model
-  reached 95%: on short AF recordings the lead II P-wave feature is
-  often fooled.
+- On clinical recordings, earlier models reached 87–92% sensitivity on
+  CPSC and PTB-XL and 68–75% on Georgia (mostly a labelling problem). The
+  model retrained on CPSC + PTB-XL reached 98.9% on Chapman-Shaoxing, but
+  by lowering its cutoff rather than ranking better, so about a quarter of
+  PAC recordings are now called AF. Chapman also proved easier than
+  PTB-XL, so sensitivity elsewhere may be lower.
 - Recordings under about 20 beats can't be scored (154 of 931 in the
   CPSC test).
 - SVDB has no rhythm labels, so its specificity assumes none of its
@@ -810,6 +878,12 @@ every push.
   Challenge 2017.* Computing in Cardiology 44 (2017).
 - Wagner P, Strodthoff N, Bousseljot RD, et al. *PTB-XL, a large
   publicly available electrocardiography dataset.* Sci Data 7:154 (2020).
+- Zheng J, Zhang J, Danioko S, et al. *A 12-lead electrocardiogram
+  database for arrhythmia research covering more than 10,000 patients.*
+  Sci Data 7:48 (2020). (Chapman-Shaoxing)
+- Reyna MA, Sadr N, Perez Alday EA, et al. *Will two do? Varying
+  dimensions in electrocardiography: the PhysioNet/Computing in
+  Cardiology Challenge 2021.* Computing in Cardiology 48 (2021).
 - Greenwald SD, Patil RS, Mark RG. *Improved detection and
   classification of arrhythmias in noise-corrupted electrocardiograms
   using contextual information.* Computers in Cardiology 461-464 (1990).
