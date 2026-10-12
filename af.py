@@ -184,6 +184,12 @@ def load_cpsc_record(rec_id, directory=CPSC_DIR):
 
 
 CLINICAL_FEATURES = FEATURES_5N + ["p_match_regular", "log_f_wave"]
+RR_PATTERN_FEATURES = ["rr_mode_frac", "rr_robust_cv", "cv_no_early", "rr_lag1"]
+# With all 12 leads (atrial_features): P-wave consistency averaged over the
+# 12 leads, and the share of beat-free activity at AF's 4-9 Hz in II and V1.
+# Chosen on CPSC + PTB-XL + Chapman (afib_pac_dev.py): at the same
+# sensitivity target, false alarms on PAC 20.1% -> 11.6%.
+CLINICAL_FEATURES_12 = CLINICAL_FEATURES + ["p_match_mean", "f_ratio_II", "f_ratio_V1"]
 CLINICAL_MIN_RR = 6        # 10 s clinical recordings give ~8-15 RR intervals
 # Fewest regular beats for p_match_regular in a 10 s recording (60 s windows
 # use 5). With 5, many 10 s normal recordings had too few and were scored as
@@ -198,27 +204,71 @@ def load_12lead(path):
     return rec.p_signal, rec.fs
 
 
-def clinical_features(leads3, fs, is_af):
+LEADS_12 = ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6"]
+
+
+def load_12lead_all(path):
+    """All 12 leads of a clinical recording, in the standard order. Returns (n x 12 array, fs)."""
+    rec = wfdb.rdrecord(path)
+    assert [n.upper() for n in rec.sig_name] == LEADS_12, rec.sig_name
+    return rec.p_signal, rec.fs
+
+
+def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_REGULAR):
+    """Atrial-activity features of a 12-lead recording, given its beats.
+
+    p_match_<lead> - p_match over regular, non-ventricular beats in each
+                     lead (as p_match_regular is for lead II); 0 with fewer
+                     than `min_regular` such beats
+    p_match_mean   - their mean over the 12 leads
+    f_ratio_<lead> - ecg.f_wave_ratio in leads II and V1
+    """
+    from ecg import bandpass, f_wave_ratio, pr_segments
+    use = np.asarray(regular) & np.asarray(not_v)
+    out = {}
+    for k, name in enumerate(LEADS_12):
+        if use.sum() >= min_regular:
+            segs = pr_segments(bandpass(sig12[:, k], fs), peaks, fs)[use]
+            out[f"p_match_{name}"] = p_wave_features(segs)["p_match"]
+        else:
+            out[f"p_match_{name}"] = 0.0
+    out["p_match_mean"] = np.mean([out[f"p_match_{n}"] for n in LEADS_12])
+    for name in ["II", "V1"]:
+        out[f"f_ratio_{name}"] = f_wave_ratio(sig12[:, LEADS_12.index(name)], fs, peaks)
+    return out
+
+
+def clinical_features(leads3, fs, is_af, detector="lead2", sig12=None):
     """Features of one short clinical recording (leads I, II, V1), or None if too few beats.
 
     R peaks are found on lead II. RR features (FEATURES_5N) after removing
     ventricular ectopics, with a minimum of CLINICAL_MIN_RR intervals;
     p_match_regular from lead II, where P waves are clearest; and the log of
     fibrillatory-wave activity in V1 (ecg.f_wave_activity).
+    `detector`: "lead2" (detect_peaks_adaptive on lead II) or "multilead"
+    (detect_peaks_multilead on all three leads). With `sig12` (all 12
+    leads), atrial_features are added.
     """
-    from ecg import bandpass, detect_peaks_adaptive, f_wave_activity, flag_ectopic, pr_segments
+    from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_multilead, f_wave_activity, flag_ectopic,
+                     pr_segments)
     lead2 = leads3[:, 1]
-    peaks = detect_peaks_adaptive(lead2, fs)
+    peaks = (detect_peaks_multilead(leads3, fs) if detector == "multilead"
+             else detect_peaks_adaptive(lead2, fs))
     if len(peaks) < CLINICAL_MIN_RR + 1:
         return None
-    rows = window_features(peaks, fs, len(lead2), np.full(len(lead2), is_af), flag_ectopic(lead2, fs, peaks),
-                           pr_segments(bandpass(lead2, fs), peaks, fs), regular_beats(peaks, fs),
+    ectopic = flag_ectopic(lead2, fs, peaks)
+    regular = regular_beats(peaks, fs)
+    rows = window_features(peaks, fs, len(lead2), np.full(len(lead2), is_af), ectopic,
+                           pr_segments(bandpass(lead2, fs), peaks, fs), regular,
                            window_sec=len(lead2) / fs, min_rr=CLINICAL_MIN_RR,
                            min_regular=CLINICAL_MIN_REGULAR)
     if not rows:
         return None
     f = f_wave_activity(leads3[:, 2], fs, peaks)
-    return {**rows[0], "log_f_wave": np.log(max(f, 1e-4)) if np.isfinite(f) else np.nan}
+    row = {**rows[0], "log_f_wave": np.log(max(f, 1e-4)) if np.isfinite(f) else np.nan}
+    if sig12 is not None:
+        row.update(atrial_features(sig12, fs, peaks, regular, ~ectopic))
+    return row
 
 
 def prefetch_svdb(workers=4):
@@ -287,6 +337,34 @@ def random_entropy(n, bins=16, trials=400):
     """
     rng = np.random.default_rng(n)
     return float(np.mean([shannon_entropy(rng.uniform(0.4, 1.0, n), bins) for _ in range(trials)]))
+
+
+def rr_pattern_features(rr, early=0.85, near=0.08):
+    """RR features that tell premature beats from AF.
+
+    A PAC recording is regular apart from a few early beats, each usually
+    followed by a longer pause; AF is irregular throughout.
+      rr_mode_frac - fraction of intervals within `near` of the median
+      rr_robust_cv - median absolute deviation / median (x1.4826, so it
+                     matches CV for normally spread intervals); a few
+                     outliers barely move it
+      cv_no_early  - CV after dropping each early interval (< `early` x
+                     median) and the one after it; plain CV if fewer than 3
+                     intervals remain
+      rr_lag1      - correlation of successive intervals: strongly negative
+                     for short-long pairs, near 0 for AF
+    """
+    rr = np.asarray(rr, dtype=float)
+    med = np.median(rr)
+    is_early = rr < early * med
+    drop = is_early | np.r_[False, is_early[:-1]]
+    kept = rr[~drop] if (~drop).sum() >= 3 else rr
+    a, b = rr[:-1] - rr.mean(), rr[1:] - rr.mean()
+    denom = np.sqrt((a ** 2).sum() * (b ** 2).sum())
+    return {"rr_mode_frac": np.mean(np.abs(rr - med) < near * med),
+            "rr_robust_cv": 1.4826 * np.median(np.abs(rr - med)) / med,
+            "cv_no_early": kept.std() / kept.mean(),
+            "rr_lag1": (a * b).sum() / denom if denom > 0 else 0.0}
 
 
 def turning_points_ratio(rr):
@@ -391,6 +469,7 @@ def window_features(peaks, fs, n, is_af, ectopic=None, pr_segs=None, regular=Non
             "entropy_norm": shannon_entropy(rr) / random_entropy(len(rr)),
             "tpr": turning_points_ratio(rr),
             "pnn50": np.mean(np.abs(np.diff(rr)) > 0.05),
+            **rr_pattern_features(rr),
         })
         if pr_segs is not None:
             rows[-1].update(p_wave_features(pr_segs[in_win]))

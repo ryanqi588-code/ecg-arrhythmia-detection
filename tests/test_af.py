@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from af import (FEATURES_5, af_mask, cutoff_for_sensitivity, make_logreg, model_inputs,
-                p_wave_features, p_wave_override, regular_beats, shannon_entropy,
+                p_wave_features, p_wave_override, regular_beats, rr_pattern_features, shannon_entropy,
                 turning_points_ratio, window_features)
 
 FS = 250
@@ -179,3 +179,16 @@ def test_cutoff_for_sensitivity():
     af = np.ones(101, dtype=bool)
     cutoff = cutoff_for_sensitivity(prob, af, target=0.9)
     assert abs((prob[af] >= cutoff).mean() - 0.9) < 0.02
+
+
+def test_rr_pattern_features_premature_beats_vs_af():
+    # Regular at 0.8 s with three early beats, each followed by a pause.
+    pac = np.full(14, 0.8)
+    for i in (3, 7, 11):
+        pac[i], pac[i + 1] = 0.5, 1.1
+    af = np.random.default_rng(0).uniform(0.45, 1.0, 14)
+    fp, fa = rr_pattern_features(pac), rr_pattern_features(af)
+    assert fp["rr_mode_frac"] > 0.5 > fa["rr_mode_frac"]
+    assert fp["cv_no_early"] < 0.01 < fa["cv_no_early"]
+    assert fp["rr_lag1"] < -0.3
+    assert rr_pattern_features(np.full(10, 0.8))["rr_robust_cv"] == 0.0

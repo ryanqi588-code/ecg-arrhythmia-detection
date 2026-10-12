@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, f_wave_activity,
-                 flag_atrial_ectopic, flag_ectopic, p_wave_consistency, score)
+from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, detect_peaks_multilead,
+                 f_wave_activity, f_wave_ratio, flag_atrial_ectopic, flag_ectopic, p_wave_consistency, score)
 
 FS = 360
 
@@ -145,6 +145,32 @@ def test_p_wave_consistency_sinus_vs_fibrillation_with_few_beats():
     loo = p_wave_consistency(fib, FS, peaks, remove_qrst=False)
     with_self = p_wave_consistency(fib, FS, peaks, remove_qrst=False, leave_one_out=False)
     assert loo < with_self
+
+
+def test_multilead_detector_uses_the_clearest_lead_and_a_steady_fiducial():
+    times = np.arange(1, 29, 0.8)
+    clear = synthetic_ecg(times, t_wave=0.3)
+    # A small, biphasic lead: R and S nearly equal, so max |signal| could pick either.
+    t = np.arange(len(clear)) / FS
+    biphasic = 0.02 * np.random.default_rng(3).standard_normal(len(t))
+    for bt in times:
+        biphasic += (0.15 * np.exp(-0.5 * ((t - bt) / 0.01) ** 2)
+                     - 0.15 * np.exp(-0.5 * ((t - bt - 0.03) / 0.01) ** 2))
+    det = detect_peaks_multilead(np.column_stack([clear, biphasic]), FS)
+    tp, fp, fn, *_ = score(beat_samples(times), det, int(0.15 * FS))
+    assert (fp, fn) == (0, 0)
+    nearest = times[np.argmin(np.abs(times[None, :] - det[:, None] / FS), axis=1)]
+    assert (det / FS - nearest).std() < 0.005          # the same point of every beat
+
+
+def test_f_wave_ratio_higher_for_fibrillation():
+    times = np.arange(1, 29, 0.8)
+    sinus = synthetic_ecg(times, t_wave=0.3)
+    t = np.arange(len(sinus)) / FS
+    sinus_p = sinus + sum(0.15 * np.exp(-0.5 * ((t - bt + 0.16) / 0.025) ** 2) for bt in times)
+    fib = sinus + 0.08 * np.sin(2 * np.pi * 6.3 * t + 3 * np.sin(2 * np.pi * 0.7 * t))
+    peaks = detect_peaks_adaptive(sinus, FS)
+    assert f_wave_ratio(fib, FS, peaks) > 2 * f_wave_ratio(sinus_p, FS, peaks)
 
 
 def test_score_counts():

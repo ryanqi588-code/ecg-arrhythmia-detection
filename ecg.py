@@ -75,6 +75,43 @@ def detect_peaks_adaptive(sig, fs, window_sec=2.0, frac=0.4,
     return np.array(peaks, dtype=int)
 
 
+def detect_peaks_multilead(leads, fs, smooth_sec=0.08, window_sec=2.0, frac=0.4, edge_sec=0.1,
+                           t_wave_sec=0.36, slope_frac=0.5):
+    """Beats from several leads at once (columns of `leads`), for short clinical recordings.
+
+    Each lead is band-passed and scaled by its own size (99th percentile
+    of |signal|), and the absolute slopes are summed across leads and
+    smoothed over `smooth_sec`. QRS complexes are steep in most leads at
+    once, P and T waves aren't, so beats are peaks of this envelope above
+    a fraction of its local maximum, as in detect_peaks_adaptive. The
+    envelope peak sits at the same point of every beat, unlike max |signal|,
+    which can flip between the R and S waves of a biphasic QRS. Peaks
+    within `edge_sec` of either end (filter transients) are dropped.
+    """
+    leads = np.atleast_2d(np.asarray(leads, dtype=float).T).T
+    env = np.zeros(len(leads))
+    for k in range(leads.shape[1]):
+        filt = bandpass(leads[:, k], fs)
+        size = np.percentile(np.abs(filt), 99)
+        if size > 0:
+            env += np.abs(np.gradient(filt)) / size
+    w = max(1, int(smooth_sec * fs))
+    env = np.convolve(env, np.ones(w) / w, mode="same")
+    local_max = maximum_filter1d(env, size=int(window_sec * fs))
+    thr = np.maximum(frac * local_max, 0.3 * np.median(local_max))
+    cand, _ = find_peaks(env, height=thr, distance=int(0.25 * fs))
+    peaks = []
+    for c in cand:
+        # T-wave rejection, as in detect_peaks_adaptive: close to the last
+        # beat and much less steep than it.
+        if peaks and c - peaks[-1] < t_wave_sec * fs and env[c] < slope_frac * env[peaks[-1]]:
+            continue
+        peaks.append(c)
+    peaks = np.array(peaks, dtype=int)
+    edge = int(edge_sec * fs)
+    return peaks[(peaks >= edge) & (peaks < len(env) - edge)]
+
+
 def pr_segments(filt, peaks, fs, start=0.30, end=0.06):
     """The stretch from `start` to `end` seconds before each peak, where the P wave sits.
 
@@ -141,6 +178,29 @@ def f_wave_activity(sig, fs, peaks, pre=0.25, post=0.55):
     bb, aa = butter(3, [4 / (fs / 2), 9 / (fs / 2)], btype="band")
     f = filtfilt(bb, aa, resid)[ok[0] - a:ok[-1] + b]
     return np.sqrt(np.mean(f ** 2)) / np.ptp(template)
+
+
+def f_wave_ratio(sig, fs, peaks, pre=0.25, post=0.55):
+    """Share of the beat-free residual's 1-30 Hz power that lies in 4-9 Hz.
+
+    The residual is what's left after subtracting the median beat, as in
+    f_wave_activity. In AF it is mostly fibrillatory waves (4-9 Hz); in
+    sinus rhythm or with atrial premature beats it is mostly slow baseline
+    and odd P waves. NaN with fewer than 3 complete beats.
+    """
+    from scipy.signal import welch
+    filt = bandpass(sig, fs)
+    a, b = int(pre * fs), int(post * fs)
+    ok = [p for p in peaks if p - a >= 0 and p + b <= len(filt)]
+    if len(ok) < 3:
+        return np.nan
+    template = np.median([filt[p - a:p + b] for p in ok], axis=0)
+    resid = filt.copy()
+    for p in ok:
+        resid[p - a:p + b] -= template
+    f, pxx = welch(resid[ok[0] - a:ok[-1] + b], fs, nperseg=min(2 * fs, ok[-1] + b - ok[0] + a))
+    total = pxx[(f >= 1) & (f <= 30)].sum()
+    return pxx[(f >= 4) & (f <= 9)].sum() / total if total > 0 else np.nan
 
 
 def p_wave_consistency(sig, fs, peaks, use=None, remove_qrst=True, leave_one_out=True,
