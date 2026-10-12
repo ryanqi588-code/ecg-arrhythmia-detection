@@ -19,6 +19,7 @@ AF screening uses RR-interval features and logistic regression.
 | 2938 10 s clinical recordings (Georgia), 12-lead clinical model | sensitivity 68.5%; false alarms 7.3% on PAC, 0.9% on normal (see the caveat on its AF labels) |
 | 2867 10 s recordings with per-recording labels (PTB-XL), same model | sensitivity 87.4% (95% CI 85–89%); false alarms 10.3% on PAC, 1.0% on sinus; ROC AUC 0.976 |
 | 3813 new 10 s recordings (Chapman-Shaoxing), model retrained on CPSC + PTB-XL | sensitivity **98.9%** (95% CI 98.3–99.3%); false alarms 24.0% on PAC, 1.5% on sinus; ROC AUC 0.990 |
+| 15,113 new 10 s recordings (Shandong SPH), 12-lead model | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on PAC (previous model 21.0%), 0.1% on normal; ROC AUC 0.996 |
 
 ## 1. Beat detection
 
@@ -669,6 +670,67 @@ size first.
   every hospital's recordings; it does show the cutoff now errs on the
   side of catching AF.
 
+### Telling AF from atrial premature beats with all 12 leads
+
+**Development** ([`afib_pac_dev.py`](afib_pac_dev.py)), on CPSC crops,
+PTB-XL and Chapman (10,628 units, 3416 AF, 1177 PAC; all already used),
+5-fold cross-validation grouped by recording or patient, with the
+strictest per-source 95% cutoff throughout.
+
+| Model (CV) | Sens. CPSC / PTB-XL / Chapman | False alarms, PAC | False alarms, sinus | False alarms, other |
+|---|---|---|---|---|
+| Model tested on Chapman (lead II beats) | 98.5 / 94.8 / 98.9% | 18.6% | 1.7% | 8.5% |
+| + RR-pattern features ([`af.rr_pattern_features`](af.py)) | 98.5 / 95.0 / 99.0% | 19.9% | 1.6% | 7.7% |
+| Beats from three leads ([`ecg.detect_peaks_multilead`](ecg.py)) | 98.8 / 95.4 / 99.2% | 20.1% | 0.9% | 6.4% |
+| **+ 12-lead P waves, f-wave ratio in II and V1 (`CLINICAL_FEATURES_12`)** | 98.2 / 94.9 / 98.5% | **11.6%** | **0.4%** | **4.5%** |
+
+- **RR patterns didn't help.** Features for "regular apart from a few
+  early beats, each followed by a pause" separate AF from PAC well alone
+  (AUC up to 0.88), but the P-wave feature already carried that
+  information.
+- **Beat detection was causing false irregularity.** Plots of PAC
+  recordings called AF showed lead II detection picking up wiggles when
+  the lead was small and jumping between the R and S waves of biphasic
+  beats. Detecting beats from the combined slope of leads I, II and V1
+  fixed that and halved false alarms on sinus and other rhythms, but not
+  on PAC.
+- **More atrial evidence fixed PAC.** `p_match` over regular beats,
+  averaged over all 12 leads ([`af.atrial_features`](af.py)), is a
+  steadier sign of a real P wave than lead II alone in 10 s. And
+  [`ecg.f_wave_ratio`](ecg.py), the share of beat-free activity at AF's
+  4–9 Hz, separates fibrillatory waves from slow baseline and P waves.
+  Together they nearly halved PAC false alarms at the same sensitivity.
+  Using all 12 per-lead values separately did only slightly better
+  (10.5%) with 9 more features, so the mean was kept.
+
+**The test: Shandong Provincial Hospital (SPH)** ([`afib_sph_test.py`](afib_sph_test.py)),
+12-lead ECGs at 500 Hz labelled per ECG with AHA statements, the first
+10 s of each; none used before. Every recording that qualified from
+`metadata.csv`: AF without flutter (675), atrial premature complexes
+without AF or flutter (539), and "Normal ECG" as the only statement
+(13,905). The plan was committed and pushed before the archive was
+opened (its MD5 matched figshare's), it was dry-run on stand-in files
+built from Chapman recordings, and run once. (Ningbo, the other
+Challenge 2021 set, was considered first but has 7607 recordings coded
+atrial flutter and none coded AF, in both of its releases, so its AF
+labels couldn't be trusted.)
+
+| SPH (15,113 scored: 671 AF, 537 PAC, 13,905 normal; 14,636 patients) | Catches AF (95% CI) | False alarms, PAC (95% CI) | False alarms, normal | ROC AUC |
+|---|---|---|---|---|
+| **New 12-lead model (registered primary)** | **98.4%** (97.1–99.1%) | **9.5%** (7.3–12.3%) | **0.1%** | **0.996** |
+| Model tested on Chapman | 96.9% (95.3–97.9%) | 21.0% (17.8–24.7%) | 1.0% | 0.993 |
+
+![SPH ROC](figures/afib_sph_test_roc.png)
+
+- **PAC false alarms more than halved on new data**, 21.0% to 9.5%,
+  with confidence intervals that don't overlap, as development predicted.
+- **Sensitivity didn't pay for it.** The new model catches more AF
+  (98.4% vs 96.9%; 11 missed against 21), and false alarms on normal
+  ECGs fell more than tenfold, from 139 to 12 of 13,905.
+- **This time the model itself got better.** Unlike the Chapman gain,
+  which came from moving the cutoff, the new model ranks recordings
+  better (AUC 0.996 vs 0.993) and is better at both ends at once.
+
 ### Reading the coefficients
 
 Coefficients of the 5-feature model fitted on all development windows, in
@@ -739,6 +801,8 @@ python afib_georgia_test.py   # clinical model test on Georgia 10 s recordings (
 python afib_ptbxl_test.py     # re-test on PTB-XL 10 s recordings (below)
 python afib_pwave_dev.py      # P-wave measure and cutoff development on CPSC crops + PTB-XL
 python afib_chapman_test.py   # retrained clinical model test on Chapman-Shaoxing (below)
+python afib_pac_dev.py        # AF-vs-PAC development on CPSC + PTB-XL + Chapman (all 12 leads)
+python afib_sph_test.py       # 12-lead model test on Shandong SPH (below); needs h5py
 ```
 
 Per-record numbers are written to [`results/`](results/) and plots to
@@ -787,6 +851,12 @@ choose recordings as defined above, and download their `.mat` files into
 the same folder (3815 recordings, about 460 MB). `SELECTED` lists one
 `gN/JSxxxxx label` pair per line.
 
+For SPH, download `metadata.csv` and `records.tar.gz` (2.3 GB; despite
+the name, a plain tar) from the
+[figshare collection](https://doi.org/10.6084/m9.figshare.c.5779802) into
+`data/sph/` and extract it there with `tar -xf records.tar.gz`. The test
+chooses recordings from `metadata.csv` itself.
+
 ### Tests
 
 ```bash
@@ -834,10 +904,10 @@ every push.
   handheld AF data left to confirm it.
 - On clinical recordings, earlier models reached 87–92% sensitivity on
   CPSC and PTB-XL and 68–75% on Georgia (mostly a labelling problem). The
-  model retrained on CPSC + PTB-XL reached 98.9% on Chapman-Shaoxing, but
-  by lowering its cutoff rather than ranking better, so about a quarter of
-  PAC recordings are now called AF. Chapman also proved easier than
-  PTB-XL, so sensitivity elsewhere may be lower.
+  12-lead model reached 98.4% on SPH with 9.5% false alarms on PAC, but
+  that's one hospital; PTB-XL was the hardest source in development
+  (94.9%), so sensitivity elsewhere may be lower. It needs all 12 leads,
+  and about 1 in 10 PAC recordings is still called AF.
 - Recordings under about 20 beats can't be scored (154 of 931 in the
   CPSC test).
 - SVDB has no rhythm labels, so its specificity assumes none of its
@@ -884,6 +954,9 @@ every push.
 - Reyna MA, Sadr N, Perez Alday EA, et al. *Will two do? Varying
   dimensions in electrocardiography: the PhysioNet/Computing in
   Cardiology Challenge 2021.* Computing in Cardiology 48 (2021).
+- Liu H, Chen D, Chen D, et al. *A large-scale multi-label 12-lead
+  electrocardiogram database with standardized diagnostic statements.*
+  Sci Data 9:272 (2022). (Shandong Provincial Hospital, SPH)
 - Greenwald SD, Patil RS, Mark RG. *Improved detection and
   classification of arrhythmias in noise-corrupted electrocardiograms
   using contextual information.* Computers in Cardiology 461-464 (1990).

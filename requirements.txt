@@ -4,3 +4,4 @@ pandas
 matplotlib
 scikit-learn
 wfdb>=4.1
+h5py
