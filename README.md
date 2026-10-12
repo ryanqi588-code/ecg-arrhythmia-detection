@@ -743,6 +743,220 @@ so SVT false alarms can't be tested here.
   recordings the interval is wide (75–90%). Flutter AUC is 0.913 against
   everything, 0.937 against sinus tachycardia and 0.887 against AF.
 
+## Reporting details (TRIPOD+AI)
+
+This section collects items of the TRIPOD+AI reporting guideline that the
+sections above don't cover. Subgroup and demographic numbers come from
+[`afib_subgroups.py`](afib_subgroups.py), an analysis after the fact of
+the saved test outputs; nothing was refitted.
+
+### Data sources, participants and timing
+
+| Data | Where | When | Labels | Used for |
+|---|---|---|---|---|
+| MIT-BIH Arrhythmia, AFDB, LTAFDB, SVDB | Holter recordings, Boston (USA) | 1975–1979 (MIT-BIH); others per their publications | beat and rhythm annotations by cardiologists (AFDB beat positions: automated) | beat detection; Holter AF (tests 1–2) |
+| Challenge 2017 | AliveCor handheld device, USA | released 2017 | one label per recording by experts | test 3; handheld development |
+| CPSC 2018 + extra | 11 hospitals, China | released 2018 | diagnosis codes per recording | tests 4–5; then clinical development |
+| Georgia | Emory University, Atlanta (USA) | released 2020 | diagnosis codes per patient's ECG | test 6 |
+| PTB-XL | Physikalisch-Technische Bundesanstalt, Germany | 1984–2001 (recording dates in the database) | cardiologist reports, validated by a second cardiologist | test 7; then clinical development |
+| Chapman-Shaoxing | Shaoxing People's Hospital, Zhejiang (China) | not given in the release | rhythm per ECG by physicians | test 8; then clinical and flutter development |
+| SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | tests 9–10 |
+
+**Eligibility.** Recordings were chosen from labels or headers alone,
+before any signal was looked at, by the rules in each test's section:
+AF without atrial flutter; PAC without AF or flutter; and a normal or
+sinus-rhythm group with no AF, flutter, ectopy or pacing. All recordings
+in each test that met the rules were used, except PTB-XL's sinus group
+(1500 drawn at random, seed 0). The clinical tests use the first 10 s
+of each recording.
+
+**Flow of recordings in each test.**
+
+| Test | Selected | Excluded before scoring | Too few beats (unscored) | Scored |
+|---|---|---|---|---|
+| 1 LTAFDB | 84 patients, first 2 h | – | windows with < 20 RR intervals | 9895 windows |
+| 2 SVDB | 78 patients | – | as test 1 | 2340 windows |
+| 3 Challenge 2017 | 8528 | 279 labelled noisy | 346 | 7903 |
+| 4 CPSC 2018 | 931 | – | 154 (mostly slow normal rhythms) | 777 |
+| 5 CPSC 2018 extra | 1236 | – | 319 | 917 |
+| 6 Georgia | 2942 | – | 4 | 2938 |
+| 7 PTB-XL | 2875 | – | 8 (6 AF, 2 PAC) | 2867 |
+| 8 Chapman-Shaoxing | 3815 | – | 2 (AF) | 3813 |
+| 9 SPH | 15,119 | – | 6 (4 AF, 2 PAC) | 15,113 |
+| 10 SPH | 1498 | – | 0 | 1498 |
+
+```mermaid
+flowchart TD
+    A["SPH: 25,770 ECGs, 24,666 patients<br/>Aug 2019 - Aug 2020"] --> B["Test 9 selection from metadata.csv<br/>675 AF, 539 PAC, 13,905 normal = 15,119"]
+    A --> C["Not in test 9: 10,651"]
+    B --> D["Too few beats: 6 (4 AF, 2 PAC)"]
+    B --> E["Test 9 scored: 15,113<br/>671 AF, 537 PAC, 13,905 normal"]
+    C --> F["Test 10 selection: 99 flutter,<br/>711 sinus tachycardia, 13 junctional tachycardia"]
+    C --> G["Not used: 9,828 other rhythms"]
+    F --> H["Test 10 scored: 823 new<br/>+ 675 AF reused from test 9"]
+```
+
+### Recordings that can't be scored
+
+A recording is left unscored, with no AF call, if too few beats are
+detected: fewer than 20 usable RR intervals in a Holter window or short
+handheld/lead-I recording, fewer than 6 in a 10 s clinical ECG. The
+tests treat these as missing and leave them out of every rate, and their
+counts are reported above. For test 9, counting the unscored as wrong
+(4 missed AF, 2 PAC false alarms) gives sensitivity 97.8% instead of
+98.4%, and PAC false alarms 9.8% instead of 9.5%. In use, an unscored
+recording should be read by a person.
+
+### Sample size
+
+No sample size was calculated before the tests; every qualifying recording
+was used. The confidence intervals show the precision achieved. Test 9's
+sensitivity (671 AF) is known to within about ±1 percentage point (95% CI
+97.1–99.1%), and its PAC false alarm rate (537 PAC) to within about ±2.5
+points (7.3–12.3%), enough to separate it clearly from the previous
+model's 21.0% (17.8–24.7%). The flutter test (99 flutter recordings) is
+much less precise (75–90%), and the subgroup estimates below (as few as
+12–56 recordings in some cells) are only rough.
+
+### Development and test populations
+
+| Data | Recordings | Age, median (IQR) | Female |
+|---|---|---|---|
+| CPSC 2018 + extra (development) | 2167 | 63 (48–74) | 53% |
+| PTB-XL (development) | 3249 | 70 (56–79)* | 54% |
+| Chapman-Shaoxing (development) | 5568 | 66 (52–77) | 48% |
+| SPH test 9 | 15,113 | 48 (37–59) | 45% |
+| SPH test 10 (new recordings) | 823 | 49 (33–64) | 52% |
+
+\* 102 PTB-XL ages are missing or recorded only as "over 89".
+
+How SPH differs from the development data:
+
+- **Place and time.** One tertiary hospital in northern China (Jinan),
+  2019–2020; development came from several hospitals in China (CPSC,
+  Shaoxing) and one German institute (PTB-XL, 1984–2001).
+- **Labels.** SPH's AHA statements come from physicians' reports for each
+  ECG; development labels were diagnosis codes (CPSC), cardiologist-
+  validated reports (PTB-XL) and physicians' rhythm labels (Chapman).
+- **Case mix.** AF is 4.4% of test 9 against 32% of the development units,
+  and SPH's comparison group is mostly normal ECGs from younger patients
+  (median age 46, against 67 for its AF patients).
+- **Recordings.** All at 500 Hz, but from different machines; SPH records
+  run 10–56 s and only the first 10 s were used.
+
+### Subgroups
+
+| SPH subgroup | AF caught (test 9) | PAC called AF | Normal called AF | AUC | Flutter caught as AF or flutter (test 10) | Sinus tachycardia flagged |
+|---|---|---|---|---|---|---|
+| All | 98.4% (97–99%), n=671 | 9.5% (7–12%), n=537 | 0.1%, n=13,905 | 0.996 | 83.8% (75–90%), n=99 | 3.7% (3–5%), n=711 |
+| Female | 97.6% (95–99%), n=251 | 11.6% (8–17%), n=216 | 0.1%, n=6284 | 0.998 | 81.2% (65–91%), n=32 | 3.3% (2–6%), n=389 |
+| Male | 98.8% (97–99%), n=420 | 8.1% (6–12%), n=321 | 0.1%, n=7621 | 0.995 | 85.1% (75–92%), n=67 | 4.0% (2–7%), n=322 |
+| Age 18–49 | 100% (94–100%), n=56 | 10.6% (6–18%), n=94 | 0.1%, n=8091 | 1.000 | 91.7% (65–99%), n=12 | 3.2% (2–5%), n=403 |
+| Age 50–64 | 98.7% (96–100%), n=228 | 9.9% (6–16%), n=131 | 0.0%, n=4115 | 0.998 | 86.1% (71–94%), n=36 | 3.0% (1–7%), n=166 |
+| Age 65–79 | 97.6% (95–99%), n=289 | 7.1% (4–11%), n=212 | 0.2%, n=1478 | 0.993 | 83.9% (67–93%), n=31 | 3.9% (2–9%), n=128 |
+| Age 80+ | 99.0% (94–100%), n=98 | 13.0% (8–21%), n=100 | 0.5% (0–3%), n=221 | 0.992 | 75.0% (53–89%), n=20 | 21.4% (8–48%), n=14 |
+
+- **AF detection holds across sex and age**: sensitivity is 97.6–100% in
+  every group, with overlapping intervals.
+- **Possible gaps, too small to confirm:** PAC false alarms are a little
+  higher in women (11.6% vs 8.1%) and in patients over 80 (13.0%); in
+  patients over 80, flutter detection is lower (75%) and 3 of 14 sinus
+  tachycardia recordings were flagged. None of these differences is
+  outside its interval.
+- **Who is underrepresented.** The final model was tested only on adults
+  (18–95) at one hospital in China. Its development data adds other
+  Chinese hospitals and one German institute; earlier model versions were
+  also tested on US (Georgia) and German (PTB-XL) data, but the final
+  model wasn't. No dataset records ethnicity, so performance in African,
+  South Asian, Hispanic, Indigenous and other populations is unknown, as
+  it is in children, in primary care, ambulance or wearable settings, on
+  other ECG machines, and in low-resource settings.
+
+### Final model specification
+
+**AF model** ([`af.CLINICAL_FEATURES_12`](af.py), trained on 10,628
+development units, 3416 AF, from CPSC crops, PTB-XL and Chapman).
+Beats are found by [`ecg.detect_peaks_multilead`](ecg.py) on leads I, II
+and V1; features are computed by [`af.clinical_features`](af.py) with all
+12 leads. Logistic regression on standardized inputs, with balanced class
+weights:
+
+| Feature | Model input | Training mean | Training SD | Coefficient per SD | Coefficient on the input |
+|---|---|---|---|---|---|
+| CV | log(CV) | −3.1059 | 1.2442 | +1.7513 | +1.4076 |
+| nRMSSD | log(nRMSSD) | −2.8872 | 1.3514 | −0.4355 | −0.3223 |
+| `entropy_norm` | as is | 0.9614 | 0.1312 | +0.3703 | +2.8230 |
+| TPR | as is | 0.5512 | 0.1872 | −0.0091 | −0.0486 |
+| pNN50 | as is | 0.3192 | 0.3554 | +0.3908 | +1.0998 |
+| `p_match_regular` (lead II) | as is | 0.8076 | 0.2892 | −0.5845 | −2.0214 |
+| `log_f_wave` (V1) | as is | −4.0769 | 0.9584 | +0.5723 | +0.5971 |
+| `p_match_mean` (12 leads) | as is | 0.7995 | 0.2422 | −1.8558 | −7.6636 |
+| `f_ratio_II` | as is | 0.2247 | 0.1139 | +0.2036 | +1.7882 |
+| `f_ratio_V1` | as is | 0.2305 | 0.1377 | +0.7513 | +5.4548 |
+| Intercept | | | | −1.5316 | +7.4059 |
+
+Probability of AF = 1 / (1 + e^−z), with z = intercept + Σ coefficient ×
+input (last column). **AF is called when the probability is at least
+0.4736**, the strictest of the per-source 95%-sensitivity cutoffs (CPSC
+0.777, PTB-XL 0.474, Chapman 0.771). Missing `log_f_wave`, `f_ratio_II`
+or `f_ratio_V1` (fewer than 3 complete beats) are filled with the
+development medians −4.2321, 0.2049 and 0.1983. The table is also saved
+as [`results/final_af_model.csv`](results/final_af_model.csv). As the
+calibration section shows, the probabilities are not calibrated risks.
+
+**Flutter model** ([`afib_flutter_dev.fit_flutter`](afib_flutter_dev.py)):
+gradient-boosted trees (scikit-learn `HistGradientBoostingClassifier`,
+depth 4, learning rate 0.05, 400 iterations, balanced class weights,
+`random_state=0`) on the 21 `FLUTTER_FEATURES`, trained on 12,753
+development units (488 flutter). **Flutter is named when its probability
+is at least 0.7199**, the level that calls 10% of development sinus
+tachycardia + SVT flutter. Trees can't be written as a table; the model
+is fully determined by the code, the training recordings and the
+library version (scikit-learn 1.9.1).
+
+### Usability
+
+- **Input:** a 10 s, 12-lead ECG with leads in the standard order (I, II,
+  III, aVR, aVL, aVF, V1–V6). All 12 leads are needed: the loaders reject
+  recordings without them, and the P-wave and flutter features use leads
+  across the ECG. Only 500 Hz recordings were tested.
+- **Output:** "AF", "flutter" (which also counts as "AF or flutter"),
+  "neither", or "unscored". The probabilities shouldn't be read as risks.
+- **Poor-quality input:** there is no separate noise check. Recordings
+  with too few detected beats are left unscored. Noise that adds false
+  beats, a flat or disconnected lead, or a lead swap isn't detected and
+  can produce a wrong call; these cases weren't tested. Development
+  showed that a small or biphasic lead II used to cause false
+  irregularity, which the three-lead beat detector reduced.
+
+### Open science and ethics
+
+- **Funding:** none.
+- **Competing interests:** none.
+- **Protocol:** for each fresh-data test, the test script, which fixes
+  the recordings, models, cutoffs and primary results, was committed
+  before the test data were opened, and the test was run once. Commits
+  (author time, US Central): test 2 `efc7dfa` 2026-10-11 01:12; test 3
+  `d52e2f5` 01:45; test 4 `5f92136` 02:25; test 5 `23da508` 11:55;
+  test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
+  test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12. Each is
+  followed by its results commit. For tests 8–10 the registration commit
+  was also pushed to GitHub before the data were opened; for tests 2–7 it
+  was pushed together with the results, so only the commit time records
+  the order. Test 1 (LTAFDB) has no separate registration commit. The
+  history was rewritten once (to remove co-author lines) with commit
+  times kept.
+- **Registration:** the study was not formally registered (for example
+  on OSF or a trial registry); the commits above are the only protocol
+  record.
+- **Patient and public involvement:** none. No patients or members of the
+  public were involved in the design, conduct or reporting of this work.
+- **Ethics:** this study used only de-identified, publicly available ECG
+  databases (PhysioNet and figshare), used under their licences; no new
+  data were collected and no individual could be identified. Ethics
+  approvals for the original data collection are described in each
+  source's publication.
+
 ## Running it
 
 ```bash
@@ -766,6 +980,7 @@ python afib_sph_test.py       # test 9
 python afib_calibration.py    # calibration of the saved test 6-9 outputs
 python afib_flutter_dev.py    # flutter development (needs SELECTED_FLUTTER_DEV for Chapman and PTB-XL)
 python afib_flutter_test.py   # test 10
+python afib_subgroups.py      # demographics and subgroup results of tests 9-10
 ```
 
 Results are written to [`results/`](results/) (the `*_recordings.csv`

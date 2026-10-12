@@ -1,0 +1,6 @@
+data,recordings,age median (IQR),age missing,female
+CPSC 2018 + extra (development),2167,63 (48–74),4,53%
+PTB-XL (development),3249,70 (56–79),102,54%
+Chapman-Shaoxing (development),5568,66 (52–77),0,48%
+SPH test 9,15113,48 (37–59),0,45%
+SPH test 10 (new recordings),823,49 (33–64),0,52%
