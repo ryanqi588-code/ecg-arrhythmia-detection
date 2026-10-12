@@ -14,9 +14,10 @@ clinical 12-lead ECGs.
 | Beat detection | 36 held-out MIT-BIH records | sensitivity **99.57%**, precision **99.57%** (wfdb's XQRS: 98.82%, 99.96%) |
 | AF on Holter recordings, 60 s windows | 84 new patients (Long-Term AF Database) | sensitivity **96.4%**, specificity 81.8%; with ectopic beats removed 95.8%, **84.3%** (original two-threshold rule: 94.3%, 59.1%) |
 | AF on 10 s clinical 12-lead ECGs | 15,113 ECGs from Shandong Provincial Hospital | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs |
+| Atrial flutter on 10 s clinical 12-lead ECGs | 99 flutter and 711 sinus tachycardia ECGs (Shandong) | **83.8%** of flutter caught as AF or flutter (AF model alone: 54.5%), 70.7% named flutter; 3.7% of sinus tachycardia flagged |
 | AF on handheld recordings | – (no unused data left) | cross-validation only: 92.7% sensitivity |
 
-These took nine tests on fresh data, several of which failed; all of them
+These took ten tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
 ## How the tests were run
@@ -57,6 +58,7 @@ are in the [test log](#test-log).
 | 7 | PTB-XL | same models, cleaner labels | 87.4% | PAC 10.3% | labels explained Georgia; still short of 95% |
 | 8 | Chapman-Shaoxing | more training data, strictest cutoff | 98.9% | PAC 24.0% | target met, but only by moving the cutoff |
 | 9 | Shandong (SPH) | 12-lead P waves, f-wave ratio, multi-lead beats | **98.4%** | **PAC 9.5%**, normal 0.1% | better at both ends |
+| 10 | Shandong (SPH) flutter, sinus tachycardia | flutter model alongside the AF model | flutter **83.8%** (AF model alone 54.5%) | sinus tachycardia 3.7% | as developed; SVT untested |
 
 ## 1. Beat detection
 
@@ -676,6 +678,71 @@ cautious, below 1 too extreme.
   probabilities shouldn't be quoted as a patient's chance of AF without
   recalibrating on local data, which would need data from that site.
 
+## 6. Atrial flutter
+
+Every test above left flutter out. In flutter the atria beat in a regular
+sawtooth at 250–350 a minute, and the ventricles follow every 2nd, 3rd or
+4th wave, or a varying number. With fixed 2:1 block the pulse is regular
+at about 150 bpm, like sinus tachycardia or SVT; with variable block it's
+irregular, like AF. Clinically, flutter matters for the same main reason
+as AF (stroke risk, so anticoagulation), and also for its own treatment.
+
+**Development** ([`afib_flutter_dev.py`](afib_flutter_dev.py)), from
+sources already used: the AF development units plus never-loaded flutter
+and look-alike recordings from Chapman and PTB-XL (488 flutter, 900 sinus
+tachycardia, 617 SVT, 120 atrial tachycardia), 5-fold cross-validation
+grouped by recording or patient. [`ecg.flutter_features`](ecg.py) blanks
+out the QRS complexes and measures, in leads II, aVF and V1: the
+autocorrelation at flutter's cycle (0.15–0.27 s), how concentrated the
+3–8 Hz spectrum is around its peak, that peak's frequency, and whether any
+flat baseline remains.
+
+| Development (CV) | Flutter caught as AF or flutter | Named flutter | AF named flutter | Sinus tach flagged | SVT flagged |
+|---|---|---|---|---|---|
+| AF model alone | 51.6% | – | – | 2.9% | 2.9% |
+| + logistic flutter model, 80% sensitivity | 90.6% | 80.3% | 23.1% | 20.2% | 58.0% |
+| **+ boosted flutter model, look-alike budget** | **83.6%** | 62.9% | 6.8% | 7.4% | 20.3% |
+
+- **The AF model already catches half of flutter**, mostly variable block,
+  which is irregular like AF, and misses most regular 2:1 flutter.
+- **The flutter features carry the signal**: each alone separates flutter
+  from the rest with AUC 0.77–0.81, and they lift a flutter model's AUC
+  from 0.82 to 0.915 (boosted trees: 0.930).
+- **2:1 flutter and SVT can look the same in 10 s.** Plots of the errors
+  showed regular narrow-complex rhythms at 150–170 bpm on both sides,
+  with flutter waves hidden in the QRS and T waves. So instead of a
+  sensitivity target, the cutoff allows at most 10% of sinus tachycardia
+  + SVT to be called flutter, and the flutter model is used *alongside*
+  the AF model: "AF or flutter" if either fires, "flutter" if the flutter
+  model does. Boosted trees were chosen over logistic regression because
+  they can learn that a fast regular rate means flutter only with
+  continuous atrial activity.
+
+**Test 10** ([`afib_flutter_test.py`](afib_flutter_test.py)): SPH, first
+10 s, chosen from `metadata.csv`: flutter without AF (99), sinus
+tachycardia without AF or flutter and not in test 9 (711), junctional
+tachycardia (13), all never opened; and test 9's AF recordings (675),
+reused to measure how often real AF is named flutter. SPH has no SVT code,
+so SVT false alarms can't be tested here.
+
+| SPH | n | Called AF (AF model alone) | Called AF or flutter (95% CI) | Named flutter (95% CI) |
+|---|---|---|---|---|
+| **Flutter** | 99 | 54.5% | **83.8%** (75.3–89.8%) | **70.7%** (61.1–78.8%) |
+| Sinus tachycardia | 711 | 0.6% | 3.7% (2.5–5.3%) | 3.1% |
+| Junctional tachycardia | 13 | 7.7% | 7.7% | 0% |
+| AF (reused) | 675 | 98.4% | 98.7% | 8.9% (7.0–11.3%) |
+
+- **The flutter model works as developed.** With it, the screen catches
+  83.8% of flutter instead of 54.5%, close to development's 83.6%, at the
+  cost of flagging 3.7% of sinus tachycardia instead of 0.6%.
+- **Naming flutter is less reliable.** 70.7% of flutter is named flutter,
+  but so is 8.9% of AF; since AF is far more common than flutter, many
+  "flutter" calls in practice would be AF. Both need the same urgent
+  follow-up, so the combined "AF or flutter" call is the more useful one.
+- **About 1 in 6 flutter recordings is still missed**, and with 99 flutter
+  recordings the interval is wide (75–90%). Flutter AUC is 0.913 against
+  everything, 0.937 against sinus tachycardia and 0.887 against AF.
+
 ## Running it
 
 ```bash
@@ -697,6 +764,8 @@ python afib_chapman_test.py   # test 8
 python afib_pac_dev.py        # AF-vs-PAC development (CPSC + PTB-XL + Chapman, 12 leads)
 python afib_sph_test.py       # test 9
 python afib_calibration.py    # calibration of the saved test 6-9 outputs
+python afib_flutter_dev.py    # flutter development (needs SELECTED_FLUTTER_DEV for Chapman and PTB-XL)
+python afib_flutter_test.py   # test 10
 ```
 
 Results are written to [`results/`](results/) (the `*_recordings.csv`
@@ -712,8 +781,8 @@ only, written to a `SELECTED` file of one `record label` pair per line.
 | CPSC 2018 | [`training/cpsc_2018/g1`–`g7`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018/) `.hea`, then the chosen `.mat` (~280 MB) | `data/cpsc2018/` | `SELECTED`: record names only (labels come from the headers) |
 | CPSC 2018 extra | [`training/cpsc_2018_extra/g1`–`g4`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018_extra/) (1236 recordings, ~370 MB) | `data/cpsc2018_extra/` | `SELECTED`: record names only |
 | Georgia | [`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/) (2942, ~350 MB) | `data/georgia/` | |
-| PTB-XL | [`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv), then the chosen `records500/` `.hea` and `.dat` (2875, ~350 MB) | `data/ptbxl/` | records named `records500/xxxxx/yyyyy_hr` |
-| Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there |
+| PTB-XL | [`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv), then the chosen `records500/` `.hea` and `.dat` (2875, ~350 MB) | `data/ptbxl/` | records named `records500/xxxxx/yyyyy_hr`; flutter development recordings in `SELECTED_FLUTTER_DEV` (374 more) |
+| Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there; flutter development recordings in `SELECTED_FLUTTER_DEV` (1753 more) |
 | SPH | `metadata.csv` and `records.tar.gz` (2.3 GB, a plain tar despite the name) from [figshare](https://doi.org/10.6084/m9.figshare.c.5779802) | `data/sph/` | `tar -xf records.tar.gz`; the test chooses from `metadata.csv` itself; needs `h5py` |
 
 ### Tests
@@ -723,12 +792,13 @@ pip install pytest
 pytest
 ```
 
-The 34 tests in [`tests/`](tests/) use synthetic ECG and RR series, so
+The 35 tests in [`tests/`](tests/) use synthetic ECG and RR series, so
 they run offline in about a second. They check the detectors (upside-down
 beats, T waves, one tall spike, a small biphasic lead), scoring, each
 feature on series where the answer is known (e.g. TPR = 1 for alternating
 intervals, ≈ 2/3 for random ones), the ectopic and atrial-ectopic flags,
-the P-wave and f-wave measures, the override, and per-source cutoffs.
+the P-wave, f-wave and flutter-wave measures (a 300/min sawtooth against
+sinus rhythm), the override, and per-source cutoffs.
 GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 
 ## Limitations
@@ -748,6 +818,10 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
   the hardest source in development (94.9% sensitivity), so it may do
   worse elsewhere. It needs all 12 leads, and about 1 in 10 PAC
   recordings is still called AF.
+- Flutter: about 1 in 6 flutter recordings is still missed, regular 2:1
+  flutter and SVT can't be reliably told apart in 10 s (20% of SVT was
+  flagged in development, and the test had no SVT to check this), and
+  the flutter test had only 99 flutter recordings from one hospital.
 - The models' probabilities are not calibrated risks: on SPH they're too
   cautious in the middle range (a predicted 15% is AF 62% of the time),
   and calibration varies by hospital.
