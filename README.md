@@ -635,6 +635,47 @@ of its releases, so its AF labels couldn't be trusted.)
 - **This time the model itself got better** (AUC 0.996 vs 0.993), rather
   than the cutoff moving.
 
+### Calibration: can the probabilities be read as risk?
+
+[`afib_calibration.py`](afib_calibration.py) checks whether predicted
+probabilities match how often AF actually occurs, using the saved outputs
+of tests 6–9 (an analysis after the fact; nothing was refitted). The
+models are trained with balanced class weights, so their raw
+probabilities assume AF and non-AF are equally common. They're checked
+that way (test data reweighted 50/50), and after the standard shift to
+each test's own AF prevalence.
+
+| Test, model | AF prevalence | ECE, 50/50 | Slope, 50/50 | Mean predicted vs observed, at prevalence | ECE, at prevalence | Slope, at prevalence |
+|---|---|---|---|---|---|---|
+| Georgia, clinical (lead II) | 19.4% | 0.126 | 0.52 | 13.1% vs 19.4% | 0.071 | 0.58 |
+| PTB-XL, clinical (lead II) | 34.1% | 0.043 | 1.03 | 29.9% vs 34.1% | 0.045 | 1.00 |
+| Chapman, retrained | 46.6% | 0.032 | 1.40 | 46.4% vs 46.6% | 0.032 | 1.38 |
+| SPH, retrained | 4.4% | 0.038 | 1.47 | 3.4% vs 4.4% | 0.014 | 1.13 |
+| **SPH, 12-lead (final)** | 4.4% | **0.019** | 1.38 | 3.6% vs 4.4% | **0.009** | 1.40 |
+
+ECE is the expected calibration error (10 bins, weighted by recordings;
+0 is perfect). The slope comes from regressing the outcome on the
+model's log-odds: 1 is ideal, above 1 means the probabilities are too
+cautious, below 1 too extreme.
+
+![Calibration](figures/afib_calibration.png)
+
+- **Overall error is small but hides the middle.** On SPH the final
+  model's ECE is under 0.01 because 14,430 of 15,113 recordings get a
+  probability near 0 and almost none of them are AF. The 116 recordings
+  it scores between 10% and 50% (after the prevalence shift) are AF 80%
+  of the time (93 AF, 19 PAC, 4 normal); at a predicted 15%, the observed
+  AF rate is 62%.
+- **The newer models are too cautious, not overconfident** (slope about
+  1.4): the test recordings separate more cleanly than the harder training
+  data (PTB-XL, CPSC's other rhythms) led the model to expect. Georgia is
+  the opposite (slope 0.5), as its unreliable AF labels would predict.
+- **Calibration depends on the hospital.** The same model is close to
+  ideal on PTB-XL and Chapman but not on SPH, and AF prevalence and case
+  mix differ between sites. The cutoffs and rankings stand, but the
+  probabilities shouldn't be quoted as a patient's chance of AF without
+  recalibrating on local data, which would need data from that site.
+
 ## Running it
 
 ```bash
@@ -655,6 +696,7 @@ python afib_pwave_dev.py      # P-wave measure and cutoff development (CPSC + PT
 python afib_chapman_test.py   # test 8
 python afib_pac_dev.py        # AF-vs-PAC development (CPSC + PTB-XL + Chapman, 12 leads)
 python afib_sph_test.py       # test 9
+python afib_calibration.py    # calibration of the saved test 6-9 outputs
 ```
 
 Results are written to [`results/`](results/) (the `*_recordings.csv`
@@ -706,6 +748,9 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
   the hardest source in development (94.9% sensitivity), so it may do
   worse elsewhere. It needs all 12 leads, and about 1 in 10 PAC
   recordings is still called AF.
+- The models' probabilities are not calibrated risks: on SPH they're too
+  cautious in the middle range (a predicted 15% is AF 62% of the time),
+  and calibration varies by hospital.
 - Recordings with too few beats can't be scored (fewer than 20 usable RR
   intervals in a 60 s window or a short recording, 6 in a 10 s clinical
   ECG).
