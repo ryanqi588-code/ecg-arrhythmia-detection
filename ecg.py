@@ -143,6 +143,48 @@ def f_wave_activity(sig, fs, peaks, pre=0.25, post=0.55):
     return np.sqrt(np.mean(f ** 2)) / np.ptp(template)
 
 
+def p_wave_consistency(sig, fs, peaks, use=None, remove_qrst=True, leave_one_out=True,
+                       qrst=(0.06, 0.5), guard=0.25, match=0.5):
+    """Fraction of beats whose pre-QRS stretch matches the other beats' typical one.
+
+    Unlike af.p_wave_features over regular beats, this
+      - first subtracts the median QRS-T complex (`qrst` s before/after each
+        peak) at every beat, so the previous beat's T wave, which sits in
+        the pre-QRS stretch at fast rates, can't pass for a P wave; and
+      - compares each beat with the median of the *other* beats, so with
+        few beats a beat isn't matched against (nearly) itself.
+    Each subtraction stops `guard` s before the next peak, so at slow rates
+    the template's tail doesn't erase the next beat's P wave.
+    `use` selects the beats to compare (e.g. not ventricular ectopic). NaN
+    with fewer than 3.
+    """
+    peaks = np.asarray(peaks)
+    use = np.ones(len(peaks), dtype=bool) if use is None else np.asarray(use)
+    filt = bandpass(sig, fs)
+    if remove_qrst:
+        a, b = int(qrst[0] * fs), int(qrst[1] * fs)
+        ok = [p for p in peaks if p - a >= 0 and p + b <= len(filt)]
+        if len(ok) >= 3:
+            template = np.median([filt[p - a:p + b] for p in ok], axis=0)
+            filt = filt.copy()
+            nxt = np.r_[peaks[1:], len(filt) + b + int(guard * fs)]
+            for p, q in zip(peaks, nxt):
+                lo, hi = max(0, p - a), min(len(filt), p + b, q - int(guard * fs))
+                if hi <= lo:
+                    continue
+                filt[lo:hi] -= template[lo - (p - a):hi - (p - a)]
+    segs = pr_segments(filt, peaks, fs)
+    idx = np.flatnonzero(use & (peaks >= int(0.30 * fs)))
+    if len(idx) < 3:
+        return np.nan
+    segs = segs[idx]
+    hits = []
+    for i in range(len(segs)):
+        ref = np.median(np.delete(segs, i, axis=0) if leave_one_out else segs, axis=0)
+        hits.append(_corr(segs[i], ref) > match)
+    return float(np.mean(hits))
+
+
 def flag_ectopic(sig, fs, peaks, shape_corr=0.9, early=0.8, pause=1.15):
     """Flag likely ectopic beats among detected peaks.
 

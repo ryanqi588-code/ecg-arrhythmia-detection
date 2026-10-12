@@ -3,7 +3,7 @@
 import numpy as np
 
 from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, f_wave_activity,
-                 flag_atrial_ectopic, flag_ectopic, score)
+                 flag_atrial_ectopic, flag_ectopic, p_wave_consistency, score)
 
 FS = 360
 
@@ -130,6 +130,21 @@ def test_f_wave_activity_ignores_beat_locked_waves_but_not_fibrillation():
     fib = sinus + 0.08 * np.sin(2 * np.pi * 6.3 * t)          # 6.3 Hz activity, not locked
     peaks = detect_peaks_adaptive(sinus, FS)
     assert f_wave_activity(fib, FS, peaks) > 3 * f_wave_activity(sinus, FS, peaks)
+
+
+def test_p_wave_consistency_sinus_vs_fibrillation_with_few_beats():
+    # Four beats only, as in a few seconds of ECG.
+    times = np.array([1.0, 1.8, 2.6, 3.4])
+    sig = synthetic_ecg(times, t_wave=0.3, seconds=4)
+    t = np.arange(len(sig)) / FS
+    sinus = sig + sum(0.15 * np.exp(-0.5 * ((t - bt + 0.16) / 0.025) ** 2) for bt in times)
+    fib = sig + 0.08 * np.sin(2 * np.pi * 6.3 * t + 3 * np.sin(2 * np.pi * 0.7 * t))
+    peaks = detect_peaks_adaptive(sinus, FS)
+    assert p_wave_consistency(sinus, FS, peaks) == 1.0
+    # Comparing each beat with a median that includes itself inflates the match.
+    loo = p_wave_consistency(fib, FS, peaks, remove_qrst=False)
+    with_self = p_wave_consistency(fib, FS, peaks, remove_qrst=False, leave_one_out=False)
+    assert loo < with_self
 
 
 def test_score_counts():
