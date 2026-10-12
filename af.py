@@ -214,6 +214,9 @@ def load_12lead_all(path):
     return rec.p_signal, rec.fs
 
 
+FLUTTER_LEADS = ["II", "AVF", "V1"]      # where flutter waves show best
+
+
 def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_REGULAR):
     """Atrial-activity features of a 12-lead recording, given its beats.
 
@@ -222,8 +225,10 @@ def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_R
                      than `min_regular` such beats
     p_match_mean   - their mean over the 12 leads
     f_ratio_<lead> - ecg.f_wave_ratio in leads II and V1
+    hr             - heart rate from the median RR interval (beats/min)
+    fl_*_<lead>    - ecg.flutter_features in leads II, aVF and V1
     """
-    from ecg import bandpass, f_wave_ratio, pr_segments
+    from ecg import bandpass, f_wave_ratio, flutter_features, pr_segments
     use = np.asarray(regular) & np.asarray(not_v)
     out = {}
     for k, name in enumerate(LEADS_12):
@@ -235,6 +240,10 @@ def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_R
     out["p_match_mean"] = np.mean([out[f"p_match_{n}"] for n in LEADS_12])
     for name in ["II", "V1"]:
         out[f"f_ratio_{name}"] = f_wave_ratio(sig12[:, LEADS_12.index(name)], fs, peaks)
+    out["hr"] = 60 / np.median(np.diff(peaks) / fs)
+    for name in FLUTTER_LEADS:
+        for k, v in flutter_features(sig12[:, LEADS_12.index(name)], fs, peaks).items():
+            out[f"{k}_{name}"] = v
     return out
 
 

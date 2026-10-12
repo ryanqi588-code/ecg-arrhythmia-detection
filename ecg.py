@@ -180,6 +180,53 @@ def f_wave_activity(sig, fs, peaks, pre=0.25, post=0.55):
     return np.sqrt(np.mean(f ** 2)) / np.ptp(template)
 
 
+def flutter_features(sig, fs, peaks, blank=0.06, lags=(0.15, 0.27)):
+    """Signs of atrial flutter's regular sawtooth waves in one lead.
+
+    The QRS complexes (`blank` s either side of each peak) are blanked by
+    linear interpolation, since they dominate everything else; what's left
+    is P, T and atrial activity. Flutter waves repeat every 170-240 ms
+    (250-350 a minute) without a break, whatever the ventricles do; AF's
+    waves are disorganised; sinus rhythm has a flat baseline between beats.
+      fl_autocorr - highest autocorrelation at lags in `lags` s
+      fl_organization - share of 3-8 Hz power within 0.5 Hz of its peak
+      fl_freq     - frequency of that peak (Hz)
+      fl_baseline - 10th / 90th percentile of the 120 ms moving RMS of the
+                    3-15 Hz signal: near 0 with a flat baseline
+    NaN with fewer than 3 beats.
+    """
+    from scipy.signal import welch
+    peaks = np.asarray(peaks)
+    nan = {k: np.nan for k in ["fl_autocorr", "fl_organization", "fl_freq", "fl_baseline"]}
+    if len(peaks) < 3:
+        return nan
+    x = bandpass(sig, fs)
+    b = int(blank * fs)
+    for p in peaks:
+        lo, hi = max(0, p - b), min(len(x) - 1, p + b)
+        x[lo:hi + 1] = np.linspace(x[lo], x[hi], hi - lo + 1)
+    x = x[peaks[0]:peaks[-1] + 1]                       # avoid the edges
+    if len(x) < 2 * fs:
+        return nan
+    bb, aa = butter(3, [3 / (fs / 2), 15 / (fs / 2)], btype="band")
+    y = filtfilt(bb, aa, x)
+    y = y - y.mean()
+    ac = np.correlate(y, y, mode="full")[len(y) - 1:]
+    ac = ac / ac[0] if ac[0] > 0 else ac
+    lo, hi = int(lags[0] * fs), int(lags[1] * fs)
+    f, pxx = welch(y, fs, nperseg=min(len(y), 2 * fs))
+    band = (f >= 3) & (f <= 8)
+    peak_f = f[band][np.argmax(pxx[band])]
+    near = band & (np.abs(f - peak_f) <= 0.5)
+    w = max(1, int(0.12 * fs))
+    rms = np.sqrt(np.convolve(y ** 2, np.ones(w) / w, mode="valid"))
+    p10, p90 = np.percentile(rms, [10, 90])
+    return {"fl_autocorr": ac[lo:hi + 1].max(),
+            "fl_organization": pxx[near].sum() / pxx[band].sum() if pxx[band].sum() > 0 else np.nan,
+            "fl_freq": peak_f,
+            "fl_baseline": p10 / p90 if p90 > 0 else np.nan}
+
+
 def f_wave_ratio(sig, fs, peaks, pre=0.25, post=0.55):
     """Share of the beat-free residual's 1-30 Hz power that lies in 4-9 Hz.
 
