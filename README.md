@@ -931,6 +931,10 @@ library version (scikit-learn 1.9.1).
 
 ### Open science and ethics
 
+- **Use of AI tools:** Code and documentation were written with assistance
+  from Claude Code (Anthropic). I designed the testing protocol, chose the
+  datasets and evaluation criteria, and reviewed and interpreted all
+  results.
 - **Funding:** none.
 - **Competing interests:** none.
 - **Protocol:** for each fresh-data test, the test script, which fixes
