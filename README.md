@@ -20,6 +20,12 @@ clinical 12-lead ECGs.
 These took ten tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
+**Timeline.** This was an intensive five-day project, not months of
+independent research. It started from an earlier Colab notebook of mine;
+the repository's first commit was on 8 October 2026, and the ten
+fresh-data tests were run between 11 and 12 October 2026. The commit
+history shows each step.
+
 ## How the tests were run
 
 - **Development and test data are kept apart.** Every design decision is
