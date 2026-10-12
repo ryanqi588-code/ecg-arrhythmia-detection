@@ -943,9 +943,7 @@ library version (scikit-learn 1.9.1).
   followed by its results commit. For tests 8–10 the registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
-  the order. Test 1 (LTAFDB) has no separate registration commit. The
-  history was rewritten once (to remove co-author lines) with commit
-  times kept.
+  the order. Test 1 (LTAFDB) has no separate registration commit.
 - **Registration:** the study was not formally registered (for example
   on OSF or a trial registry); the commits above are the only protocol
   record.
