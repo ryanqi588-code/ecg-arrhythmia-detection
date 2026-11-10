@@ -1051,8 +1051,8 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 - Recordings with too few beats can't be scored (fewer than 20 usable RR
   intervals in a 60 s window or a short recording, 6 in a 10 s clinical
   ECG).
-- This is a learning project, not a medical device.
-
+- Deployment Status: This pipeline is an open-source research prototype intended for retrospective algorithmic validation and educational analysis under the MIT License. It is not currently cleared for prospective clinical diagnostic use."
+  
 ## Data
 
 - Moody GB, Mark RG. *The impact of the MIT-BIH Arrhythmia Database.*
