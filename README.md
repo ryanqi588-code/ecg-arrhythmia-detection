@@ -18,15 +18,15 @@ clinical 12-lead ECGs.
 | AF on handheld recordings | – (no unused data left) | cross-validation only: 92.7% sensitivity |
 | Against deep learning and doctors | Shandong, Ningbo (China), CODE-15% and the CODE test set (Brazil) | within 0.01 AUC of a published deep network and of a CNN trained on the same data (AUC 0.996 vs 0.998 and 1.000), but **1.4–2.6 times as many false alarms on atrial premature beats**; on 13 AF cases, sensitivity like the best doctors (12/13) at lower specificity (96.4% vs 98.8–100%) |
 
-These took eleven tests on fresh data, several of which failed; all of them
+These took twelve tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
 **Timeline.** This was an intensive five-day project, not months of
 independent research. It started from an earlier Colab notebook of mine;
 the repository's first commit was on 8 October 2026, and the first ten
 fresh-data tests were run between 11 and 12 October 2026. The comparison
-with other methods (test 11) was added on 14 November 2026. The commit
-history shows each step.
+with other methods and a false-alarm fix (tests 11 and 12) were added on
+14 November 2026. The commit history shows each step.
 
 ## How the tests were run
 
@@ -68,6 +68,7 @@ history shows each step.
 | 9 | Shandong (SPH) | 12-lead P waves, f-wave ratio, multi-lead beats | **98.4%** | **PAC 9.5%**, normal 0.1% | better at both ends |
 | 10 | Shandong (SPH) flutter, sinus tachycardia | flutter model alongside the AF model | flutter **83.8%** (AF model alone 54.5%) | sinus tachycardia 3.7% | as developed; SVT untested |
 | 11 | SPH, Ningbo, CODE-15%, CODE test | the final AF model against a published deep network, a same-data CNN, and doctors | 98.4% (SPH), 92.0% (CODE-15%) | PAC 9.5% (SPH), 24.5% (Ningbo) | close in AUC; worse on PAC than both networks |
+| 12 | CODE-15% part 1 (Brazil) | unmeasurable P waves marked as unmeasured, not absent | 91.7%, unchanged | non-AF 3.8% → **3.3%** | adopted |
 
 ## 1. Beat detection
 
@@ -880,6 +881,60 @@ good: on atrial premature beats the networks make 40–70% as many false
 alarms as it does. That is the cost of interpretability here, measured
 instead of assumed.
 
+## 8. Fixing false alarms after test 11
+
+[`afib_fa_dev.py`](afib_fa_dev.py) compared fixes on all seven sources
+used so far (CPSC crops, PTB-XL, Chapman, SPH, Ningbo, CODE-15% part 0,
+CODE test set; 47,925 units), by 5-fold cross-validation grouped by
+patient, every model with the final model's cutoff rule (strictest
+per-source 95% cutoff on CPSC, PTB-XL and Chapman).
+
+| Development (CV) | AUC | AF vs PAC AUC | PAC called AF | CODE-15% non-AF called AF | CODE test non-AF |
+|---|---|---|---|---|---|
+| Final model | 0.985 | 0.966 | 16.1% | 4.2% | 3.7% |
+| **+ unmeasured-P fix** | **0.993** | 0.974 | 16.2% | **3.6%** | **3.1%** |
+| Trained on all 7 sources | 0.986 | 0.965 | 18.7% | 4.5% | 3.6% |
+| All 7 sources + fix + RR-pattern features | 0.994 | 0.975 | 17.8% | 3.4% | 2.7% |
+
+- **Unmeasurable P waves.** A recording with fewer than 3 regular,
+  non-ectopic beats used to get `p_match` = 0, "no P waves", which reads
+  as AF. The fix adds an indicator, `p_unmeasured`, and fills
+  `p_match_regular` and `p_match_mean` with the median of measured
+  recordings instead of 0, so the model learns what "unmeasured" really
+  predicts. It lifted AUC with sensitivity unchanged in every source.
+- **PAC false alarms didn't move** with any change: not with more varied
+  training data (slightly worse), not with RR-pattern features, and not
+  with measures of a quiet baseline between beats (which separate AF from
+  PAC with AUC only 0.65–0.72 alone). Training on all seven sources with
+  the strictest-source rule also let CODE-15%, the hardest source, drag
+  the cutoff down (PAC false alarms 41%), so cutoffs stay set on the
+  original three. The information the networks use for PACs isn't in
+  these hand-made features yet.
+
+**Test 12** ([`afib_unmeasured_test.py`](afib_unmeasured_test.py)): the
+fix against the final model on CODE-15% part 1 (Brazil; chosen before
+download, never opened; 20,000 exams, 18,875 scored, 351 AF). The fix was
+to be adopted only if false alarms fell (95% interval of the paired
+difference entirely below 0) and sensitivity didn't drop by more than 2
+points.
+
+| CODE-15% part 1 | Final model | With the fix |
+|---|---|---|
+| ROC AUC | 0.960 | **0.971** |
+| AF caught | 91.7% (88.4–94.2) | 91.7% (88.4–94.2) |
+| Non-AF called AF | 3.8% (695 of 18,524) | **3.3%** (614) |
+| Non-AF with unmeasurable P waves called AF | 100% (266 of 266) | **75.9%** (202) |
+| AF with unmeasurable P waves caught | 13 of 13 | 13 of 13 |
+
+- **Both conditions met; the fix is adopted.** False alarms fell by 0.44
+  points (95% CI −0.57 to −0.31) with sensitivity unchanged (difference
+  0.00, CI −0.86 to +0.83); AUC rose by 0.011 (CI 0.010 to 0.013).
+- **It doesn't touch PAC false alarms**, which CODE-15% can't measure (it
+  has no PAC label), and three in four unmeasurable non-AF recordings are
+  still called AF.
+- The adopted model's specification is below. Tests 9–11 used the
+  earlier version (commit `d8c5ce2`); its numbers there stand.
+
 ## Reporting details (TRIPOD+AI)
 
 This section collects items of the TRIPOD+AI reporting guideline that the
@@ -899,7 +954,7 @@ the saved test outputs; nothing was refitted.
 | Chapman-Shaoxing | Shaoxing People's Hospital, Zhejiang (China) | not given in the release | rhythm per ECG by physicians | test 8; then clinical and flutter development |
 | SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | tests 9–11 |
 | Ningbo | Ningbo First Hospital (China), via Challenge 2021 | not given in the release | diagnosis codes (AF/flutter codes unreliable) | test 11 (PAC and sinus only) |
-| CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | test 11 |
+| CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | tests 11–12 |
 | CODE test set | as CODE-15% | as CODE-15% | two cardiologists, a third deciding disagreements | test 11 |
 
 **Eligibility.** Recordings were chosen from labels or headers alone,
@@ -927,6 +982,7 @@ of each recording.
 | 11 Ningbo | 2541 | – | 1 | 2540 |
 | 11 CODE-15% part 0 | 20,000 | – | 1149 (22 AF) | 18,851 |
 | 11 CODE test set | 827 | – | 34 (0 AF) | 793 |
+| 12 CODE-15% part 1 | 20,000 | – | 1125 (17 AF) | 18,875 |
 
 ```mermaid
 flowchart TD
@@ -1018,34 +1074,41 @@ How SPH differs from the development data:
 
 ### Final model specification
 
-**AF model** ([`af.CLINICAL_FEATURES_12`](af.py), trained on 10,628
-development units, 3416 AF, from CPSC crops, PTB-XL and Chapman).
-Beats are found by [`ecg.detect_peaks_multilead`](ecg.py) on leads I, II
-and V1; features are computed by [`af.clinical_features`](af.py) with all
-12 leads. Logistic regression on standardized inputs, with balanced class
+**AF model**, as adopted after test 12 (`CLINICAL_FEATURES_12` plus
+`p_unmeasured`, fitted by [`afib_fa_dev.fit`](afib_fa_dev.py) on 10,628
+development units, 3416 AF, from CPSC crops, PTB-XL and Chapman). Beats
+are found by [`ecg.detect_peaks_multilead`](ecg.py) on leads I, II and
+V1; features are computed by [`af.clinical_features`](af.py) with all 12
+leads. Logistic regression on standardized inputs, with balanced class
 weights:
 
 | Feature | Model input | Training mean | Training SD | Coefficient per SD | Coefficient on the input |
 |---|---|---|---|---|---|
-| CV | log(CV) | −3.1059 | 1.2442 | +1.7513 | +1.4076 |
-| nRMSSD | log(nRMSSD) | −2.8872 | 1.3514 | −0.4355 | −0.3223 |
-| `entropy_norm` | as is | 0.9614 | 0.1312 | +0.3703 | +2.8230 |
-| TPR | as is | 0.5512 | 0.1872 | −0.0091 | −0.0486 |
-| pNN50 | as is | 0.3192 | 0.3554 | +0.3908 | +1.0998 |
-| `p_match_regular` (lead II) | as is | 0.8076 | 0.2892 | −0.5845 | −2.0214 |
-| `log_f_wave` (V1) | as is | −4.0769 | 0.9584 | +0.5723 | +0.5971 |
-| `p_match_mean` (12 leads) | as is | 0.7995 | 0.2422 | −1.8558 | −7.6636 |
-| `f_ratio_II` | as is | 0.2247 | 0.1139 | +0.2036 | +1.7882 |
-| `f_ratio_V1` | as is | 0.2305 | 0.1377 | +0.7513 | +5.4548 |
-| Intercept | | | | −1.5316 | +7.4059 |
+| CV | log(CV) | −3.1059 | 1.2442 | +1.6341 | +1.3134 |
+| nRMSSD | log(nRMSSD) | −2.8872 | 1.3514 | −0.4307 | −0.3187 |
+| `entropy_norm` | as is | 0.9614 | 0.1312 | +0.3327 | +2.5365 |
+| TPR | as is | 0.5512 | 0.1872 | +0.0040 | +0.0214 |
+| pNN50 | as is | 0.3192 | 0.3554 | +0.3005 | +0.8456 |
+| `p_match_regular` (lead II) | as is | 0.8171 | 0.2788 | −0.6384 | −2.2895 |
+| `log_f_wave` (V1) | as is | −4.0769 | 0.9584 | +0.5823 | +0.6075 |
+| `p_match_mean` (12 leads) | as is | 0.8083 | 0.2296 | −2.3527 | −10.2455 |
+| `f_ratio_II` | as is | 0.2247 | 0.1139 | +0.2086 | +1.8323 |
+| `f_ratio_V1` | as is | 0.2305 | 0.1377 | +0.7451 | +5.4097 |
+| `p_unmeasured` | 1 if fewer than 3 regular, non-ectopic beats, else 0 | 0.0094 | 0.0965 | +0.2234 | +2.3139 |
+| Intercept | | | | −1.4702 | +9.9167 |
 
 Probability of AF = 1 / (1 + e^−z), with z = intercept + Σ coefficient ×
 input (last column). **AF is called when the probability is at least
-0.4736**, the strictest of the per-source 95%-sensitivity cutoffs (CPSC
-0.777, PTB-XL 0.474, Chapman 0.771). Missing `log_f_wave`, `f_ratio_II`
+0.4309**, the strictest of the per-source 95%-sensitivity cutoffs on
+CPSC, PTB-XL and Chapman (from 10-fold out-of-fold probabilities grouped
+by recording). When `p_unmeasured` is 1, `p_match_regular` and
+`p_match_mean` are set to 1.0 and 0.9375 (the medians of measured
+development recordings) instead of 0. Missing `log_f_wave`, `f_ratio_II`
 or `f_ratio_V1` (fewer than 3 complete beats) are filled with the
 development medians −4.2321, 0.2049 and 0.1983. The table is also saved
-as [`results/final_af_model.csv`](results/final_af_model.csv). As the
+as [`results/final_af_model.csv`](results/final_af_model.csv). The
+version tested in tests 9–11 had no `p_unmeasured` and a cutoff of
+0.4736; its coefficients are in that file at commit `d8c5ce2`. As the
 calibration section shows, the probabilities are not calibrated risks.
 
 **Flutter model** ([`afib_flutter_dev.fit_flutter`](afib_flutter_dev.py)):
@@ -1088,8 +1151,8 @@ library version (scikit-learn 1.9.1).
   `d52e2f5` 01:45; test 4 `5f92136` 02:25; test 5 `23da508` 11:55;
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
   test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
-  `d8c5ce2` 2026-11-14 13:06. Each is followed by its results commit.
-  For tests 8–11 the registration commit
+  `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57. Each is followed by
+  its results commit. For tests 8–12 the registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
   the order. Test 1 (LTAFDB) has no separate registration commit.
@@ -1131,6 +1194,8 @@ python afib_subgroups.py      # demographics and subgroup results of tests 9-10
 python afib_ectopy_dev.py     # atrial premature beat removal (development only)
 python afib_comparison_test.py   # test 11, after the two TensorFlow steps below
 python afib_comparison_figure.py # test 11 figure
+python afib_fa_dev.py         # false-alarm fixes, development on all seven used sources
+python afib_unmeasured_test.py   # test 12; needs CODE-15% exams_part1 (as part 0)
 ```
 
 Test 11's neural networks need a separate TensorFlow environment
@@ -1159,7 +1224,7 @@ only, written to a `SELECTED` file of one `record label` pair per line.
 | Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there; flutter development recordings in `SELECTED_FLUTTER_DEV` (1753 more) |
 | SPH | `metadata.csv` and `records.tar.gz` (2.3 GB, a plain tar despite the name) from [figshare](https://doi.org/10.6084/m9.figshare.c.5779802) | `data/sph/` | `tar -xf records.tar.gz`; the test chooses from `metadata.csv` itself; needs `h5py` |
 | Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | `data/ningbo/SELECTED` lists `gN/JSxxxxx label` |
-| CODE-15% | `exams.csv` and `exams_part0.zip` (2.7 GB) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` |
+| CODE-15% | `exams.csv`, `exams_part0.zip` and `exams_part1.zip` (2.7 GB each) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` (test 11) and `exams_part1.hdf5` (test 12) |
 | CODE test set and Ribeiro's network | `data.zip` (218 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625006)) and `model.zip` (336 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625017)) | `data/ribeiro/` | unzip both there |
 
 ### Tests
@@ -1200,10 +1265,10 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
   published deep network and a CNN trained on the same data call far
   fewer PAC recordings AF (test 11). PAC false alarms also vary by
   hospital (9.5% at SPH, 24.5% at Ningbo).
-- Recordings with fewer than 3 usable regular beats are scored as
-  P-wave-free, which pushes noisy, very fast and bundle-branch-block
-  recordings towards AF; and 5.7% of CODE-15% recordings (many 7 s long)
-  couldn't be scored at all.
+- Recordings whose P waves can't be measured (fewer than 3 usable
+  regular beats) still lean towards AF: after the test 12 fix, 76% of
+  such non-AF recordings are still called AF (100% before). And 5.6–5.7%
+  of CODE-15% recordings (many 7 s long) couldn't be scored at all.
 - Flutter: about 1 in 6 flutter recordings is still missed, regular 2:1
   flutter and SVT can't be reliably told apart in 10 s (20% of SVT was
   flagged in development, and the test had no SVT to check this), and
