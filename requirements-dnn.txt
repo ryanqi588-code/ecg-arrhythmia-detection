@@ -1,0 +1,6 @@
+tensorflow==2.16.2
+tf-keras==2.16.0
+h5py
+pandas
+scipy
+wfdb>=4.1

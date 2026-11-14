@@ -418,6 +418,29 @@ def regular_beats(peaks, fs, early=0.9):
     return regular
 
 
+def atrial_premature(peaks, fs, early=0.88, ref_q=0.7):
+    """Flag beats that come early against the recording's longer RR intervals.
+
+    ecg.flag_ectopic's timing rule compares with the local median and asks
+    for a pause after the beat. With frequent atrial premature beats (every
+    2nd or 3rd beat) the median itself is short, so the early beats stop
+    looking early, and the pause after an atrial premature beat is often
+    short. Here a beat is flagged if the RR before it is under `early` x the
+    `ref_q` quantile of all the recording's RR intervals, which stays a
+    sinus interval while fewer than 1 - `ref_q` of beats are early.
+
+    On its own this would also flag many beats in AF, so it's only applied
+    to recordings with consistent P waves (see clinical_features).
+    """
+    peaks = np.asarray(peaks)
+    flags = np.zeros(len(peaks), dtype=bool)
+    if len(peaks) < 3:
+        return flags
+    rr = np.diff(peaks) / fs
+    flags[1:] = rr < early * np.quantile(rr, ref_q)
+    return flags
+
+
 P_OVERRIDE = 0.95
 
 

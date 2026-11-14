@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from af import (FEATURES_5, af_mask, cutoff_for_sensitivity, make_logreg, model_inputs,
+from af import (FEATURES_5, af_mask, atrial_premature, cutoff_for_sensitivity, make_logreg, model_inputs,
                 p_wave_features, p_wave_override, regular_beats, rr_pattern_features, shannon_entropy,
                 turning_points_ratio, window_features)
 
@@ -192,3 +192,23 @@ def test_rr_pattern_features_premature_beats_vs_af():
     assert fp["cv_no_early"] < 0.01 < fa["cv_no_early"]
     assert fp["rr_lag1"] < -0.3
     assert rr_pattern_features(np.full(10, 0.8))["rr_robust_cv"] == 0.0
+
+
+def old_timing_rule(rr):
+    """ecg.flag_ectopic's timing cue: early against the local median and followed by a pause."""
+    flags = np.zeros(len(rr) + 1, dtype=bool)
+    for i in range(1, len(rr)):
+        med = np.median(rr[max(0, i - 8):i + 8])
+        flags[i] = rr[i - 1] < 0.8 * med and rr[i] > 1.15 * med
+    return flags
+
+
+def test_atrial_premature_catches_what_the_old_timing_rule_misses():
+    # Atrial trigeminy with no pause after the early beat (the sinus node resets),
+    # and milder bigeminy, where the early beats pull the median down.
+    for rr in [np.tile([0.8, 0.8, 0.6], 4), np.tile([0.8, 0.62], 6)]:
+        early_beats = np.r_[False, rr < 0.7]
+        flags = atrial_premature(peaks_from_rr(rr), FS)
+        assert (flags == early_beats).all()
+        assert not old_timing_rule(rr)[early_beats].any()
+    assert not atrial_premature(peaks_from_rr(np.full(12, 0.8)), FS).any()
