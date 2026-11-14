@@ -15,18 +15,19 @@ clinical 12-lead ECGs.
 | AF on Holter recordings, 60 s windows | 84 new patients (Long-Term AF Database) | sensitivity **96.4%**, specificity 81.8%; with ectopic beats removed 95.8%, **84.3%** (original two-threshold rule: 94.3%, 59.1%) |
 | AF on 10 s clinical 12-lead ECGs | 15,113 ECGs from Shandong Provincial Hospital | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs |
 | Atrial flutter on 10 s clinical 12-lead ECGs | 99 flutter and 711 sinus tachycardia ECGs (Shandong) | **83.8%** of flutter caught as AF or flutter (AF model alone: 54.5%), 70.7% named flutter; 3.7% of sinus tachycardia flagged |
+| AF with a CNN confirming the interpretable model's calls (optional hybrid) | 447 PAC crops (INCART, Russia) and 18,856 ECGs (CODE-15% part 2, Brazil) | PAC false alarms **9.2% → 2.7%**, other false alarms 3.8% → 2.7%, sensitivity unchanged (93.2% → 93.6%); the CNN makes most decisions |
 | AF on handheld recordings | – (no unused data left) | cross-validation only: 92.7% sensitivity |
 | Against deep learning and doctors | Shandong, Ningbo (China), CODE-15% and the CODE test set (Brazil) | within 0.01 AUC of a published deep network and of a CNN trained on the same data (AUC 0.996 vs 0.998 and 1.000), but **1.4–2.6 times as many false alarms on atrial premature beats**; on 13 AF cases, sensitivity like the best doctors (12/13) at lower specificity (96.4% vs 98.8–100%) |
 
-These took twelve tests on fresh data, several of which failed; all of them
+These took thirteen tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
 **Timeline.** This was an intensive five-day project, not months of
 independent research. It started from an earlier Colab notebook of mine;
 the repository's first commit was on 8 October 2026, and the first ten
 fresh-data tests were run between 11 and 12 October 2026. The comparison
-with other methods and a false-alarm fix (tests 11 and 12) were added on
-14 November 2026. The commit history shows each step.
+with other methods, a false-alarm fix and a hybrid (tests 11–13) were added
+on 14 November 2026. The commit history shows each step.
 
 ## How the tests were run
 
@@ -69,6 +70,7 @@ with other methods and a false-alarm fix (tests 11 and 12) were added on
 | 10 | Shandong (SPH) flutter, sinus tachycardia | flutter model alongside the AF model | flutter **83.8%** (AF model alone 54.5%) | sinus tachycardia 3.7% | as developed; SVT untested |
 | 11 | SPH, Ningbo, CODE-15%, CODE test | the final AF model against a published deep network, a same-data CNN, and doctors | 98.4% (SPH), 92.0% (CODE-15%) | PAC 9.5% (SPH), 24.5% (Ningbo) | close in AUC; worse on PAC than both networks |
 | 12 | CODE-15% part 1 (Brazil) | unmeasurable P waves marked as unmeasured, not absent | 91.7%, unchanged | non-AF 3.8% → **3.3%** | adopted |
+| 13 | INCART PAC crops, CODE-15% part 2 | hybrid: interpretable model screens, CNN confirms | 93.6% (alone 93.2%) | INCART PAC 9.2% → **2.7%**; non-AF 3.8% → 2.7% | offered as an alternative |
 
 ## 1. Beat detection
 
@@ -958,6 +960,67 @@ points.
 - The adopted model's specification is below. Tests 9–11 used the
   earlier version (commit `d8c5ce2`); its numbers there stand.
 
+## 9. A hybrid: the interpretable model screens, the CNN confirms
+
+Seven attempts with hand-made features left PAC false alarms nearly
+unchanged (section 8; the best, per-beat P-wave presence, gained about 2
+points). So [`afib_hybrid_dev.py`](afib_hybrid_dev.py) tried combining the
+two models: AF is called only if the interpretable model calls it **and**
+the same-data CNN (section 7) agrees. The CNN can only remove calls, so
+every AF call still comes with the interpretable model's named-feature
+explanation.
+
+Both thresholds were chosen on the development data only (CPSC crops,
+PTB-XL, Chapman; out-of-fold probabilities of both models): the pair with
+the fewest false alarms that keeps at least 95% sensitivity in each
+source.
+
+| Development (CV) | Sensitivity CPSC / PTB-XL / Chapman | PAC called AF | Sinus | Other rhythms |
+|---|---|---|---|---|
+| Interpretable model alone | 98.4 / 95.0 / 99.0% | 11.8% | 0.3% | 4.3% |
+| **Hybrid** | 95.0 / 95.1 / 99.6% | **5.5%** | 0.2% | 3.3% |
+
+**What the hybrid gives up.** To keep 95% sensitivity, the chosen
+interpretable threshold is very low (0.057, against 0.431 when it works
+alone): the interpretable model becomes a lenient screen and **the CNN
+makes most of the decisions**. An AF call is still explained by named
+features, but a recording the CNN rejects has no transparent reason, and
+the hybrid inherits the CNN's opacity and its dependence on one trained
+network ([`models/cnn_model.keras`](models/)).
+
+**Test 13** ([`afib_hybrid_test.py`](afib_hybrid_test.py)), registered
+before the data were opened, hybrid against the interpretable model alone:
+
+- **INCART** (St Petersburg 12-lead Holter database, 257 Hz, beat-by-beat
+  annotations): every 10 s crop with at least 2 annotated atrial premature
+  beats, excluding the 2 patients described with atrial fibrillation (447
+  crops from 14 patients; [`results/incart_selected.txt`](results/incart_selected.txt)).
+- **CODE-15% part 2** (Brazil): every exam, for sensitivity and other
+  false alarms.
+
+The hybrid was to be offered only if PAC false alarms fell on INCART
+(interval of the difference, by patient, entirely below 0) and CODE-15%
+sensitivity dropped by no more than 2 points.
+
+| Test 13 | Interpretable alone | Hybrid | Difference (95% CI) |
+|---|---|---|---|
+| INCART PAC crops called AF | 9.2% (41 of 447) | **2.7%** (12) | −6.5 points (−12.5 to −2.3) |
+| INCART, every patient weighted equally | 22.9% | 11.2% | |
+| CODE-15% part 2: AF caught (409) | 93.2% | 93.6% | +0.5 points (−1.6 to +2.6) |
+| CODE-15% part 2: non-AF called AF (18,447) | 3.8% (699) | **2.7%** (490) | −1.1 points (−1.4 to −0.9) |
+
+- **Both conditions met: the hybrid is offered as an alternative.** It
+  cuts PAC false alarms by about two-thirds and other false alarms by
+  about a quarter, with no loss of sensitivity.
+- **The PAC evidence is thin.** Two patients supply 410 of the 447 crops
+  (their false alarms fell from 8.0% to 1.6% and from 12.5% to 5.2%);
+  among the other 12 patients, with 1–16 crops each, one got worse. The
+  interval is by patient, but 14 patients from one database is little.
+- **Which to use** depends on the setting. The interpretable model alone
+  explains every decision; the hybrid makes about two-thirds fewer PAC
+  false alarms but can't explain the calls it removes. The interpretable
+  model stays the main model of this project.
+
 ## Reporting details (TRIPOD+AI)
 
 This section collects items of the TRIPOD+AI reporting guideline that the
@@ -979,6 +1042,7 @@ the saved test outputs; nothing was refitted.
 | Ningbo | Ningbo First Hospital (China), via Challenge 2021 | not given in the release | diagnosis codes (AF/flutter codes unreliable) | test 11 (PAC and sinus only) |
 | CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | tests 11–12 |
 | CODE test set | as CODE-15% | as CODE-15% | two cardiologists, a third deciding disagreements | test 11 |
+| INCART | St Petersburg Institute of Cardiological Technics (Russia), 12-lead Holter | not given in the release | beat-by-beat annotations (automatic, then corrected by hand) | test 13 (PAC crops only) |
 
 **Eligibility.** Recordings were chosen from labels or headers alone,
 before any signal was looked at, by the rules in each test's section:
@@ -1006,6 +1070,8 @@ of each recording.
 | 11 CODE-15% part 0 | 20,000 | – | 1149 (22 AF) | 18,851 |
 | 11 CODE test set | 827 | – | 34 (0 AF) | 793 |
 | 12 CODE-15% part 1 | 20,000 | – | 1125 (17 AF) | 18,875 |
+| 13 INCART PAC crops | 447 (14 patients) | 2 patients with AF excluded beforehand | 0 | 447 |
+| 13 CODE-15% part 2 | 20,000 | – | 1144 (8 AF) | 18,856 |
 
 ```mermaid
 flowchart TD
@@ -1174,8 +1240,9 @@ library version (scikit-learn 1.9.1).
   `d52e2f5` 01:45; test 4 `5f92136` 02:25; test 5 `23da508` 11:55;
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
   test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
-  `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57. Each is followed by
-  its results commit. For tests 8–12 the registration commit
+  `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57; test 13 `007f6ab`
+  15:38. Each is followed by its results commit. For tests 8–13 the
+  registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
   the order. Test 1 (LTAFDB) has no separate registration commit.
@@ -1219,6 +1286,8 @@ python afib_comparison_test.py   # test 11, after the two TensorFlow steps below
 python afib_comparison_figure.py # test 11 figure
 python afib_fa_dev.py         # false-alarm fixes, development on all seven used sources
 python afib_unmeasured_test.py   # test 12; needs CODE-15% exams_part1 (as part 0)
+python afib_hybrid_dev.py     # hybrid thresholds (needs results/afib_cnn_dev_oof.csv from afib_cnn.py)
+python afib_hybrid_test.py    # test 13, after `python afib_compare_dnn.py incart code15p2`
 ```
 
 Test 11's neural networks need a separate TensorFlow environment
@@ -1248,6 +1317,7 @@ only, written to a `SELECTED` file of one `record label` pair per line.
 | SPH | `metadata.csv` and `records.tar.gz` (2.3 GB, a plain tar despite the name) from [figshare](https://doi.org/10.6084/m9.figshare.c.5779802) | `data/sph/` | `tar -xf records.tar.gz`; the test chooses from `metadata.csv` itself; needs `h5py` |
 | Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | `data/ningbo/SELECTED` lists `gN/JSxxxxx label` |
 | CODE-15% | `exams.csv`, `exams_part0.zip` and `exams_part1.zip` (2.7 GB each) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` (test 11) and `exams_part1.hdf5` (test 12) |
+| INCART | the `.hea`, `.atr` and `.dat` files of the recordings in [`results/incart_selected.txt`](results/incart_selected.txt) from [PhysioNet](https://physionet.org/content/incartdb/1.0.0/) | `data/incart/` | copy `results/incart_selected.txt` there as `SELECTED` |
 | CODE test set and Ribeiro's network | `data.zip` (218 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625006)) and `model.zip` (336 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625017)) | `data/ribeiro/` | unzip both there |
 
 ### Tests
@@ -1287,7 +1357,9 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 - Black boxes do better on atrial premature beats: on SPH and Ningbo a
   published deep network and a CNN trained on the same data call far
   fewer PAC recordings AF (test 11). PAC false alarms also vary by
-  hospital (9.5% at SPH, 24.5% at Ningbo).
+  hospital (9.5% at SPH, 24.5% at Ningbo). The hybrid of section 9 closes
+  much of this gap (test 13), but by letting the CNN make most decisions,
+  and its PAC evidence rests mainly on 2 patients.
 - Recordings whose P waves can't be measured (fewer than 3 usable
   regular beats) still lean towards AF: after the test 12 fix, 76% of
   such non-AF recordings are still called AF (100% before). And 5.6–5.7%
@@ -1340,6 +1412,9 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 - Reyna MA, Sadr N, Perez Alday EA, et al. *Will two do? Varying
   dimensions in electrocardiography: the PhysioNet/Computing in
   Cardiology Challenge 2021.* Computing in Cardiology 48 (2021).
+- Tihonenko V, Khaustov A, Ivanov S, Rivin A, Yakushenko E. *St
+  Petersburg INCART 12-lead Arrhythmia Database.* PhysioBank,
+  PhysioToolkit, and PhysioNet (2008). doi:10.13026/C2V88N
 - Ribeiro AH, Ribeiro MH, Paixão GMM, et al. *Automatic diagnosis of the
   12-lead ECG using a deep neural network.* Nat Commun 11:1760 (2020).
   (The deep network, the CODE test set and its doctor annotations)
