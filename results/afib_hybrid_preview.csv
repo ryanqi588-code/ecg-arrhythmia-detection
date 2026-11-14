@@ -1,0 +1,9 @@
+set,model,AF caught,N called AF,PAC called AF,notAF_code15 called AF,notAF_codetest called AF
+sph,"interpretable (alone, its cutoff)",0.9880774962742176,0.0008629989212513484,0.0893854748603352,,
+sph,hybrid,0.9910581222056631,0.0002157497303128371,0.0335195530726257,,
+ningbo,"interpretable (alone, its cutoff)",,0.03,0.2519230769230769,,
+ningbo,hybrid,,0.008,0.08365384615384615,,
+code15,"interpretable (alone, its cutoff)",0.9198113207547169,,,0.03646822597275737,
+code15,hybrid,0.9127358490566038,,,0.02702556031909698,
+codetest,"interpretable (alone, its cutoff)",0.9230769230769231,,,,0.03205128205128205
+codetest,hybrid,1.0,,,,0.029487179487179487

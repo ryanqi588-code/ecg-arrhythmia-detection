@@ -19,12 +19,14 @@ Sets (see afib_comparison_test.py for how each was chosen):
   code15   - CODE-15% part 0 (Ribeiro's network is skipped: CODE-15% is a
              sample of its training data)
   codetest - the 827 CODE test ECGs annotated by cardiologists
+  incart, code15p2 - test 13's sets (afib_hybrid_test.py); CNN only
 """
 
 import os
 import sys
 
 import h5py
+import wfdb
 import numpy as np
 import pandas as pd
 from scipy.signal import butter, filtfilt, resample_poly
@@ -100,6 +102,22 @@ def iter_set(name):
                 if eid not in exams.index:              # the file's last row is padding
                     continue
                 yield int(eid), "A" if exams.AF[eid] else "notAF", "code15", strip_padding(f["tracings"][i]), FS_R
+    elif name == "incart":
+        for line in open("data/incart/SELECTED").read().splitlines():
+            rec, k, patient, label = line.split()
+            n = 2570                                        # 10 s at 257 Hz
+            r = wfdb.rdrecord(f"data/incart/{rec}", sampfrom=int(k) * n, sampto=(int(k) + 1) * n)
+            assert [x.upper() for x in r.sig_name] == LEADS_12, r.sig_name
+            yield f"{rec}-{k}", label, "incart", r.p_signal, r.fs
+    elif name == "code15p2":
+        exams = pd.read_csv("data/code15/exams.csv")
+        exams = exams[exams.trace_file == "exams_part2.hdf5"].set_index("exam_id")
+        with h5py.File("data/code15/exams_part2.hdf5", "r") as f:
+            ids = f["exam_id"][()]
+            for i, eid in enumerate(ids):
+                if eid not in exams.index:
+                    continue
+                yield int(eid), "A" if exams.AF[eid] else "notAF", "code15", strip_padding(f["tracings"][i]), FS_R
     elif name == "codetest":
         gold = pd.read_csv("data/ribeiro/data/annotations/gold_standard.csv")
         with h5py.File("data/ribeiro/data/ecg_tracings.hdf5", "r") as f:
@@ -112,11 +130,12 @@ if __name__ == "__main__":
     import tensorflow as tf
     import tf_keras
     sets = sys.argv[1:] or ["dev", "sph", "ningbo", "code15", "codetest"]
-    ribeiro = tf_keras.models.load_model(RIBEIRO_MODEL, compile=False)
+    needs_ribeiro = any(n in ("dev", "sph", "ningbo", "codetest") for n in sets)
+    ribeiro = tf_keras.models.load_model(RIBEIRO_MODEL, compile=False) if needs_ribeiro else None
     cnn = tf.keras.models.load_model(MODEL_PATH)
     for name in sets:
         rows, xr, xc = [], [], []
-        use_ribeiro = name != "code15"
+        use_ribeiro = name in ("dev", "sph", "ningbo", "codetest")      # test 11's sets only
         use_cnn = name != "dev"
         for i, (rec, label, source, sig, fs) in enumerate(iter_set(name)):
             if i % 1000 == 0:
