@@ -16,14 +16,16 @@ clinical 12-lead ECGs.
 | AF on 10 s clinical 12-lead ECGs | 15,113 ECGs from Shandong Provincial Hospital | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs |
 | Atrial flutter on 10 s clinical 12-lead ECGs | 99 flutter and 711 sinus tachycardia ECGs (Shandong) | **83.8%** of flutter caught as AF or flutter (AF model alone: 54.5%), 70.7% named flutter; 3.7% of sinus tachycardia flagged |
 | AF on handheld recordings | – (no unused data left) | cross-validation only: 92.7% sensitivity |
+| Against deep learning and doctors | Shandong, Ningbo (China), CODE-15% and the CODE test set (Brazil) | within 0.01 AUC of a published deep network and of a CNN trained on the same data (AUC 0.996 vs 0.998 and 1.000), but **1.4–2.6 times as many false alarms on atrial premature beats**; on 13 AF cases, sensitivity like the best doctors (12/13) at lower specificity (96.4% vs 98.8–100%) |
 
-These took ten tests on fresh data, several of which failed; all of them
+These took eleven tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
 **Timeline.** This was an intensive five-day project, not months of
 independent research. It started from an earlier Colab notebook of mine;
-the repository's first commit was on 8 October 2026, and the ten
-fresh-data tests were run between 11 and 12 October 2026. The commit
+the repository's first commit was on 8 October 2026, and the first ten
+fresh-data tests were run between 11 and 12 October 2026. The comparison
+with other methods (test 11) was added on 14 November 2026. The commit
 history shows each step.
 
 ## How the tests were run
@@ -65,6 +67,7 @@ history shows each step.
 | 8 | Chapman-Shaoxing | more training data, strictest cutoff | 98.9% | PAC 24.0% | target met, but only by moving the cutoff |
 | 9 | Shandong (SPH) | 12-lead P waves, f-wave ratio, multi-lead beats | **98.4%** | **PAC 9.5%**, normal 0.1% | better at both ends |
 | 10 | Shandong (SPH) flutter, sinus tachycardia | flutter model alongside the AF model | flutter **83.8%** (AF model alone 54.5%) | sinus tachycardia 3.7% | as developed; SVT untested |
+| 11 | SPH, Ningbo, CODE-15%, CODE test | the final AF model against a published deep network, a same-data CNN, and doctors | 98.4% (SPH), 92.0% (CODE-15%) | PAC 9.5% (SPH), 24.5% (Ningbo) | close in AUC; worse on PAC than both networks |
 
 ## 1. Beat detection
 
@@ -643,6 +646,24 @@ of its releases, so its AF labels couldn't be trusted.)
 - **This time the model itself got better** (AUC 0.996 vs 0.993), rather
   than the cutoff moving.
 
+### Removing frequent atrial premature beats (didn't help)
+
+[`ecg.flag_ectopic`](ecg.py) catches ventricular extra beats but only about
+5% of atrial ones, because it judges "early" against the local median
+(which frequent PACs pull down) and asks for a long pause afterwards
+(which a PAC often doesn't cause). [`af.atrial_premature`](af.py) instead
+judges "early" against the recording's longer intervals (70th percentile)
+with no pause rule, and [`afib_ectopy_dev.py`](afib_ectopy_dev.py)
+removed those beats only in recordings with consistent P waves across the
+12 leads (`p_match_mean` at or above a gate), so AF keeps its
+irregularity. In development (same data and cutoff rule as test 9) no
+gate or threshold changed PAC false alarms beyond noise (10.7–12.5%,
+against 11.6%). The reason: in 73% of the PAC recordings still called AF,
+about 45% of beats are early, so removing them leaves fewer than 6
+intervals in 10 s, too few to measure. Vetoing AF in that situation did
+no better than simply raising the cutoff. No test was registered, and the
+final model is unchanged.
+
 ### Calibration: can the probabilities be read as risk?
 
 [`afib_calibration.py`](afib_calibration.py) checks whether predicted
@@ -749,6 +770,116 @@ so SVT false alarms can't be tested here.
   recordings the interval is wide (75–90%). Flutter AUC is 0.913 against
   everything, 0.937 against sinus tachycardia and 0.887 against AF.
 
+## 7. Against deep learning and doctors (test 11)
+
+Every earlier comparison was against this project's own earlier versions.
+Test 11 compares the final 12-lead AF model, a logistic regression on 10
+named features, with:
+
+- **Ribeiro et al.'s deep neural network** (Nature Communications 2020),
+  published with its weights and trained on 2.3 million Brazilian
+  12-lead ECGs ([`afib_compare_dnn.py`](afib_compare_dnn.py)).
+- **A 1D residual CNN trained on exactly this model's development data**
+  ([`afib_cnn.py`](afib_cnn.py)), with the same class weighting and
+  cutoff rule. Its architecture and training settings were fixed before
+  it was trained and not tuned; the trained network is in
+  [`models/`](models/). This is the fairest test of what a black box
+  gains, since only the model differs.
+- **Doctors**: on the CODE test set (827 Brazilian ECGs; gold standard
+  from two cardiologists, a third deciding disagreements), the AF calls
+  of the two cardiologists, two 4th-year cardiology residents, two
+  3rd-year emergency residents and two 5th-year medical students,
+  released with that dataset.
+
+Every model got its cutoff from the same development data by the same
+rule (the strictest per-source 95%-sensitivity cutoff), and all were
+scored on the same recordings: those this model could score. The plan
+([`afib_comparison_test.py`](afib_comparison_test.py)) was committed and
+pushed before any test set was opened, with the primary question fixed:
+is this model within 0.01 ROC AUC of each black box on SPH (lower bound
+of the paired bootstrap 95% interval of the difference above −0.01)?
+The test sets:
+
+| Set | Recordings scored | Fresh for |
+|---|---|---|
+| SPH (test 9's recordings) | 15,113: 671 AF, 537 PAC, 13,905 normal | both networks (this model's numbers there are test 9's) |
+| Ningbo (Challenge 2021) | 2540: 1040 PAC, 1500 sinus (1 unscorable) | all three; false alarms only, since Ningbo's AF codes can't be trusted |
+| CODE-15%, part 0 (Brazil, mostly primary care, 2010–2016) | 18,851: 424 AF (1149 unscorable by this model) | this model and the CNN; Ribeiro's network was trained on CODE, so it's left out |
+| CODE test set | 793: 13 AF (34 unscorable) | this model and the CNN; it's Ribeiro's own test set |
+
+**Results at each model's cutoff** (95% intervals):
+
+| | This model | Same-data CNN | Ribeiro's network |
+|---|---|---|---|
+| SPH ROC AUC | 0.996 | 1.000 | 0.998 |
+| SPH AF caught | 98.4% (97.1–99.1) | 99.7% (98.9–99.9) | 99.0% (97.9–99.5) |
+| SPH PAC called AF | 9.5% (7.3–12.3) | **3.7%** (2.4–5.7) | 6.0% (4.3–8.3) |
+| SPH normal called AF | 0.1% | 0.0% | 0.0% |
+| Ningbo PAC called AF | 24.5% (22.0–27.2) | **10.1%** (8.4–12.1) | 17.1% (14.9–19.5) |
+| Ningbo sinus called AF | 1.9% | 1.3% | 0.4% |
+| CODE-15% ROC AUC | 0.964 | 0.973 | – |
+| CODE-15% AF caught | 92.0% (89.0–94.2) | 92.5% (89.5–94.6) | – |
+| CODE-15% non-AF called AF | 4.2% | 4.6% | – |
+
+![Comparison](figures/afib_comparison.png)
+
+- **Primary result: close, as registered.** On SPH this model's AUC is
+  0.0040 below the CNN's (95% CI −0.0086 to −0.0005) and 0.0026 below
+  Ribeiro's (−0.0077 to +0.0022). Both intervals stay above −0.01, so it
+  meets the pre-set closeness margin against both. But against the CNN
+  the gap is statistically real: the black box does rank better.
+- **The gap is in atrial premature beats.** At their own cutoffs both
+  networks catch at least as much AF and call far fewer PAC recordings
+  AF: on SPH 3.7% and 6.0% against 9.5%, and on Ningbo, a hospital none
+  of the models had seen, 10.1% and 17.1% against 24.5%. At the same
+  sensitivity as this model (98.4%) on SPH, the networks call 1.7–1.9%
+  of PAC recordings AF against its 7.6% (worked out after the run).
+- **PAC false alarms depend heavily on the hospital** for every model:
+  this model's 9.5% at SPH is 24.5% at Ningbo, so the SPH figure
+  shouldn't be quoted as general.
+- **In Brazilian primary care the gap is small.** On CODE-15% this
+  model's AUC is 0.009 below the CNN's (−0.019 to +0.001) with the same
+  sensitivity and slightly fewer false alarms. All models do worse there
+  (AUC 0.96–0.97) than at SPH, although CODE-15%'s AF labels required an
+  irregular pulse, which should make AF easier to find. 5.7% of its
+  recordings (many 7 s long) had too few beats for this model.
+
+**Against doctors** (CODE test set, the 793 recordings this model could
+score; 13 AF, so every sensitivity has a wide interval):
+
+| Reader | AF caught | Specificity |
+|---|---|---|
+| Cardiologist 1 | 10/13 | 100% |
+| Cardiologist 2 | 12/13 | 99.7% |
+| Cardiology residents | 10/13 | 99.6% |
+| Emergency residents | 8/13 | 99.7% |
+| Medical students | 12/13 | 98.8% |
+| Ribeiro's network, its published threshold | 10/13 | 100% |
+| Ribeiro's network, this project's cutoff rule | 12/13 | 99.1% |
+| Same-data CNN | 13/13 | 93.2% |
+| **This model** | **12/13** | **96.4%** |
+
+This model catches as many of the 13 AF cases as the best readers, but
+it's set for 95% sensitivity, and its specificity (96.4%, 28 false alarms
+in 780) is below every doctor's (98.8–100%). It can't trade down to the
+doctors' operating point: at least 8 non-AF ECGs score higher than every
+AF case.
+
+**Why (error analysis after the run; nothing was changed in response).**
+Most of those confident false alarms have `p_match_mean` of exactly 0.
+That isn't measured absence of P waves: a recording with fewer than 3
+regular, non-ectopic beats is *scored* as P-wave-free, which reads as
+AF-like. Noisy, very fast and bundle-branch-block recordings (whose wide
+beats are flagged as ectopic) fall into that rule and are pushed to AF.
+The networks don't have this failure mode.
+
+**What this means for interpretability.** The transparent model gets
+within the pre-set 0.01 AUC of both black boxes, and its errors can be
+traced to a named feature and a specific rule, as above. But it isn't as
+good: on atrial premature beats the networks make 40–70% as many false
+alarms as it does. That is the cost of interpretability here, measured
+instead of assumed.
+
 ## Reporting details (TRIPOD+AI)
 
 This section collects items of the TRIPOD+AI reporting guideline that the
@@ -766,7 +897,10 @@ the saved test outputs; nothing was refitted.
 | Georgia | Emory University, Atlanta (USA) | released 2020 | diagnosis codes per patient's ECG | test 6 |
 | PTB-XL | Physikalisch-Technische Bundesanstalt, Germany | 1984–2001 (recording dates in the database) | cardiologist reports, validated by a second cardiologist | test 7; then clinical development |
 | Chapman-Shaoxing | Shaoxing People's Hospital, Zhejiang (China) | not given in the release | rhythm per ECG by physicians | test 8; then clinical and flutter development |
-| SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | tests 9–10 |
+| SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | tests 9–11 |
+| Ningbo | Ningbo First Hospital (China), via Challenge 2021 | not given in the release | diagnosis codes (AF/flutter codes unreliable) | test 11 (PAC and sinus only) |
+| CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | test 11 |
+| CODE test set | as CODE-15% | as CODE-15% | two cardiologists, a third deciding disagreements | test 11 |
 
 **Eligibility.** Recordings were chosen from labels or headers alone,
 before any signal was looked at, by the rules in each test's section:
@@ -790,6 +924,9 @@ of each recording.
 | 8 Chapman-Shaoxing | 3815 | – | 2 (AF) | 3813 |
 | 9 SPH | 15,119 | – | 6 (4 AF, 2 PAC) | 15,113 |
 | 10 SPH | 1498 | – | 0 | 1498 |
+| 11 Ningbo | 2541 | – | 1 | 2540 |
+| 11 CODE-15% part 0 | 20,000 | – | 1149 (22 AF) | 18,851 |
+| 11 CODE test set | 827 | – | 34 (0 AF) | 793 |
 
 ```mermaid
 flowchart TD
@@ -869,14 +1006,15 @@ How SPH differs from the development data:
   patients over 80, flutter detection is lower (75%) and 3 of 14 sinus
   tachycardia recordings were flagged. None of these differences is
   outside its interval.
-- **Who is underrepresented.** The final model was tested only on adults
-  (18–95) at one hospital in China. Its development data adds other
-  Chinese hospitals and one German institute; earlier model versions were
-  also tested on US (Georgia) and German (PTB-XL) data, but the final
-  model wasn't. No dataset records ethnicity, so performance in African,
-  South Asian, Hispanic, Indigenous and other populations is unknown, as
-  it is in children, in primary care, ambulance or wearable settings, on
-  other ECG machines, and in low-resource settings.
+- **Who is underrepresented.** The final model was tested on adults at
+  two hospitals in China (SPH, Ningbo) and in Brazilian public primary
+  care (CODE-15% and the CODE test set, test 11). Its development data
+  adds other Chinese hospitals and one German institute; earlier model
+  versions were also tested on US (Georgia) and German (PTB-XL) data. No
+  dataset records ethnicity, so performance in African, South Asian,
+  Indigenous and many other populations is unknown, as it is in children,
+  ambulance or wearable settings, and on most ECG machines. The subgroup
+  results above are for SPH only.
 
 ### Final model specification
 
@@ -949,8 +1087,9 @@ library version (scikit-learn 1.9.1).
   (author time, US Central): test 2 `efc7dfa` 2026-10-11 01:12; test 3
   `d52e2f5` 01:45; test 4 `5f92136` 02:25; test 5 `23da508` 11:55;
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
-  test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12. Each is
-  followed by its results commit. For tests 8–10 the registration commit
+  test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
+  `d8c5ce2` 2026-11-14 13:06. Each is followed by its results commit.
+  For tests 8–11 the registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
   the order. Test 1 (LTAFDB) has no separate registration commit.
@@ -989,6 +1128,18 @@ python afib_calibration.py    # calibration of the saved test 6-9 outputs
 python afib_flutter_dev.py    # flutter development (needs SELECTED_FLUTTER_DEV for Chapman and PTB-XL)
 python afib_flutter_test.py   # test 10
 python afib_subgroups.py      # demographics and subgroup results of tests 9-10
+python afib_ectopy_dev.py     # atrial premature beat removal (development only)
+python afib_comparison_test.py   # test 11, after the two TensorFlow steps below
+python afib_comparison_figure.py # test 11 figure
+```
+
+Test 11's neural networks need a separate TensorFlow environment
+(`pip install -r requirements-dnn.txt`, tested with Python 3.12 on an
+Apple M3):
+
+```bash
+python afib_cnn.py            # trains the same-data CNN (models/cnn_model.keras is the registered one)
+python afib_compare_dnn.py    # both networks' probabilities on every comparison set
 ```
 
 Results are written to [`results/`](results/) (the `*_recordings.csv`
@@ -1007,6 +1158,9 @@ only, written to a `SELECTED` file of one `record label` pair per line.
 | PTB-XL | [`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv), then the chosen `records500/` `.hea` and `.dat` (2875, ~350 MB) | `data/ptbxl/` | records named `records500/xxxxx/yyyyy_hr`; flutter development recordings in `SELECTED_FLUTTER_DEV` (374 more) |
 | Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there; flutter development recordings in `SELECTED_FLUTTER_DEV` (1753 more) |
 | SPH | `metadata.csv` and `records.tar.gz` (2.3 GB, a plain tar despite the name) from [figshare](https://doi.org/10.6084/m9.figshare.c.5779802) | `data/sph/` | `tar -xf records.tar.gz`; the test chooses from `metadata.csv` itself; needs `h5py` |
+| Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | `data/ningbo/SELECTED` lists `gN/JSxxxxx label` |
+| CODE-15% | `exams.csv` and `exams_part0.zip` (2.7 GB) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` |
+| CODE test set and Ribeiro's network | `data.zip` (218 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625006)) and `model.zip` (336 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625017)) | `data/ribeiro/` | unzip both there |
 
 ### Tests
 
@@ -1015,13 +1169,14 @@ pip install pytest
 pytest
 ```
 
-The 35 tests in [`tests/`](tests/) use synthetic ECG and RR series, so
+The 36 tests in [`tests/`](tests/) use synthetic ECG and RR series, so
 they run offline in about a second. They check the detectors (upside-down
 beats, T waves, one tall spike, a small biphasic lead), scoring, each
 feature on series where the answer is known (e.g. TPR = 1 for alternating
 intervals, ≈ 2/3 for random ones), the ectopic and atrial-ectopic flags,
 the P-wave, f-wave and flutter-wave measures (a 300/min sawtooth against
-sinus rhythm), the override, and per-source cutoffs.
+sinus rhythm), the atrial premature beat rule (it finds frequent PACs
+the old timing rule misses), the override, and per-source cutoffs.
 GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 
 ## Limitations
@@ -1041,6 +1196,14 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
   the hardest source in development (94.9% sensitivity), so it may do
   worse elsewhere. It needs all 12 leads, and about 1 in 10 PAC
   recordings is still called AF.
+- Black boxes do better on atrial premature beats: on SPH and Ningbo a
+  published deep network and a CNN trained on the same data call far
+  fewer PAC recordings AF (test 11). PAC false alarms also vary by
+  hospital (9.5% at SPH, 24.5% at Ningbo).
+- Recordings with fewer than 3 usable regular beats are scored as
+  P-wave-free, which pushes noisy, very fast and bundle-branch-block
+  recordings towards AF; and 5.7% of CODE-15% recordings (many 7 s long)
+  couldn't be scored at all.
 - Flutter: about 1 in 6 flutter recordings is still missed, regular 2:1
   flutter and SVT can't be reliably told apart in 10 s (20% of SVT was
   flagged in development, and the test had no SVT to check this), and
@@ -1089,6 +1252,12 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 - Reyna MA, Sadr N, Perez Alday EA, et al. *Will two do? Varying
   dimensions in electrocardiography: the PhysioNet/Computing in
   Cardiology Challenge 2021.* Computing in Cardiology 48 (2021).
+- Ribeiro AH, Ribeiro MH, Paixão GMM, et al. *Automatic diagnosis of the
+  12-lead ECG using a deep neural network.* Nat Commun 11:1760 (2020).
+  (The deep network, the CODE test set and its doctor annotations)
+- Lima EM, Ribeiro AH, Paixão GMM, et al. *Deep neural network-estimated
+  electrocardiographic age as a mortality predictor.* Nat Commun 12:5117
+  (2021). (CODE-15%)
 - Liu H, Chen D, Chen D, et al. *A large-scale multi-label 12-lead
   electrocardiogram database with standardized diagnostic statements.*
   Sci Data 9:272 (2022). (Shandong Provincial Hospital, SPH)
