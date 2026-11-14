@@ -180,6 +180,59 @@ def f_wave_activity(sig, fs, peaks, pre=0.25, post=0.55):
     return np.sqrt(np.mean(f ** 2)) / np.ptp(template)
 
 
+def p_concentration(leads, fs, peaks, early=None, qrst=(0.06, 0.5), guard=0.25, window=(0.25, 0.06)):
+    """How much of each RR interval's atrial activity sits just before the next QRS.
+
+    A P wave of any shape, normal or a premature beat's odd one, is a
+    discrete wave just before its QRS. Fibrillatory waves are spread across
+    the whole interval. For every beat, across all `leads` (columns): after
+    subtracting the median QRS-T complex (`qrst` s around each peak,
+    stopping `guard` s before the next beat, as ecg.p_wave_consistency),
+    the share of the residual energy between the previous beat's QRS end and
+    this QRS that falls in `window` (s before the peak), divided by that
+    window's share of the interval's length. About 1 for evenly spread
+    activity; above 1 when a P wave is there. Each lead is scaled by its own
+    residual SD so no lead dominates.
+
+    Returns (median over beats, median over the `early` beats); NaN where
+    there are fewer than 3 (resp. 1) usable beats.
+    """
+    leads = np.atleast_2d(np.asarray(leads, dtype=float).T).T
+    peaks = np.asarray(peaks)
+    if len(peaks) < 4:
+        return np.nan, np.nan
+    a, b, g = int(qrst[0] * fs), int(qrst[1] * fs), int(guard * fs)
+    w0, w1 = int(window[0] * fs), int(window[1] * fs)
+    energy = np.zeros(len(leads))
+    for k in range(leads.shape[1]):
+        x = bandpass(leads[:, k], fs)
+        ok = [p for p in peaks if p - a >= 0 and p + b <= len(x)]
+        if len(ok) < 3:
+            continue
+        template = np.median([x[p - a:p + b] for p in ok], axis=0)
+        nxt = np.r_[peaks[1:], len(x) + b + g]
+        for p, q in zip(peaks, nxt):
+            lo, hi = max(0, p - a), min(len(x), p + b, q - g)
+            if hi > lo:
+                x[lo:hi] -= template[lo - (p - a):hi - (p - a)]
+        sd = x.std()
+        if sd > 0:
+            energy += (x / sd) ** 2
+    ratios = np.full(len(peaks), np.nan)
+    for i in range(1, len(peaks)):
+        start, end = peaks[i - 1] + a, peaks[i] - int(0.03 * fs)   # previous QRS end to this QRS onset
+        ws, we = max(peaks[i] - w0, start), min(peaks[i] - w1, end)
+        if we - ws < int(0.05 * fs) or end - start <= we - ws:
+            continue
+        total = energy[start:end].sum()
+        if total > 0:
+            ratios[i] = (energy[ws:we].sum() / total) / ((we - ws) / (end - start))
+    usable = np.isfinite(ratios)
+    allm = np.median(ratios[usable]) if usable.sum() >= 3 else np.nan
+    e = usable & (np.zeros(len(peaks), bool) if early is None else np.asarray(early))
+    return allm, (np.median(ratios[e]) if e.any() else np.nan)
+
+
 def flutter_features(sig, fs, peaks, blank=0.06, lags=(0.15, 0.27)):
     """Signs of atrial flutter's regular sawtooth waves in one lead.
 

@@ -908,7 +908,16 @@ per-source 95% cutoff on CPSC, PTB-XL and Chapman).
   PAC with AUC only 0.65–0.72 alone). Training on all seven sources with
   the strictest-source rule also let CODE-15%, the hardest source, drag
   the cutoff down (PAC false alarms 41%), so cutoffs stay set on the
-  original three. The information the networks use for PACs isn't in
+  original three. Two later attempts didn't move them either:
+  [`ecg.p_concentration`](ecg.py) ([`afib_pconc_dev.py`](afib_pconc_dev.py)),
+  how much of each interval's atrial activity sits just before the QRS (a
+  P wave of any shape, including a PAC's own), separates AF from PAC with
+  AUC 0.82 alone but changed PAC false alarms only from 16.4% to 16.1%;
+  and P-wave consistency over each recording's 3 best leads instead of
+  all 12 lost discrimination (AUC 0.958 to 0.939), because real AF also
+  matches on some leads by chance. Plots of PAC recordings this model
+  calls AF but the CNN doesn't show plain sinus rhythm with a P wave
+  before nearly every beat; the information the networks use isn't in
   these hand-made features yet.
 
 **Test 12** ([`afib_unmeasured_test.py`](afib_unmeasured_test.py)): the
