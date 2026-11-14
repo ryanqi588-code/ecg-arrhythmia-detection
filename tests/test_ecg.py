@@ -4,7 +4,7 @@ import numpy as np
 
 from ecg import (bandpass, detect_peaks_adaptive, detect_peaks_fixed, detect_peaks_multilead,
                  f_wave_activity, f_wave_ratio, flag_atrial_ectopic, flag_ectopic, flutter_features,
-                 p_wave_consistency, score)
+                 p_presence, p_wave_consistency, score)
 
 FS = 360
 
@@ -187,6 +187,20 @@ def test_flutter_features_see_a_sawtooth_but_not_sinus_rhythm():
     assert f["fl_autocorr"] > 0.8 > s["fl_autocorr"]
     assert abs(f["fl_freq"] - 5.0) <= 0.5
     assert f["fl_baseline"] > s["fl_baseline"]
+
+
+def test_p_presence_sees_p_waves_but_not_fibrillation():
+    # Sinus rhythm with two premature beats, with and without P waves; and fibrillation.
+    times = np.arange(1, 29, 0.9)
+    times[[8, 18]] -= 0.2
+    s = synthetic_ecg(times, t_wave=0.3)
+    t = np.arange(len(s)) / FS
+    sinus = s + sum(0.12 * np.exp(-0.5 * ((t - bt + 0.16) / 0.025) ** 2) for bt in times)
+    fib = s + 0.06 * np.sin(2 * np.pi * 6.3 * t + 3 * np.sin(2 * np.pi * 0.7 * t))
+    peaks = detect_peaks_adaptive(s, FS)
+    # Before the template's own baseline was removed, the step it left made sinus score 0.
+    assert p_presence(sinus, FS, peaks)[0] > 0.9
+    assert p_presence(fib, FS, peaks)[0] < 0.1
 
 
 def test_score_counts():

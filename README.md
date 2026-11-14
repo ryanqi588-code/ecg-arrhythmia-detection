@@ -919,6 +919,20 @@ per-source 95% cutoff on CPSC, PTB-XL and Chapman).
   calls AF but the CNN doesn't show plain sinus rhythm with a P wave
   before nearly every beat; the information the networks use isn't in
   these hand-made features yet.
+- **Per-beat P waves helped a little, not enough to adopt.**
+  [`ecg.p_presence`](ecg.py) makes the per-beat check a cardiologist
+  makes: in leads II and V1, does a wave just before each QRS stand out
+  from the quiet part of the same interval? Shape doesn't matter, so it
+  counts P waves a consistency score misses, but premature beats
+  themselves can't be judged (their P wave sits on the previous T wave).
+  Alone it separates AF from PAC well (AUC 0.87–0.89 where scorable;
+  median share of beats with a P wave: AF 0.00, PAC 0.65–0.75). In the
+  model ([`afib_ppresence_dev.py`](afib_ppresence_dev.py)), AF-vs-PAC AUC
+  rose from 0.978 to 0.980–0.981 and, at matched sensitivity, PAC false
+  alarms fell by up to about 2 points (at 97%: 13.4% to 11.3%; at 95%:
+  8.6% to 8.3%). That's far from the networks' advantage, and too small
+  to check on the only fresh PAC data left (INCART: 447 crops, mostly
+  from 2 patients), so it wasn't adopted.
 
 **Test 12** ([`afib_unmeasured_test.py`](afib_unmeasured_test.py)): the
 fix against the final model on CODE-15% part 1 (Brazil; chosen before

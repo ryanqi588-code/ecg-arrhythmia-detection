@@ -233,6 +233,58 @@ def p_concentration(leads, fs, peaks, early=None, qrst=(0.06, 0.5), guard=0.25, 
     return allm, (np.median(ratios[e]) if e.any() else np.nan)
 
 
+def p_presence(sig, fs, peaks, early=None, qrst=(0.06, 0.5), guard=0.25, window=(0.25, 0.05),
+               t_end=0.45, ratio=2.0):
+    """Share of beats with a P wave that stands out from the baseline, in one lead.
+
+    The per-beat check a cardiologist makes: is there a discrete wave just
+    before this QRS? After subtracting the median QRS-T complex (as
+    ecg.p_wave_consistency), each beat's pre-QRS stretch (`window` s before
+    the peak) is compared with the quiet part of the same RR interval, from
+    `t_end` s after the previous peak (past its T wave) to the stretch's
+    start. The beat counts as having a P wave if the stretch's peak-to-peak
+    is at least `ratio` times the largest peak-to-peak of any equally long
+    piece of the quiet part. Shape doesn't matter, so a premature beat's
+    odd P wave counts; fibrillatory waves are as large everywhere, so they
+    don't. Beats without at least one stretch length of quiet part (fast
+    rates, very early beats) are left unscored.
+
+    Returns (share of scored beats with a P wave, the same for `early` beats,
+    number of scored beats); NaN shares where none were scored.
+    """
+    peaks = np.asarray(peaks)
+    if len(peaks) < 4:
+        return np.nan, np.nan, 0
+    x = bandpass(sig, fs)
+    a, b, g = int(qrst[0] * fs), int(qrst[1] * fs), int(guard * fs)
+    ok = [p for p in peaks if p - a >= 0 and p + b <= len(x)]
+    if len(ok) < 3:
+        return np.nan, np.nan, 0
+    template = np.median([x[p - a:p + b] for p in ok], axis=0)
+    # Remove the template's own baseline (a line between its ends): otherwise subtracting it
+    # leaves a step where the subtraction stops, which would read as baseline activity.
+    template = template - np.linspace(template[0], template[-1], len(template))
+    nxt = np.r_[peaks[1:], len(x) + b + g]
+    for p, q in zip(peaks, nxt):
+        lo, hi = max(0, p - a), min(len(x), p + b, q - g)
+        if hi > lo:
+            x[lo:hi] -= template[lo - (p - a):hi - (p - a)]
+    w0, w1, te = int(window[0] * fs), int(window[1] * fs), int(t_end * fs)
+    wl = w0 - w1
+    present = np.full(len(peaks), np.nan)
+    for i in range(1, len(peaks)):
+        ws, we = peaks[i] - w0, peaks[i] - w1
+        quiet = x[peaks[i - 1] + te:ws]
+        if len(quiet) < wl or ws < 0:
+            continue
+        base = max(np.ptp(quiet[j:j + wl]) for j in range(0, len(quiet) - wl + 1, max(1, wl // 4)))
+        present[i] = float(np.ptp(x[ws:we]) >= ratio * base) if base > 0 else 1.0
+    scored = np.isfinite(present)
+    e = scored & (np.zeros(len(peaks), bool) if early is None else np.asarray(early))
+    return (present[scored].mean() if scored.any() else np.nan,
+            present[e].mean() if e.any() else np.nan, int(scored.sum()))
+
+
 def flutter_features(sig, fs, peaks, blank=0.06, lags=(0.15, 0.27)):
     """Signs of atrial flutter's regular sawtooth waves in one lead.
 
