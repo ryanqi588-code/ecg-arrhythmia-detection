@@ -20,6 +20,7 @@ Sets (see afib_comparison_test.py for how each was chosen):
              sample of its training data)
   codetest - the 827 CODE test ECGs annotated by cardiologists
   incart, code15p2 - test 13's sets (afib_hybrid_test.py); CNN only
+  mimic    - test 14's set (afib_mimic_select.py); CNN only
 """
 
 import os
@@ -118,6 +119,11 @@ def iter_set(name):
                 if eid not in exams.index:
                     continue
                 yield int(eid), "A" if exams.AF[eid] else "notAF", "code15", strip_padding(f["tracings"][i]), FS_R
+    elif name == "mimic":
+        from afib_mimic_select import MIMIC_DIR, load_mimic, read_selected
+        for path, subject, label in read_selected():
+            sig, fs = load_mimic(f"{MIMIC_DIR}/{path}")
+            yield path.split("/")[-1], label, "mimic", np.nan_to_num(sig), fs
     elif name == "codetest":
         gold = pd.read_csv("data/ribeiro/data/annotations/gold_standard.csv")
         with h5py.File("data/ribeiro/data/ecg_tracings.hdf5", "r") as f:
