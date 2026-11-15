@@ -472,19 +472,41 @@ probabilities are not calibrated risks
 - **Competing interests:** none.
 - **Protocol:** for each fresh-data test, the test script, which fixes
   the recordings, models, cutoffs and primary results, was committed
-  before the test data were opened, and the test was run once. Commits
-  (author time, US Central): test 2 `efc7dfa` 2026-10-11 01:12; test 3
-  `d52e2f5` 01:45; test 4 `5f92136` 02:25; test 5 `23da508` 11:55;
-  test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
-  test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
-  `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57; test 13 `007f6ab`
-  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05; test 16 `ba3839e` 18:55; MIMIC label check `e14302f` 21:12.
-  Each is followed by its results commit. For tests 8–16 the registration commit
-  was also pushed to GitHub before the data were opened; for tests 2–7 it
-  was pushed together with the results, so only the commit time records
-  the order. Test 1 (LTAFDB) has no separate registration commit. The
-  exceptions to the protocol in the earlier tests are disclosed in the
-  supplement where they happen.
+  before the test data were opened, and the test was run once.
+  Registration commits: test 2 `efc7dfa`, 3 `d52e2f5`, 4 `5f92136`,
+  5 `23da508`, 6 `e1b24b9`, 7 `dba1e05`, 8 `fa9efa8`, 9 `759d00c`,
+  10 `85c65d2`, 11 `d8c5ce2`, 12 `6da6e6b`, 13 `007f6ab`, 14 `9d82cbf`,
+  15 `041a560`, 16 `ba3839e`, MIMIC label check `e14302f`, each followed
+  by its results commit. Test 1 (LTAFDB) has no separate registration
+  commit. The exceptions to the protocol in the earlier tests are
+  disclosed in the supplement where they happen.
+- **Checking the registrations:** git commit times are set by the
+  author's computer, so on their own they prove nothing.
+  [`check_registrations.py`](check_registrations.py) checks the claims
+  against GitHub's server-side log of pushes, which the author can't
+  edit; CI runs it on every push, and anyone can run it in a full clone
+  (`python check_registrations.py`, standard library only). It shows
+  ([table](SUPPLEMENT.md#checking-the-registrations)):
+  - for tests 8–16 and the label check, the registration was public on
+    GitHub in an earlier push than the results (98 seconds to 2.3 hours
+    earlier); for tests 2–7 both arrived in the same push, so only the
+    commit times record the order;
+  - the repository's only force push was on 9 October 2026, before the
+    first registration, so no registration has been rewritten since;
+  - no registered test logic changed between registration and results.
+    The four code changes in that window (two error analyses appended
+    after the run and marked as such, a unit test, a figure script, and
+    one constant moved in test 14's selection script) are listed in the
+    supplement.
+  - For tests 14–16 the registration commit also holds the list of test
+    recordings, chosen by seeded code from the public machine reports, and
+    re-running the selection (`python afib_mimic_select.py`, `... test15`,
+    `python afib_slowaf_test.py select`) reproduces each list exactly.
+    Test 13's INCART list is in its registration commit too, but the code
+    that made it is not in the repository.
+
+  What it can't show is when the data were downloaded or opened: the
+  data sources keep no public download log.
 - **Registration:** the study was not formally registered (for example
   on OSF or a trial registry); the commits above are the only protocol
   record.

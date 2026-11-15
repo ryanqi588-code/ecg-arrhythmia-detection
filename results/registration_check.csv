@@ -1,0 +1,17 @@
+test,registration,results,script,order in history ok,script in registration commit,"registration pushed (GitHub, UTC)","results pushed (GitHub, UTC)","registration pushed separately, before results",Python changed between
+2,efc7dfa,57c7e27,afib_svdb_test.py,True,True,2026-10-11T06:26:50Z,2026-10-11T06:26:50Z,False,none
+3,d52e2f5,2df82b5,afib_cinc_test.py,True,True,2026-10-11T06:59:35Z,2026-10-11T06:59:35Z,False,afib_cinc_test.py (+21 -0)
+4,5f92136,7b2b983,afib_cpsc_test.py,True,True,2026-10-11T07:43:22Z,2026-10-11T07:43:22Z,False,none
+5,23da508,f923132,afib_cpscx_test.py,True,True,2026-10-11T17:29:48Z,2026-10-11T17:29:48Z,False,none
+6,e1b24b9,f9d8fe7,afib_georgia_test.py,True,True,2026-10-11T20:09:34Z,2026-10-11T20:09:34Z,False,afib_georgia_test.py (+32 -0); tests/test_ecg.py (+11 -2)
+7,dba1e05,290a3c5,afib_ptbxl_test.py,True,True,2026-10-11T22:40:10Z,2026-10-11T22:40:10Z,False,none
+8,fa9efa8,3f023d1,afib_chapman_test.py,True,True,2026-10-12T00:42:45Z,2026-10-12T03:00:17Z,True,none
+9,759d00c,a55d260,afib_sph_test.py,True,True,2026-10-12T03:26:21Z,2026-10-12T03:34:14Z,True,none
+10,85c65d2,b11926a,afib_flutter_test.py,True,True,2026-10-12T05:12:52Z,2026-10-12T05:15:43Z,True,none
+11,d8c5ce2,cc3a4a8,afib_comparison_test.py,True,True,2026-11-14T19:06:34Z,2026-11-14T19:20:28Z,True,afib_comparison_figure.py (+48 -0)
+12,6da6e6b,1ba7844,afib_unmeasured_test.py,True,True,2026-11-14T19:57:41Z,2026-11-14T20:31:48Z,True,none
+13,007f6ab,258bf77,afib_hybrid_test.py,True,True,2026-11-14T21:38:02Z,2026-11-14T22:01:52Z,True,none
+14,9d82cbf,85017f0,afib_mimic_test.py,True,True,2026-11-14T23:48:11Z,2026-11-15T00:00:50Z,True,afib_mimic_select.py (+2 -2)
+15,041a560,47339b8,afib_mimic15_test.py,True,True,2026-11-15T00:05:10Z,2026-11-15T00:13:42Z,True,none
+16,ba3839e,2f9bf16,afib_slowaf_test.py,True,True,2026-11-15T00:55:14Z,2026-11-15T01:08:22Z,True,none
+label check,e14302f,9cf49b2,afib_mimic_labels.py,True,True,2026-11-15T03:12:03Z,2026-11-15T03:13:41Z,True,none

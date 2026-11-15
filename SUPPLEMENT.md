@@ -59,6 +59,44 @@ model catches **94.3%**, against 75.8% where only sinus rhythm was
 recorded nearby
 ([details](#better-labels-is-the-machines-af-confirmed-by-the-patients-other-ecgs)).
 
+### Checking the registrations
+
+Output of [`check_registrations.py`](check_registrations.py) (also in
+[`results/registration_check.csv`](results/registration_check.csv)).
+Push times are GitHub's server record (UTC), not git's commit times,
+which the author's computer sets.
+
+| Test | Registration | Pushed (GitHub, UTC) | Results | Pushed (GitHub, UTC) | Separate, earlier push |
+|---|---|---|---|---|---|
+| 2 | `efc7dfa` | 2026-10-11 06:26:50 | `57c7e27` | same push | no |
+| 3 | `d52e2f5` | 2026-10-11 06:59:35 | `2df82b5` | same push | no |
+| 4 | `5f92136` | 2026-10-11 07:43:22 | `7b2b983` | same push | no |
+| 5 | `23da508` | 2026-10-11 17:29:48 | `f923132` | same push | no |
+| 6 | `e1b24b9` | 2026-10-11 20:09:34 | `f9d8fe7` | same push | no |
+| 7 | `dba1e05` | 2026-10-11 22:40:10 | `290a3c5` | same push | no |
+| 8 | `fa9efa8` | 2026-10-12 00:42:45 | `3f023d1` | 03:00:17 | yes |
+| 9 | `759d00c` | 2026-10-12 03:26:21 | `a55d260` | 03:34:14 | yes |
+| 10 | `85c65d2` | 2026-10-12 05:12:52 | `b11926a` | 05:15:43 | yes |
+| 11 | `d8c5ce2` | 2026-11-14 19:06:34 | `cc3a4a8` | 19:20:28 | yes |
+| 12 | `6da6e6b` | 2026-11-14 19:57:41 | `1ba7844` | 20:31:48 | yes |
+| 13 | `007f6ab` | 2026-11-14 21:38:02 | `258bf77` | 22:01:52 | yes |
+| 14 | `9d82cbf` | 2026-11-14 23:48:11 | `85017f0` | 2026-11-15 00:00:50 | yes |
+| 15 | `041a560` | 2026-11-15 00:05:10 | `47339b8` | 00:13:42 | yes |
+| 16 | `ba3839e` | 2026-11-15 00:55:14 | `2f9bf16` | 01:08:22 | yes |
+| label check | `e14302f` | 2026-11-15 03:12:03 | `9cf49b2` | 03:13:41 | yes |
+
+The repository's only force push was at 2026-10-09 01:21:01 UTC, before
+the first registration. Code changed between a registration and its
+results in four cases, none of them the registered test logic (see each
+with `git diff <registration> <results> -- '*.py'`):
+
+| Test | Changed | What |
+|---|---|---|
+| 3 | `afib_cinc_test.py` (+21, −0) | error analysis appended after the run, marked as such |
+| 6 | `afib_georgia_test.py` (+32, −0); `tests/test_ecg.py` (+11, −2) | error analysis appended after the run, marked as such; a unit test for `f_wave_activity` |
+| 11 | `afib_comparison_figure.py` (+48, new file) | figure of the results |
+| 14 | `afib_mimic_select.py` (+2, −2) | `LEADS_12` defined in the file instead of imported, so it runs without sklearn (same list) |
+
 ## S2. Beat detection
 
 [`ecg.py`](ecg.py) contains the detector:
