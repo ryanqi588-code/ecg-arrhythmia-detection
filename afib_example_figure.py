@@ -7,7 +7,8 @@ scored by predict.py, then
     among AF recordings called AF;
   - PAC false alarm: the PAC recording called AF with the median
     probability among PAC recordings called AF.
-Writes results/afib_example_scores.csv (cached) and figures/afib_examples.png.
+Writes results/afib_example_scores.csv (cached), figures/afib_examples.png, and print versions
+figures/Figure_1.pdf (vector) and figures/Figure_1.tiff (600 dpi), sized for a 17 cm page width.
 """
 
 import os
@@ -62,9 +63,9 @@ if __name__ == "__main__":
              ("Atrial premature beats, wrongly called AF", median_pick(pac_fa))]
 
     order = list(model[0].index)
-    plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK,
+    plt.rcParams.update({"font.size": 11, "pdf.fonttype": 42, "axes.edgecolor": MUTED, "axes.labelcolor": INK,
                          "xtick.color": MUTED, "ytick.color": INK, "text.color": INK})
-    fig = plt.figure(figsize=(12, 8.6))
+    fig = plt.figure(figsize=(9.5, 7.8))
     gs = fig.add_gridspec(5, 2, width_ratios=[2.1, 1], height_ratios=[1, 1, 0.32, 1, 1], hspace=0.25)
     lim = 0
     outs = []
@@ -84,27 +85,27 @@ if __name__ == "__main__":
             x = bandpass(sig[:, lead], FS)
             lo, hi = np.percentile(x, [0.2, 99.8])
             pad = (hi - lo) * 0.08
-            ax.plot(t, x, color=INK, linewidth=0.75)
+            ax.plot(t, x, color=INK, linewidth=0.6)
             top = hi + 3 * pad
-            ax.plot(peaks[~ectopic] / FS, np.full((~ectopic).sum(), top), "v", color=INK, markersize=5,
+            ax.plot(peaks[~ectopic] / FS, np.full((~ectopic).sum(), top), "v", color=INK, markersize=4.5,
                     label="beat counted" if row == 0 and k == 0 else None)
             ax.plot(peaks[ectopic] / FS, np.full(ectopic.sum(), top), "v", markerfacecolor="white",
-                    markeredgecolor=INK, markersize=5,
+                    markeredgecolor=INK, markersize=4.5,
                     label="ventricular ectopic (its RR intervals left out)" if row == 0 and k == 0 else None)
             ax.set_ylim(lo - pad, top + 2 * pad)
             ax.set_xlim(0, 10)
             ax.set_yticks([])
-            ax.set_ylabel(name, rotation=0, ha="right", va="center", fontsize=9)
+            ax.set_ylabel(name, rotation=0, ha="right", va="center", fontsize=11)
             ax.grid(axis="x", color=GRID, linewidth=0.6)
             for s in ["top", "right", "left"]:
                 ax.spines[s].set_visible(False)
             if k == 0:
-                ax.set_title(f"{title}  (SPH {r.record})", loc="left", fontsize=10, fontweight="bold")
+                ax.set_title(f"{title}  (SPH {r.record})", loc="left", fontsize=11.5, fontweight="bold")
                 ax.set_xticklabels([])
             if row == 1 and k == 1:
                 ax.set_xlabel("Time (s)")
             if row == 0 and k == 0:
-                ax.legend(loc="upper right", bbox_to_anchor=(1, 1.32), ncol=2, frameon=False, fontsize=8,
+                ax.legend(loc="upper right", bbox_to_anchor=(1, 1.42), ncol=2, frameon=False, fontsize=10,
                           handletextpad=0.3, columnspacing=1.2)
         print(f"SPH {r.record}: {len(peaks)} beats found, {ectopic.sum()} flagged ventricular ectopic")
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         ax.barh(y, vals, height=0.62, color=[TOWARDS if v > 0 else AGAINST for v in vals])
         ax.axvline(0, color=MUTED, linewidth=0.8)
         ax.set_yticks(y)
-        ax.set_yticklabels([LABELS[f] + (" (filled)" if c[f]["filled"] else "") for f in order], fontsize=8)
+        ax.set_yticklabels([LABELS[f] + (" (filled)" if c[f]["filled"] else "") for f in order], fontsize=10)
         ax.set_xlim(-lim * 1.15, lim * 1.15)
         ax.grid(axis="x", color=GRID, linewidth=0.6)
         ax.set_axisbelow(True)
@@ -123,13 +124,15 @@ if __name__ == "__main__":
             ax.spines[s].set_visible(False)
         ax.tick_params(axis="y", length=0)
         ax.set_title(f"probability of AF {o['probability']:.3f} (AF if ≥ {o['cutoff']:.3f})\n"
-                     f"score {o['score']:+.2f} = intercept {o['intercept']:+.2f} + sum of bars", loc="left",
-                     fontsize=9, color=MUTED)
+                     f"score {o['score']:+.2f} = intercept {o['intercept']:+.2f} + bars", loc="right",
+                     fontsize=10, color=MUTED)
         if row == 1:
-            ax.set_xlabel("Contribution (log-odds)   ← against AF  |  towards AF →")
-    fig.subplots_adjust(left=0.04, right=0.98, top=0.93, bottom=0.07, wspace=0.42)
+            ax.set_xlabel("Contribution (log-odds)\n← against AF  |  towards AF →")
+    fig.subplots_adjust(left=0.045, right=0.975, top=0.91, bottom=0.09, wspace=0.62)
     os.makedirs("figures", exist_ok=True)
     fig.savefig("figures/afib_examples.png", dpi=130, facecolor="white")
+    fig.savefig("figures/Figure_1.pdf", facecolor="white")
+    fig.savefig("figures/Figure_1.tiff", dpi=600, facecolor="white", pil_kwargs={"compression": "tiff_lzw"})
     for title, r, o in outs:
         top = ", ".join(f"{x['feature']} {x['contribution']:+.2f}" for x in o["contributions"][:4])
         print(f"{title}: SPH {r.record}, p={o['probability']:.3f}, intercept {o['intercept']:+.2f}; top: {top}")
