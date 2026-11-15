@@ -1,6 +1,7 @@
 # An interpretable AF detector for 12-lead ECGs, compared head-to-head with deep learning and doctors
 
 [![tests](https://github.com/ryanqi588-code/ecg-arrhythmia-detection/actions/workflows/tests.yml/badge.svg)](https://github.com/ryanqi588-code/ecg-arrhythmia-detection/actions/workflows/tests.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24238489.svg)](https://doi.org/10.5281/zenodo.24238489)
 
 **Question.** Atrial fibrillation (AF) is the most common serious heart
 rhythm problem, and deep neural networks now detect it on ECGs about as
@@ -545,8 +546,10 @@ probabilities are not calibrated risks
   holds a copy of GitHub's push log, the full commit log and a git
   bundle of the history, with checksums
   ([`export_registration_evidence.py`](export_registration_evidence.py)).
-  Releases of this repository are archived on Zenodo, so the evidence
-  survives even if GitHub's record changes. `git clone repo.bundle`
+  Releases of this repository are archived on Zenodo
+  ([doi:10.5281/zenodo.24238489](https://doi.org/10.5281/zenodo.24238489), all versions; v1.0 is
+  [doi:10.5281/zenodo.24238490](https://doi.org/10.5281/zenodo.24238490), archived 2026-11-15 03:58 UTC),
+  so the evidence survives even if GitHub's record changes. `git clone repo.bundle`
   rebuilds the history, and every commit hash above can be checked
   against it.
 - **Registration:** the study was not formally registered (for example
