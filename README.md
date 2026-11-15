@@ -150,6 +150,13 @@ of its releases, so its AF labels couldn't be trusted.)
 
 - **PAC false alarms more than halved**, with confidence intervals that
   don't overlap, as development predicted.
+- **Mixed ectopy causes a large share of them** (split after the test;
+  it describes the same results, not a new test). Recordings with
+  atrial premature complexes only were called AF 8.1% of the time (19 of
+  235), and those with other findings but no ventricular ectopy 6.5% (18
+  of 276). But when ventricular premature complexes were also present the
+  rate was 53.8% (14 of 26 scored, 95% CI 35.5–71.2%). Those 26 recordings
+  are 5% of the PAC group but gave 14 of its 51 false alarms.
 - **Sensitivity didn't pay for it:** 11 missed AF against 21, and false
   alarms on normal ECGs fell from 139 to 12 of 13,905.
 - **The model itself got better** (AUC 0.996 vs 0.993), rather than the
