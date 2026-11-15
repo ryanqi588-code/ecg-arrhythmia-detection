@@ -27,8 +27,8 @@ import numpy as np
 import pandas as pd
 import wfdb
 
-from af import LEADS_12
-
+LEADS_12 = ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6"]   # as af.LEADS_12; no
+                                                                                        # sklearn import (TF venv)
 MIMIC_DIR = "data/mimic"
 URL = "https://physionet.org/files/mimic-iv-ecg/1.0/"
 N_PAC, N_AF = 2000, 1000
