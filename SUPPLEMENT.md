@@ -910,6 +910,54 @@ alone.
   83–85% of its AF (see test 14). The interpretable model stays the main
   model.
 
+### Why the model misses AF at the US hospital (MIMIC-IV-ECG)
+
+On MIMIC the interpretable model alone catches about 84% of AF, against
+92–98% on every earlier clinical test set.
+[`afib_mimic_errors.py`](afib_mimic_errors.py) looks at the 1958 AF
+recordings of tests 14 and 15 and the 305 it missed (an analysis after
+the fact; nothing was changed). The CNN, trained on the same data, misses
+13.9% overall and also misses 190 of these 305, so most of the difficulty
+is shared, not a quirk of hand-made features.
+
+| Missed AF (305) | Share of misses | RR spread (CV, median) | 12-lead P-wave match (median) | Heart rate (median) | Also missed by the CNN |
+|---|---|---|---|---|---|
+| Almost perfectly regular (CV < 0.05) | 38% (115) | 0.017 | 0.90 | 82 | 60% |
+| Irregular (CV ≥ 0.05) | 62% (190) | 0.119 | 0.92 | 72 | 64% |
+| *For comparison: AF caught* | – | 0.179 | 0.50 | 91 | – |
+
+![Missed MIMIC AF](figures/mimic_missed_af.png)
+
+- **Some "AF" labels probably don't describe the strip.** AF is
+  irregular by nature, yet 6.8% of MIMIC's AF recordings are almost
+  perfectly regular (CV < 0.05). In the cardiologist-labelled data this is
+  rare: 0.6–1.7% of development AF (CPSC, PTB-XL, Chapman) and 1.6% at
+  SPH. MIMIC's labels are the ECG machine's own statements. Strips in
+  this group include a fast regular rhythm whose report itself suspects a
+  limb-lead reversal, and noisy, low-amplitude recordings, more likely
+  flutter, another regular rhythm or a misread than AF. Leaving the
+  regular recordings out (caught and missed alike) raises sensitivity
+  only from 84.4% to 89.6%, so this explains part of the gap, not all.
+- **Slow, rate-controlled AF is the model's real weakness.** The missed
+  irregular AF is slower (median 72 a minute, 65% under 80) and less
+  irregular (CV 0.12 against 0.18) than the AF it catches. The miss rate
+  falls steadily with heart rate: 27.7% under 60 a minute, 22.3% at
+  60–80, 15.1% at 80–100 and 7.2% above 100. Reports that say "slow
+  ventricular response" are missed 29% of the time, "rapid ventricular
+  response" only 6%. MIMIC is a hospital population where many AF
+  patients are on rate-control drugs, which slow and even out the pulse.
+- **The P-wave features are fooled in exactly these recordings.** The
+  missed AF has a 12-lead P-wave match of 0.92, as high as sinus rhythm,
+  against 0.50 for caught AF; 87% of the missed AF scores at least 0.8,
+  against 2–8% of development AF. A likely reason (not checked) is that
+  with long gaps between beats, the stretch before each QRS is mostly
+  quiet baseline or fine fibrillatory waves, which match from beat to
+  beat and pass for a consistent P wave. Fibrillatory activity in V1 is
+  also lower in the missed AF (f-wave ratio 0.22 vs 0.32).
+- Other statements make little difference: PVCs or aberrant conduction
+  (13.6% missed), bundle branch block or wide QRS (16.3%), low voltage
+  (12.0%), against 15.6% overall.
+
 ## S9. Reporting details for the supplementary tests
 
 The main paper's TRIPOD+AI section covers tests 9, 11 and 12 and the
@@ -1034,6 +1082,7 @@ python afib_mimic_test.py     # test 14, after `python afib_compare_dnn.py mimic
 python afib_hybrid2_dev.py    # the confident-call override (development; preview on used sets)
 python afib_mimic_select.py test15   # test 15's recordings (new patients)
 python afib_mimic15_test.py   # test 15, after `python afib_compare_dnn.py mimic15`
+python afib_mimic_errors.py   # why AF is missed on MIMIC (after tests 14-15)
 ```
 
 MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in

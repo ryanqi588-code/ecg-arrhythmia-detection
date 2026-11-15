@@ -509,6 +509,13 @@ probabilities are not calibrated risks
   regular beats) still lean towards AF: after the test 12 fix, 76% of
   such non-AF recordings are still called AF (100% before). And 5.6–5.7%
   of CODE-15% recordings (many 7 s long) couldn't be scored at all.
+- Slow, rate-controlled AF is often missed. At a US hospital
+  (MIMIC-IV-ECG, supplement tests 14–15) the model caught only about 84%
+  of AF: it misses 28% of AF under 60 beats a minute but 7% above 100,
+  because slow AF is less irregular and its quiet stretches before each
+  beat can pass for consistent P waves. Some of MIMIC's machine-made AF
+  labels also describe regular strips
+  ([supplement](SUPPLEMENT.md#why-the-model-misses-af-at-the-us-hospital-mimic-iv-ecg)).
 - The model needs all 12 leads, and leaves out atrial flutter (handled
   by a separate model in the supplement).
 - The probabilities are not calibrated risks: on SPH they're too cautious
