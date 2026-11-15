@@ -196,12 +196,32 @@ above −0.01)? The test sets:
 - **PAC false alarms depend heavily on the hospital** for every model:
   this model's 9.5% at SPH is 24.5% at Ningbo, so the SPH figure
   shouldn't be quoted as general.
-- **In Brazilian primary care the gap is small.** On CODE-15% this
-  model's AUC is 0.009 below the CNN's (−0.019 to +0.001) with the same
-  sensitivity and slightly fewer false alarms. All models do worse there
-  (AUC 0.96–0.97) than at SPH, although CODE-15%'s AF labels required an
-  irregular pulse, which should make AF easier to find. 5.7% of its
-  recordings (many 7 s long) had too few beats for this model.
+- **In Brazilian primary care the gap looks small, but the labels may
+  flatter this model.** On CODE-15% this model's AUC is 0.009 below the
+  CNN's (−0.019 to +0.001), with the same sensitivity and slightly fewer
+  false alarms (4.2% vs 4.6%). But CODE's AF label wasn't simply the
+  cardiologist's: when the cardiologist reported AF and the automatic
+  analysis didn't, it was kept only if the RR intervals varied enough;
+  otherwise the exam went to review by medical students, and a rejected AF
+  counts as not-AF (Ribeiro et al. 2020, Methods). So AF on a regular
+  rhythm, which this model misses, can be counted as not-AF here. Checks
+  after the test ([`afib_code15_labels.py`](afib_code15_labels.py)) point
+  the same way:
+  - **Regular AF is the difference between the models.** On regular AF
+    (RR CV < 0.05) this model catches 3 of 11 at SPH and 3 of 21 in
+    CODE-15%; the CNN catches 11 of 11 and 10 of 21. On irregular AF they
+    are level (CODE-15%: 96.0% vs 94.8%).
+  - **The CNN's extra false alarms are on regular recordings**: it calls
+    430 regular CODE-15% not-AF recordings AF (2.9%) against this
+    model's 107 (0.7%), mostly abnormal ECGs (11% labelled normal
+    against 41% of regular not-AF). Some of these may be
+    cardiologist-reported AF that the label rule turned into not-AF; without the reports there's
+    no way to tell how many.
+
+  So the CODE-15% comparison can't show the gap is small, only that the
+  two models are level on irregular AF. All models do worse there
+  (AUC 0.96–0.97) than at SPH. 5.7% of its recordings (many 7 s long) had
+  too few beats for this model.
 
 **Against doctors** (CODE test set, the 793 recordings this model could
 score; 13 AF, so every sensitivity has a wide interval):
@@ -324,7 +344,7 @@ the supplementary tests are in
 | Chapman-Shaoxing | Shaoxing People's Hospital, Zhejiang (China) | not given in the release | rhythm per ECG by physicians | development |
 | SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | tests 9 and 11 |
 | Ningbo | Ningbo First Hospital (China), via Challenge 2021 | not given in the release | diagnosis codes (AF/flutter codes unreliable) | test 11 (PAC and sinus only) |
-| CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | tests 11 (part 0) and 12 (part 1) |
+| CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) combined with automatic analysis; AF reported only by the cardiologist was kept only if the RR intervals varied enough, otherwise it was reviewed by medical students, and rejected AF counts as not-AF | tests 11 (part 0) and 12 (part 1) |
 | CODE test set | as CODE-15% | as CODE-15% | two cardiologists, a third deciding disagreements | test 11 |
 
 **Eligibility.** Recordings were chosen from labels or headers alone,
@@ -540,6 +560,10 @@ probabilities are not calibrated risks
   regular beats) still lean towards AF: after the test 12 fix, 76% of
   such non-AF recordings are still called AF (100% before). And 5.6–5.7%
   of CODE-15% recordings (many 7 s long) couldn't be scored at all.
+- AF on a regular rhythm is mostly missed (3 of 11 at SPH, 3 of 21 in
+  CODE-15%), where the CNN catches most of it. CODE-15%'s label rule can
+  count such AF as not-AF, so the CODE-15% comparison may understate the
+  gap between this model and the CNN.
 - At a US hospital (MIMIC-IV-ECG, supplement tests 14–16) the model
   caught only about 84% of AF, missing slow AF most (28% under 60 beats a
   minute, 7% above 100). But MIMIC's AF labels are the ECG machine's,
