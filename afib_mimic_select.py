@@ -55,27 +55,38 @@ def load_mimic(path):
     return rec.p_signal[:, [names.index(n) for n in LEADS_12]], rec.fs
 
 
-def read_selected():
-    return [l.split() for l in open("results/mimic_selected.txt").read().splitlines()]
+def read_selected(name="mimic_selected"):
+    return [l.split() for l in open(f"results/{name}.txt").read().splitlines()]
 
 
-if __name__ == "__main__":
+def select(out_name, seed=0, exclude_files=()):
+    """Write results/<out_name>.txt; patients in the exclude files are left out (test 15: test 14's)."""
     m = pd.read_csv(f"{MIMIC_DIR}/machine_measurements.csv", low_memory=False)
     paths = pd.read_csv(f"{MIMIC_DIR}/record_list.csv").set_index("study_id").path
+    used = {int(s) for f in exclude_files for _, s, _ in read_selected(f)}
+    m = m[~m.subject_id.isin(used)]
     t = report_text(m)
     is_pac = t.str.contains(PAC) & t.str.contains("sinus") & ~t.str.contains(PAC_EXCLUDE)
     is_af = t.str.contains(AF) & ~t.str.contains(AF_EXCLUDE)
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
 
     def one_per_patient(rows, n, exclude=()):
         rows = rows[~rows.subject_id.isin(exclude)]
-        pick = rows.groupby("subject_id").sample(1, random_state=0)
+        pick = rows.groupby("subject_id").sample(1, random_state=seed)
         print(f"{len(rows)} recordings from {len(pick)} patients")
         return pick.iloc[rng.permutation(len(pick))[:n]]
 
     pac = one_per_patient(m[is_pac], N_PAC)
     af = one_per_patient(m[is_af], N_AF, set(pac.subject_id))
     out = [(paths[s], subj, lab) for df, lab in [(pac, "PAC"), (af, "A")] for s, subj in zip(df.study_id, df.subject_id)]
-    with open("results/mimic_selected.txt", "w") as f:
+    with open(f"results/{out_name}.txt", "w") as f:
         f.writelines(f"{p} {s} {lab}\n" for p, s, lab in out)
-    print(f"{len(pac)} PAC, {len(af)} AF written to results/mimic_selected.txt")
+    print(f"{len(pac)} PAC, {len(af)} AF written to results/{out_name}.txt")
+
+
+if __name__ == "__main__":
+    import sys
+    if sys.argv[1:] == ["test15"]:
+        select("mimic15_selected", seed=1, exclude_files=["mimic_selected"])
+    else:
+        select("mimic_selected")                         # test 14

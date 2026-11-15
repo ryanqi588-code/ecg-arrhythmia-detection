@@ -43,9 +43,9 @@ from afib_pac_dev import unit_features
 from af import model_inputs
 
 
-def mimic_features():
+def mimic_features(name="mimic_selected"):
     rows, skipped = [], {}
-    for i, (path, subject, label) in enumerate(read_selected()):
+    for i, (path, subject, label) in enumerate(read_selected(name)):
         if i % 500 == 0:
             print(f"mimic {i} ...", flush=True)
         sig, fs = load_mimic(f"{MIMIC_DIR}/{path}")
