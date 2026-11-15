@@ -45,7 +45,7 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 8 | Chapman-Shaoxing | more training data, strictest cutoff | 98.9% | PAC 24.0% | target met, but only by moving the cutoff |
 | 9 | Shandong (SPH) | 12-lead P waves, f-wave ratio, multi-lead beats | **98.4%** | **PAC 9.5%**, normal 0.1% | better at both ends |
 | 10 | Shandong (SPH) flutter, sinus tachycardia | flutter model alongside the AF model | flutter **83.8%** (AF model alone 54.5%) | sinus tachycardia 3.7% | as developed; SVT untested |
-| 11 | SPH, Ningbo, CODE-15%, CODE test | the final AF model against a published deep network, a same-data CNN, and doctors | 98.4% (SPH), 92.0% (CODE-15%) | PAC 9.5% (SPH), 24.5% (Ningbo) | close in AUC; worse on PAC than both networks |
+| 11 | SPH, Ningbo, CODE-15%, CODE test | the final AF model against a published deep network, a same-data CNN, and doctors | 98.4% (SPH), 92.0% (CODE-15%) | PAC 9.5% (SPH), 24.5% (Ningbo) | worse at AF vs PAC than both networks (AUC 0.988 vs 0.996, after the test); registered primary met (overall AUC within 0.01) |
 | 12 | CODE-15% part 1 (Brazil) | unmeasurable P waves marked as unmeasured, not absent | 91.7%, unchanged | non-AF 3.8% → **3.3%** | adopted |
 | 13 | INCART PAC crops, CODE-15% part 2 | hybrid: interpretable model screens, CNN confirms | 93.6% (alone 93.2%) | INCART PAC 9.2% → **2.7%**; non-AF 3.8% → 2.7% | offered as an alternative |
 | 14 | MIMIC-IV-ECG (USA), 1976 PAC and 976 AF patients | test 13's hybrid, unchanged, on many more patients | 84.6% (alone 85.3%) | PAC 14.3% → **8.8%** | PAC gain confirmed; sensitivity bar narrowly missed, so not confirmed |

@@ -19,14 +19,16 @@ opened, and run once.
 | Test | Data (never used in development) | Result |
 |---|---|---|
 | 9: AF detection | 15,113 ECGs, Shandong Provincial Hospital (China) | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs; AUC 0.996 |
-| 11: against deep learning | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | within the pre-set 0.01 AUC of a published deep network and of a CNN trained on the same data (0.996 vs 0.998 and 1.000), but **1.4–2.6 times as many false alarms on atrial premature beats** |
+| 11: against deep learning | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | **worse at telling AF from atrial premature beats**: AF-vs-PAC AUC 0.988 against 0.996 for both a published deep network and a CNN trained on the same data, so **about three times as many AF–PAC pairs ranked the wrong way round** (1.2% vs 0.4%; calculated after the test), and 1.4–2.6 times as many false alarms on atrial premature beats. Registered primary: overall AUC within the pre-set 0.01 of both networks (0.996 vs 0.998 and 1.000) |
 | 11: against doctors | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
 | 12: fixing a failure test 11 exposed | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
 
-**Conclusion.** The interpretable model ranks ECGs almost as well as the
-black boxes, and each of its errors can be traced to a named feature. Its
-real cost is atrial premature beats (PACs), where both networks make far
-fewer false alarms.
+**Conclusion.** The interpretable model's real cost is atrial premature
+beats (PACs): it ranks AF against PACs with about three times as many
+errors as either network and makes far more PAC false alarms. Its overall
+AUC is close to theirs only because normal ECGs, which every model gets
+right, make up most of the data. Each of its errors can be traced to a
+named feature.
 
 This paper reports tests 9, 11 and 12. The project ran sixteen tests in
 all, several of which failed; the beat detector, the earlier Holter,
@@ -156,7 +158,9 @@ above −0.01)? The test sets:
 
 | | This model | Same-data CNN | Ribeiro's network |
 |---|---|---|---|
-| SPH ROC AUC | 0.996 | 1.000 | 0.998 |
+| SPH AF-vs-PAC AUC (after the test) | **0.988** | 0.996 | 0.996 |
+| SPH AF–PAC pairs ranked wrong (after the test) | **1.24%** | 0.45% | 0.40% |
+| SPH ROC AUC (registered primary) | 0.996 | 1.000 | 0.998 |
 | SPH AF caught | 98.4% (97.1–99.1) | 99.7% (98.9–99.9) | 99.0% (97.9–99.5) |
 | SPH PAC called AF | 9.5% (7.3–12.3) | **3.7%** (2.4–5.7) | 6.0% (4.3–8.3) |
 | SPH normal called AF | 0.1% | 0.0% | 0.0% |
@@ -168,7 +172,17 @@ above −0.01)? The test sets:
 
 ![Comparison](figures/afib_comparison.png)
 
-- **Primary result: close, as registered.** On SPH this model's AUC is
+- **The networks tell AF from atrial premature beats better**
+  (calculated after the test, so not registered;
+  [`afib_comparison_afpac.py`](afib_comparison_afpac.py)). On SPH's 671
+  AF and 537 PAC recordings this model's AF-vs-PAC AUC is 0.988, against
+  0.996 for both networks (difference 0.008, 95% CI 0.002 to 0.016
+  against Ribeiro's and 0.001 to 0.016 against the CNN). It ranks 1.24%
+  of AF–PAC pairs the wrong way round against 0.40% and 0.45%, which is
+  3.1 and 2.8 times as many errors (95% CI 1.3 to 8.9 and 1.2 to 8.7).
+  The overall AUC below hides this because 13,905 of SPH's 15,113
+  recordings are normal ECGs that every model ranks correctly.
+- **Registered primary result: close.** On SPH this model's AUC is
   0.0040 below the CNN's (95% CI −0.0086 to −0.0005) and 0.0026 below
   Ribeiro's (−0.0077 to +0.0022). Both intervals stay above −0.01, so it
   meets the pre-set closeness margin against both. But against the CNN
@@ -268,13 +282,15 @@ than 2 points.
 
 ## 5. Discussion
 
-**What interpretability costs, measured instead of assumed.** The
-transparent model gets within the pre-set 0.01 AUC of both black boxes,
-catches as much AF as the best human readers, and its errors can be
-traced to a named feature and a specific rule, as test 11's false alarms
-were. But it isn't as good: on atrial premature beats the networks make
-40–70% as many false alarms as it does, and against doctors it pays for
-its sensitivity with lower specificity.
+**What interpretability costs, measured instead of assumed.** The cost
+is in telling AF from atrial premature beats: the transparent model
+ranks AF–PAC pairs wrong about three times as often as either network
+(calculated after the test), and the networks make 40–70% as many PAC
+false alarms. It does meet the registered criterion (overall AUC within
+0.01 of both black boxes), catches as much AF as the best human readers,
+and its errors can be traced to a named feature and a specific rule, as
+test 11's false alarms were. Against doctors it pays for its sensitivity
+with lower specificity.
 
 **What it buys.** Each call comes with reasons a clinician can check on
 the strip (irregular RR intervals, missing P waves, fibrillatory
