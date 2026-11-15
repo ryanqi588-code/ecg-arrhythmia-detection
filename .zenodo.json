@@ -3,7 +3,7 @@
   "upload_type": "software",
   "description": "Code, results and registration evidence for an interpretable atrial fibrillation (AF) detector for 10 s 12-lead ECGs (logistic regression on named rhythm, P-wave and fibrillatory-activity features), tested against two deep networks and doctors. Each fresh-data test was committed and pushed before its data were opened and run once. The folder registration_evidence/ preserves the evidence outside GitHub: GitHub's server-side push log for the repository, the full commit log, and a git bundle of the history, with SHA-256 checksums; check_registrations.py re-checks the claims.",
   "creators": [
-    {"name": "ryanqi588-code"}
+    {"name": "Qi, Ryan"}
   ],
   "license": "MIT",
   "keywords": ["atrial fibrillation", "electrocardiogram", "ECG", "interpretable machine learning", "pre-registration", "reproducibility"],

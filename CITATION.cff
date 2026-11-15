@@ -3,7 +3,9 @@ message: "If you use this work, please cite it as below."
 title: "An interpretable AF detector for 12-lead ECGs, compared head-to-head with deep learning and doctors"
 type: software
 authors:
-  - alias: ryanqi588-code
+  - family-names: Qi
+    given-names: Ryan
+    alias: ryanqi588-code
 license: MIT
 repository-code: "https://github.com/ryanqi588-code/ecg-arrhythmia-detection"
 keywords:
