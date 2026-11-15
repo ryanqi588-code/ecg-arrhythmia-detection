@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 
 from afib_sph_test import FS, load_sph, sph_selected
-from ecg import bandpass
-from predict import load_model, predict
+from ecg import bandpass, detect_peaks_multilead, flag_ectopic
+from predict import I_II_V1, load_model, predict
 
 CACHE = "results/afib_example_scores.csv"
 LABELS = {"cv": "RR variability (CV)", "nrmssd": "RR successive differences", "entropy_norm": "RR entropy",
@@ -64,7 +64,8 @@ if __name__ == "__main__":
     order = list(model[0].index)
     plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK,
                          "xtick.color": MUTED, "ytick.color": INK, "text.color": INK})
-    fig, axes = plt.subplots(2, 2, figsize=(12, 6.4), gridspec_kw={"width_ratios": [2.1, 1]})
+    fig = plt.figure(figsize=(12, 8.6))
+    gs = fig.add_gridspec(5, 2, width_ratios=[2.1, 1], height_ratios=[1, 1, 0.32, 1, 1], hspace=0.25)
     lim = 0
     outs = []
     for title, r in picks:
@@ -74,20 +75,42 @@ if __name__ == "__main__":
     for row, (title, r, o) in enumerate(outs):
         sig = load_sph(r.record)
         t = np.arange(len(sig)) / FS
-        ax = axes[row, 0]
-        ax.plot(t, bandpass(sig[:, 1], FS), color=INK, linewidth=0.8)
-        ax.set_xlim(0, 10)
-        ax.set_yticks([])
-        ax.grid(axis="x", color=GRID, linewidth=0.6)
-        for s in ["top", "right", "left"]:
-            ax.spines[s].set_visible(False)
-        ax.set_title(f"{title}  (SPH {r.record}, lead II)", loc="left", fontsize=10, fontweight="bold")
-        if row == 1:
-            ax.set_xlabel("Time (s)")
+        # The beats the model found (as in af.clinical_features): multi-lead detection on I, II, V1;
+        # beats flagged as ventricular ectopic have their RR intervals left out of the rhythm features.
+        peaks = detect_peaks_multilead(sig[:, I_II_V1], FS)
+        ectopic = flag_ectopic(sig[:, 1], FS, peaks)
+        for k, (lead, name) in enumerate([(1, "II"), (6, "V1")]):
+            ax = fig.add_subplot(gs[3 * row + k, 0])
+            x = bandpass(sig[:, lead], FS)
+            lo, hi = np.percentile(x, [0.2, 99.8])
+            pad = (hi - lo) * 0.08
+            ax.plot(t, x, color=INK, linewidth=0.75)
+            top = hi + 3 * pad
+            ax.plot(peaks[~ectopic] / FS, np.full((~ectopic).sum(), top), "v", color=INK, markersize=5,
+                    label="beat counted" if row == 0 and k == 0 else None)
+            ax.plot(peaks[ectopic] / FS, np.full(ectopic.sum(), top), "v", markerfacecolor="white",
+                    markeredgecolor=INK, markersize=5,
+                    label="ventricular ectopic (its RR intervals left out)" if row == 0 and k == 0 else None)
+            ax.set_ylim(lo - pad, top + 2 * pad)
+            ax.set_xlim(0, 10)
+            ax.set_yticks([])
+            ax.set_ylabel(name, rotation=0, ha="right", va="center", fontsize=9)
+            ax.grid(axis="x", color=GRID, linewidth=0.6)
+            for s in ["top", "right", "left"]:
+                ax.spines[s].set_visible(False)
+            if k == 0:
+                ax.set_title(f"{title}  (SPH {r.record})", loc="left", fontsize=10, fontweight="bold")
+                ax.set_xticklabels([])
+            if row == 1 and k == 1:
+                ax.set_xlabel("Time (s)")
+            if row == 0 and k == 0:
+                ax.legend(loc="upper right", bbox_to_anchor=(1, 1.32), ncol=2, frameon=False, fontsize=8,
+                          handletextpad=0.3, columnspacing=1.2)
+        print(f"SPH {r.record}: {len(peaks)} beats found, {ectopic.sum()} flagged ventricular ectopic")
 
         c = {x["feature"]: x for x in o["contributions"]}
         vals = [c[f]["contribution"] for f in order]
-        ax = axes[row, 1]
+        ax = fig.add_subplot(gs[3 * row:3 * row + 2, 1])
         y = np.arange(len(order))[::-1]
         ax.barh(y, vals, height=0.62, color=[TOWARDS if v > 0 else AGAINST for v in vals])
         ax.axvline(0, color=MUTED, linewidth=0.8)
@@ -104,7 +127,7 @@ if __name__ == "__main__":
                      fontsize=9, color=MUTED)
         if row == 1:
             ax.set_xlabel("Contribution (log-odds)   ← against AF  |  towards AF →")
-    fig.tight_layout()
+    fig.subplots_adjust(left=0.04, right=0.98, top=0.93, bottom=0.07, wspace=0.42)
     os.makedirs("figures", exist_ok=True)
     fig.savefig("figures/afib_examples.png", dpi=130, facecolor="white")
     for title, r, o in outs:

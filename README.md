@@ -102,15 +102,21 @@ Its full specification is [below](#final-model-specification).
 ![Two SPH ECGs with each feature's contribution](figures/afib_examples.png)
 
 *Each call can be read off its features. Two SPH recordings scored by
-the adopted model ([`predict.py`](predict.py)); lead II shown, all 12
-used. Each bar is a feature's contribution to the log-odds of AF (its
+the adopted model ([`predict.py`](predict.py)); leads II and V1 shown,
+all 12 used. Markers show the beats the model found (on leads I, II and
+V1); open markers are beats flagged as ventricular ectopic, whose RR
+intervals are left out of the rhythm features. Each bar is a feature's
+contribution to the log-odds of AF (its
 coefficient times its standardized value); the bars plus the intercept
 give the score. Red pushes towards AF, blue away. **Top:** AF, correctly
 called (probability 0.997), mainly because P waves don't match across
 the 12 leads and the RR intervals vary. **Bottom:** atrial premature
 beats wrongly called AF (0.686). The P-wave match correctly pushes
-against AF, but V1's fibrillatory-wave measures and the RR variability
-from the early beats outweigh it. The examples were chosen by a rule,
+against AF, but V1's fibrillatory-wave measures (the low-amplitude
+activity between beats in V1) and the RR variability of the counted
+beats outweigh it. The small spikes in its lead II were not counted as
+beats; 6 of its 15 beats were flagged ventricular ectopic, including two
+narrow ones. The examples were chosen by a rule,
 not by eye: the median-probability recording among SPH AF called AF
 (667 of 675) and among SPH PAC called AF (50 of 539)
 ([`afib_example_figure.py`](afib_example_figure.py)).*
