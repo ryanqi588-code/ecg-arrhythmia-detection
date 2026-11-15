@@ -34,13 +34,6 @@ handheld and clinical models, atrial flutter, and a hybrid with a CNN
 are in the [supplement](SUPPLEMENT.md), with the
 [full test log](SUPPLEMENT.md#s1-full-test-log).
 
-**Timeline.** This was an intensive five-day project, not months of
-independent research. It started from an earlier Colab notebook of mine;
-the repository's first commit was on 8 October 2026, and the first ten
-fresh-data tests were run between 11 and 12 October 2026. The comparison
-with other methods, a false-alarm fix and a hybrid (tests 11–16) were added
-on 14 November 2026. The commit history shows each step.
-
 ## 1. Methods
 
 ### How the tests were run
