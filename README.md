@@ -114,9 +114,14 @@ the 12 leads and the RR intervals vary. **Bottom:** atrial premature
 beats wrongly called AF (0.686). The P-wave match correctly pushes
 against AF, but V1's fibrillatory-wave measures (the low-amplitude
 activity between beats in V1) and the RR variability of the counted
-beats outweigh it. The small spikes in its lead II were not counted as
-beats; 6 of its 15 beats were flagged ventricular ectopic, including two
-narrow ones. The examples were chosen by a rule,
+beats outweigh it. The beats are small in lead II but clear in V1; the
+smaller wiggles between them were not counted. This recording is
+labelled occasional atrial premature complexes *and* frequent
+ventricular premature complexes: the four large complexes about every
+2 s are ventricular ectopics, and the detector flags them as such (6 of
+its 15 beats are flagged, including two narrow ones). The PAC group
+allows other findings, including ventricular ectopy (test 9 methods).
+The examples were chosen by a rule,
 not by eye: the median-probability recording among SPH AF called AF
 (667 of 675) and among SPH PAC called AF (50 of 539)
 ([`afib_example_figure.py`](afib_example_figure.py)).*
@@ -127,7 +132,11 @@ not by eye: the median-probability recording among SPH AF called AF
 Provincial Hospital database, 12-lead ECGs at 500 Hz labelled per ECG with
 AHA statements, first 10 s of each. Every qualifying recording: AF without
 flutter (675), atrial premature complexes without AF or flutter (539),
-"Normal ECG" as the only statement (13,905). The archive's MD5 matched
+"Normal ECG" as the only statement (13,905). In the AF and PAC groups
+other findings, including ventricular ectopy, are allowed: 235 of the
+PAC recordings have no other statement, and 28 also have ventricular
+premature complexes (AF: 252 with no other statement, 54 with
+ventricular premature complexes). The archive's MD5 matched
 figshare's. (Ningbo, the other Challenge 2021 set, was considered first,
 but it has 7607 recordings coded atrial flutter and none coded AF in both
 of its releases, so its AF labels couldn't be trusted.)
