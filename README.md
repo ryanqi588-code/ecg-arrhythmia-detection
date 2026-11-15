@@ -18,10 +18,14 @@ opened, and run once.
 
 | Test | Data (never used in development) | Result |
 |---|---|---|
-| 9: AF detection | 15,113 ECGs, Shandong Provincial Hospital (China) | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs; AUC 0.996 |
-| 11: against deep learning | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | **worse at telling AF from atrial premature beats**: AF-vs-PAC AUC 0.988 against 0.996 for both a published deep network and a CNN trained on the same data, so **about three times as many AF–PAC pairs ranked the wrong way round** (1.2% vs 0.4%; calculated after the test), and 1.4–2.6 times as many false alarms on atrial premature beats. Registered primary: overall AUC within the pre-set 0.01 of both networks (0.996 vs 0.998 and 1.000) |
-| 11: against doctors | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
-| 12: fixing a failure test 11 exposed | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
+| 9: AF detection¹ | 15,113 ECGs, Shandong Provincial Hospital (China) | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs; AUC 0.996 |
+| 11: against deep learning¹ | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | **worse at telling AF from atrial premature beats**: AF-vs-PAC AUC 0.988 against 0.996 for both a published deep network and a CNN trained on the same data, so **about three times as many AF–PAC pairs ranked the wrong way round** (1.2% vs 0.4%; calculated after the test), and 1.4–2.6 times as many false alarms on atrial premature beats. Registered primary: overall AUC within the pre-set 0.01 of both networks (0.996 vs 0.998 and 1.000) |
+| 11: against doctors¹ | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
+| 12: fixing a failure test 11 exposed² | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
+
+¹ The model version before the fix (commit `d8c5ce2`, cutoff 0.4736).
+
+² Compares that version with the adopted model, which adds the fix for unmeasurable P waves (cutoff 0.4309; [specification](#final-model-specification)).
 
 **Conclusion.** The interpretable model's real cost is atrial premature
 beats (PACs): it ranks AF against PACs with about three times as many
