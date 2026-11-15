@@ -475,7 +475,14 @@ by recording). When `p_unmeasured` is 1, `p_match_regular` and
 development recordings) instead of 0. Missing `log_f_wave`, `f_ratio_II`
 or `f_ratio_V1` (fewer than 3 complete beats) are filled with the
 development medians −4.2321, 0.2049 and 0.1983. The table is also saved
-as [`results/final_af_model.csv`](results/final_af_model.csv). The
+as [`results/final_af_model.csv`](results/final_af_model.csv), with the
+fill values and the cutoff, so it works on its own
+([`export_final_model.py`](export_final_model.py) refits the model and
+checks it against the published coefficients).
+[`predict.py`](predict.py) scores one 12-lead ECG from that table alone
+(AF, not AF, or unscored) and lists each feature's contribution, its
+coefficient times its standardized input in log-odds; on 42 test 16
+recordings it reproduced the saved probabilities exactly. The
 version tested in tests 9–11 had no `p_unmeasured` and a cutoff of
 0.4736; its coefficients are in that file at commit `d8c5ce2`. The
 probabilities are not calibrated risks
@@ -606,6 +613,7 @@ probabilities are not calibrated risks
 
 ```bash
 pip install -r requirements.txt
+python predict.py path/to/record   # score one 12-lead ECG (WFDB, or CSV with --fs)
 python afib_pac_dev.py        # development of the 12-lead model (CPSC + PTB-XL + Chapman)
 python afib_sph_test.py       # test 9
 python afib_subgroups.py      # demographics and subgroup results
