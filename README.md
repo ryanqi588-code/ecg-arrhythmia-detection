@@ -540,6 +540,15 @@ probabilities are not calibrated risks
 
   What it can't show is when the data were downloaded or opened: the
   data sources keep no public download log.
+
+  **Archived outside GitHub.** [`registration_evidence/`](registration_evidence/)
+  holds a copy of GitHub's push log, the full commit log and a git
+  bundle of the history, with checksums
+  ([`export_registration_evidence.py`](export_registration_evidence.py)).
+  Releases of this repository are archived on Zenodo, so the evidence
+  survives even if GitHub's record changes. `git clone repo.bundle`
+  rebuilds the history, and every commit hash above can be checked
+  against it.
 - **Registration:** the study was not formally registered (for example
   on OSF or a trial registry); the commits above are the only protocol
   record.

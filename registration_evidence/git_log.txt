@@ -1,0 +1,860 @@
+commit 73a803a5522ab3908c38c7d1698806e8ec97781b
+tree 767412f220b6cab3559cdfc1b346f82082be783b
+parents 37005d69371283641d0f8222066eacc095da31a2
+author ryanqi588-code 2026-11-14T21:52:43-06:00
+committer ryanqi588-code 2026-11-14T21:52:43-06:00
+
+    README: label model versions in the top results table
+
+
+M	README.md
+commit 37005d69371283641d0f8222066eacc095da31a2
+tree e519a7fad2cd01aaf0ae6d3d1b1f5051eef2544f
+parents 07663a45ef89d57912b37eaf77f3c5e310e7d4d6
+author ryanqi588-code 2026-11-14T21:49:48-06:00
+committer ryanqi588-code 2026-11-14T21:49:48-06:00
+
+    CODE-15% labels can count regular AF as not-AF; soften the primary-care claim (checks after the test)
+
+
+M	README.md
+A	afib_code15_labels.py
+A	results/afib_code15_labels.csv
+commit 07663a45ef89d57912b37eaf77f3c5e310e7d4d6
+tree eccfd04b1ad24bbc924a5dd780fe1bd2b62ee55e
+parents a65610a33c124bf61727f7867754a82b88a1d331
+author ryanqi588-code 2026-11-14T21:43:53-06:00
+committer ryanqi588-code 2026-11-14T21:43:53-06:00
+
+    Lead test 11 with the AF-vs-PAC comparison (after the test); registered AUC result second
+
+
+M	README.md
+M	SUPPLEMENT.md
+A	afib_comparison_afpac.py
+A	results/afib_comparison_afpac.csv
+commit a65610a33c124bf61727f7867754a82b88a1d331
+tree 77b9d274e4aceac622930a9c157cffe9ad09a084
+parents b613482c7925025f81625828b21bf314928ed6af
+author ryanqi588-code 2026-11-14T21:33:01-06:00
+committer ryanqi588-code 2026-11-14T21:33:01-06:00
+
+    README: remove the timeline paragraph
+
+
+M	README.md
+commit b613482c7925025f81625828b21bf314928ed6af
+tree b8080a3ed15b0869fb08b4edbee8e65baddf6f81
+parents 9cf49b2d950f87ef4714d7939ffa4cc115dad243
+author ryanqi588-code 2026-11-14T21:29:05-06:00
+committer ryanqi588-code 2026-11-14T21:29:05-06:00
+
+    Make registration claims checkable against GitHub's push log; run the check in CI
+
+
+M	.github/workflows/tests.yml
+M	README.md
+M	SUPPLEMENT.md
+A	check_registrations.py
+A	results/registration_check.csv
+commit 9cf49b2d950f87ef4714d7939ffa4cc115dad243
+tree 08e7b38979597e7030fa54d0489d3fb67bc34e4e
+parents e14302f89cff71fc2877ba188595d2f59116d4ee
+author ryanqi588-code 2026-11-14T21:13:39-06:00
+committer ryanqi588-code 2026-11-14T21:13:39-06:00
+
+    Label check: on MIMIC AF confirmed by another ECG within 24 h the model catches 94.3% (vs 75.8% with sinus nearby)
+
+
+M	README.md
+M	SUPPLEMENT.md
+A	results/afib_mimic_labels.csv
+A	results/afib_mimic_labels_diffs.csv
+A	results/afib_mimic_labels_pac.csv
+A	results/afib_mimic_labels_recordings.csv
+A	results/afib_mimic_labels_regular.csv
+commit e14302f89cff71fc2877ba188595d2f59116d4ee
+tree ceb74ece21142121517519d23ebda0444c3bbf63
+parents 2f9bf165e4326d73b2dbd413adb3f52fa094ba43
+author ryanqi588-code 2026-11-14T21:12:02-06:00
+committer ryanqi588-code 2026-11-14T21:12:02-06:00
+
+    Register label check: is MIMIC machine AF confirmed by the patient's other ECGs within 24 h?
+
+
+A	afib_mimic_labels.py
+commit 2f9bf165e4326d73b2dbd413adb3f52fa094ba43
+tree d142321a0b3ca62229629655e7fdf994bf00dfb4
+parents ba3839e6b5182fc1f10a331d9c88686ba39e60b3
+author ryanqi588-code 2026-11-14T19:08:21-06:00
+committer ryanqi588-code 2026-11-14T19:08:21-06:00
+
+    Test 16: slow-AF fix raises sensitivity but exceeds the PAC false-alarm limit; adopted model stays
+
+
+M	README.md
+M	SUPPLEMENT.md
+A	results/afib_slowaf_test.csv
+A	results/afib_slowaf_test_diffs.csv
+A	results/afib_slowaf_test_recordings.csv
+commit ba3839e6b5182fc1f10a331d9c88686ba39e60b3
+tree 21043c4eb44676e35e4567510fd33e57c51b4f61
+parents 8bdac6283f6762c35521787601f12e79dee8c5a0
+author ryanqi588-code 2026-11-14T18:55:13-06:00
+committer ryanqi588-code 2026-11-14T18:55:13-06:00
+
+    Slow-AF fix development (P-wave presence, gated match, MIMIC dev data); register test 16
+
+
+A	afib_slowaf_dev.py
+A	afib_slowaf_test.py
+A	results/afib_slowaf_dev.csv
+A	results/afib_slowaf_preview.csv
+A	results/afib_slowaf_preview_sph_ningbo.csv
+A	results/mimic16_selected.txt
+A	results/mimic_dev_selected.txt
+commit 8bdac6283f6762c35521787601f12e79dee8c5a0
+tree 2978b7a515c123996e983bc1831e0712a7cbdd10
+parents 5fc017cf4a9c052b8822291c1f5d4093be3e2ac3
+author ryanqi588-code 2026-11-14T18:31:31-06:00
+committer ryanqi588-code 2026-11-14T18:31:31-06:00
+
+    Error analysis: why AF is missed on MIMIC-IV-ECG (slow AF, P-wave match fooled, regular machine-labelled AF)
+
+
+M	README.md
+M	SUPPLEMENT.md
+A	afib_mimic_errors.py
+A	figures/mimic_missed_af.png
+A	results/afib_mimic_errors_af.csv
+A	results/afib_mimic_errors_categories.csv
+A	results/afib_mimic_errors_features.csv
+commit 5fc017cf4a9c052b8822291c1f5d4093be3e2ac3
+tree fe4563cf94205e41e314dd7817427b3a44e2b186
+parents 47339b891af6e5cfb5c4e2d4fdbc0250c44a13c7
+author ryanqi588-code 2026-11-14T18:23:04-06:00
+committer ryanqi588-code 2026-11-14T18:23:04-06:00
+
+    Focus README on one story (tests 9, 11, 12); move other work to SUPPLEMENT.md
+
+
+M	README.md
+A	SUPPLEMENT.md
+commit 47339b891af6e5cfb5c4e2d4fdbc0250c44a13c7
+tree 4968ccb12769a9a0a97c2dc7bb10d1d133ca49d3
+parents 041a5602e0850be301e001400cbc0f2894cb3ef9
+author ryanqi588-code 2026-11-14T18:13:41-06:00
+committer ryanqi588-code 2026-11-14T18:13:41-06:00
+
+    Test 15: hybrid with confident-call override cuts PAC false alarms and raises sensitivity on new MIMIC patients
+
+
+M	README.md
+A	results/afib_mimic15_test.csv
+A	results/afib_mimic15_test_diffs.csv
+A	results/afib_mimic15_test_recordings.csv
+A	results/compare_probs_mimic15.csv
+commit 041a5602e0850be301e001400cbc0f2894cb3ef9
+tree 3aaa0d56670daec0c2a7e7c98b63a73cfcfefe1c
+parents 85017f09a914feaacf16af212ca93e9911144d74
+author ryanqi588-code 2026-11-14T18:05:09-06:00
+committer ryanqi588-code 2026-11-14T18:05:09-06:00
+
+    Override hybrid development (dev rule fails); register test 15 on 3000 new MIMIC-IV-ECG patients
+
+
+M	afib_compare_dnn.py
+A	afib_hybrid2_dev.py
+A	afib_mimic15_test.py
+M	afib_mimic_select.py
+M	afib_mimic_test.py
+A	results/afib_hybrid2_dev.csv
+A	results/afib_hybrid2_preview.csv
+A	results/afib_hybrid2_thresholds.csv
+A	results/mimic15_selected.txt
+commit 85017f09a914feaacf16af212ca93e9911144d74
+tree b75c7a25f56d8969e89693041c10598bfa2aaac2
+parents 9d82cbfead5bba0d9ee3962406504033fc0e4b3d
+author ryanqi588-code 2026-11-14T18:00:48-06:00
+committer ryanqi588-code 2026-11-14T18:00:48-06:00
+
+    Test 14: hybrid's PAC gain holds on 1976 MIMIC-IV-ECG patients; sensitivity bar narrowly missed
+
+
+M	README.md
+M	afib_mimic_select.py
+A	results/afib_mimic_test.csv
+A	results/afib_mimic_test_diffs.csv
+A	results/afib_mimic_test_recordings.csv
+A	results/compare_probs_mimic.csv
+commit 9d82cbfead5bba0d9ee3962406504033fc0e4b3d
+tree a473305452d8ee80f4980860fdb45013c464138a
+parents 258bf773abf5a0a5332e2b746d6d76c2c0a6ac92
+author ryanqi588-code 2026-11-14T17:48:10-06:00
+committer ryanqi588-code 2026-11-14T17:48:10-06:00
+
+    Register test 14: hybrid vs interpretable model on PACs from 2000 MIMIC-IV-ECG patients
+
+
+M	afib_compare_dnn.py
+A	afib_mimic_select.py
+A	afib_mimic_test.py
+A	results/mimic_selected.txt
+commit 258bf773abf5a0a5332e2b746d6d76c2c0a6ac92
+tree 13f9c0155d2b491df1bf632811ab5402716405ef
+parents 007f6ab75b3db2a766df719cfbc9dece0093c4ce
+author ryanqi588-code 2026-11-14T16:01:51-06:00
+committer ryanqi588-code 2026-11-14T16:01:51-06:00
+
+    Test 13: hybrid cuts PAC false alarms, offered as an alternative
+
+
+M	README.md
+A	results/afib_hybrid_test.csv
+A	results/afib_hybrid_test_code15p2_recordings.csv
+A	results/afib_hybrid_test_diffs.csv
+A	results/afib_hybrid_test_incart_patients.csv
+A	results/afib_hybrid_test_incart_recordings.csv
+A	results/compare_probs_code15p2.csv
+A	results/compare_probs_incart.csv
+commit 007f6ab75b3db2a766df719cfbc9dece0093c4ce
+tree a0cfcd4a40f774b2da75c6ddffb39e20e75eeaf8
+parents 17a818bd41bacc2f73161d7498424bbac5419256
+author ryanqi588-code 2026-11-14T15:38:01-06:00
+committer ryanqi588-code 2026-11-14T15:38:01-06:00
+
+    Hybrid development; register test 13 (interpretable screens, CNN confirms)
+
+
+M	afib_compare_dnn.py
+A	afib_hybrid_dev.py
+A	afib_hybrid_test.py
+A	results/afib_hybrid_dev.csv
+A	results/afib_hybrid_preview.csv
+A	results/afib_hybrid_thresholds.csv
+A	results/incart_selected.txt
+commit 17a818bd41bacc2f73161d7498424bbac5419256
+tree c68eb28c8283bfb952fe4028f1ac57bfbf4348e2
+parents 32dd040af6c2e5670e17675eca2e7ec530368279
+author ryanqi588-code 2026-11-14T15:14:52-06:00
+committer ryanqi588-code 2026-11-14T15:14:52-06:00
+
+    Per-beat P-wave presence: small PAC gain in development, not adopted
+
+
+M	README.md
+A	afib_ppresence_dev.py
+M	ecg.py
+A	results/afib_ppresence_dev.csv
+A	results/afib_ppresence_dev_matched.csv
+M	tests/test_ecg.py
+commit 32dd040af6c2e5670e17675eca2e7ec530368279
+tree 838e6081c841d6e72daf9b9f6f9a0f3178f59a98
+parents 1ba78447d562af2ee7135a482c40fb6930eb0f07
+author ryanqi588-code 2026-11-14T14:46:53-06:00
+committer ryanqi588-code 2026-11-14T14:46:53-06:00
+
+    P-wave concentration and best-lead P waves: no reduction in PAC false alarms
+
+
+M	README.md
+A	afib_pconc_dev.py
+M	ecg.py
+A	results/afib_pconc_dev.csv
+commit 1ba78447d562af2ee7135a482c40fb6930eb0f07
+tree 084d2da43ff1592ed76ab11c130c8adbb8195857
+parents 6da6e6bd6d9759c0394fc740250b376dded91c7f
+author ryanqi588-code 2026-11-14T14:31:46-06:00
+committer ryanqi588-code 2026-11-14T14:31:46-06:00
+
+    Test 12: marking unmeasurable P waves cuts false alarms; fix adopted
+
+
+M	README.md
+A	results/afib_unmeasured_test.csv
+A	results/afib_unmeasured_test_recordings.csv
+M	results/final_af_model.csv
+commit 6da6e6bd6d9759c0394fc740250b376dded91c7f
+tree 55b2b25c731a52361964a82d6e0a6fc2ef534e9a
+parents c487252a5f70c7d88e9eabc94d7699abd7f4d027
+author ryanqi588-code 2026-11-14T13:57:40-06:00
+committer ryanqi588-code 2026-11-14T13:57:40-06:00
+
+    False-alarm development after test 11; register test 12 (unmeasured P waves)
+
+
+A	afib_fa_dev.py
+A	afib_unmeasured_test.py
+A	results/afib_fa_dev.csv
+commit c487252a5f70c7d88e9eabc94d7699abd7f4d027
+tree b9288cd34290ffe2eb56e40ac0526c498a237c84
+parents cc3a4a83425a1188b5c231bb1f5915863b71a722
+author ryanqi588-code 2026-11-14T13:37:17-06:00
+committer ryanqi588-code 2026-11-14T13:37:17-06:00
+
+    README: remove stray quotation mark
+
+
+M	README.md
+commit cc3a4a83425a1188b5c231bb1f5915863b71a722
+tree 5019f4e18a90f8f66b94aab3c6921a423bae8905
+parents d8c5ce20113ffee7cb2fe9f3e8adc0bc3b8808e3
+author ryanqi588-code 2026-11-14T13:20:26-06:00
+committer ryanqi588-code 2026-11-14T13:20:26-06:00
+
+    Test 11: interpretable model vs deep learning and doctors
+
+
+M	README.md
+A	afib_comparison_figure.py
+A	figures/afib_comparison.png
+A	results/afib_comparison_code15_recordings.csv
+A	results/afib_comparison_codetest_recordings.csv
+A	results/afib_comparison_diffs.csv
+A	results/afib_comparison_doctors.csv
+A	results/afib_comparison_ningbo_recordings.csv
+A	results/afib_comparison_sph_recordings.csv
+A	results/afib_comparison_test.csv
+A	results/compare_probs_code15.csv
+A	results/compare_probs_codetest.csv
+A	results/compare_probs_ningbo.csv
+A	results/compare_probs_sph.csv
+commit d8c5ce20113ffee7cb2fe9f3e8adc0bc3b8808e3
+tree 7cf168565772d3c2c10e96ac99e0f9188af8b0c4
+parents 14059359be39bc6ef91182356aaf4cb387aea01e
+author ryanqi588-code 2026-11-14T13:06:20-06:00
+committer ryanqi588-code 2026-11-14T13:06:32-06:00
+
+    Atrial-ectopy removal (no gain in development); register test 11 against deep learning and doctors
+
+
+M	af.py
+A	afib_cnn.py
+A	afib_compare_dnn.py
+A	afib_comparison_test.py
+A	afib_ectopy_dev.py
+A	models/cnn_model.keras
+A	requirements-dnn.txt
+A	results/afib_cnn_dev.csv
+A	results/afib_cnn_dev_oof.csv
+A	results/afib_ectopy_dev.csv
+A	results/compare_probs_dev.csv
+M	tests/test_af.py
+commit 14059359be39bc6ef91182356aaf4cb387aea01e
+tree e2beca09efbe3bd49d0758195a31320be12e928e
+parents c0348d3a919acff20b1ca8ca38e182a60aca6a78
+author ryanqi588-code 2026-11-09T22:44:15-06:00
+committer GitHub 2026-11-09T22:44:15-06:00
+
+    Update README to clarify project deployment status
+
+
+M	README.md
+commit c0348d3a919acff20b1ca8ca38e182a60aca6a78
+tree 3704a3606ceed4ebc0169ba4c9e72d45188b9e66
+parents a5e14e89fadaca6cd80576a6f2a969080cad5ff8
+author ryanqi588-code 2026-10-25T17:58:02-05:00
+committer GitHub 2026-10-25T17:58:02-05:00
+
+    Add MIT License to the project
+
+
+A	LICENSE
+commit a5e14e89fadaca6cd80576a6f2a969080cad5ff8
+tree 8b9a481e5f758dec806bed1573ac99c170e4bff0
+parents 06b7ff2ba5f7896b79d8cd1658c973edb13a2b65
+author ryanqi588-code 2026-10-12T01:57:36-05:00
+committer ryanqi588-code 2026-10-12T01:57:36-05:00
+
+    README: state the project timeline
+
+
+M	README.md
+commit 06b7ff2ba5f7896b79d8cd1658c973edb13a2b65
+tree 9589bf542ff39388119474aa03e7b0856351345a
+parents 5a2e64d5728e67380c0b0baa054700214ec8d43a
+author ryanqi588-code 2026-10-12T01:55:13-05:00
+committer ryanqi588-code 2026-10-12T01:55:13-05:00
+
+    README: add AI-assistance statement
+
+
+M	README.md
+commit 5a2e64d5728e67380c0b0baa054700214ec8d43a
+tree ccbc3e1a9633e2f70bc53fc670f413cdeabf7e0b
+parents c5badb933a1ccc75da5c4f148ae53cb03e7e658b
+author ryanqi588-code 2026-10-12T01:51:30-05:00
+committer ryanqi588-code 2026-10-12T01:51:30-05:00
+
+    README: drop note about the history rewrite
+
+
+M	README.md
+commit c5badb933a1ccc75da5c4f148ae53cb03e7e658b
+tree 02940ba7725945c83f92c81195429055171dd082
+parents b11926a1b7292ff9fb22ded27c13277c5ea21368
+author ryanqi588-code 2026-10-12T01:41:27-05:00
+committer ryanqi588-code 2026-10-12T01:41:27-05:00
+
+    Add TRIPOD+AI reporting details to the README
+
+
+M	README.md
+A	afib_subgroups.py
+A	results/afib_subgroups.csv
+A	results/demographics.csv
+A	results/final_af_model.csv
+commit b11926a1b7292ff9fb22ded27c13277c5ea21368
+tree ff5121b599cf677ae58ac4f1d80bef090702f307
+parents 85c65d26cde7246ab66b1a2e802c20bdff5a8e9f
+author ryanqi588-code 2026-10-12T00:15:42-05:00
+committer ryanqi588-code 2026-10-12T00:15:42-05:00
+
+    SPH flutter test: AF-or-flutter screen catches 83.8% of flutter
+
+
+M	README.md
+A	results/afib_flutter_test.csv
+A	results/afib_flutter_test_recordings.csv
+commit 85c65d26cde7246ab66b1a2e802c20bdff5a8e9f
+tree 69437f6136eafddf76df07c983f485b2f183e487
+parents 0b24f76e2855bb6c6a1a0b622de4c7acc56138bf
+author ryanqi588-code 2026-10-12T00:12:51-05:00
+committer ryanqi588-code 2026-10-12T00:12:51-05:00
+
+    Atrial flutter development; register SPH flutter test
+
+
+M	af.py
+A	afib_flutter_dev.py
+A	afib_flutter_test.py
+M	ecg.py
+A	results/afib_flutter_dev.csv
+M	tests/test_ecg.py
+commit 0b24f76e2855bb6c6a1a0b622de4c7acc56138bf
+tree 53e5ffa6c8de7461c65a821178b01c33a7b77bec
+parents 7cf7455b0e92a1b2e92b3d5121a0078bdee8adb5
+author ryanqi588-code 2026-10-11T22:47:32-05:00
+committer ryanqi588-code 2026-10-11T22:47:32-05:00
+
+    Calibration check of the clinical models' test outputs
+
+
+M	README.md
+A	afib_calibration.py
+A	figures/afib_calibration.png
+A	results/afib_calibration.csv
+commit 7cf7455b0e92a1b2e92b3d5121a0078bdee8adb5
+tree 572cf36c4e2718e7a80093d88f75e7a0f31da9c0
+parents a55d260e3841458fc7d1a0dd26ac9c70bf793c91
+author ryanqi588-code 2026-10-11T22:40:02-05:00
+committer ryanqi588-code 2026-10-11T22:40:02-05:00
+
+    Tighten README: one protocol section, test log, data table
+
+
+M	README.md
+commit a55d260e3841458fc7d1a0dd26ac9c70bf793c91
+tree 7374d632a09595633138475b5da9437103de32af
+parents 759d00c531a653b871ef21eeea0bb5e9f060e03f
+author ryanqi588-code 2026-10-11T22:34:12-05:00
+committer ryanqi588-code 2026-10-11T22:34:12-05:00
+
+    SPH test: 12-lead model halves PAC false alarms, catches more AF
+
+
+M	README.md
+A	figures/afib_sph_test_roc.png
+M	requirements.txt
+A	results/afib_sph_test.csv
+A	results/afib_sph_test_recordings.csv
+commit 759d00c531a653b871ef21eeea0bb5e9f060e03f
+tree ebb189050e8bf3275bba6568cc6eeda468d60fa1
+parents 3f023d11be6f971cfd8cbaff3ade333946c165ff
+author ryanqi588-code 2026-10-11T22:26:20-05:00
+committer ryanqi588-code 2026-10-11T22:26:20-05:00
+
+    AF-vs-PAC development; register Shandong (SPH) test
+
+
+M	af.py
+A	afib_pac_dev.py
+A	afib_sph_test.py
+M	ecg.py
+A	results/afib_pac_dev.csv
+M	tests/test_af.py
+M	tests/test_ecg.py
+commit 3f023d11be6f971cfd8cbaff3ade333946c165ff
+tree bee5ee48ea99410469456049e8bb13c0ba61ef95
+parents fa9efa83a98eb421aa3b62e259052eb50002bd09
+author ryanqi588-code 2026-10-11T22:00:16-05:00
+committer ryanqi588-code 2026-10-11T22:00:16-05:00
+
+    Chapman-Shaoxing test: retrained clinical model catches 98.9% of AF
+
+
+M	README.md
+A	figures/afib_chapman_test_roc.png
+A	results/afib_chapman_test.csv
+A	results/afib_chapman_test_recordings.csv
+commit fa9efa83a98eb421aa3b62e259052eb50002bd09
+tree cd15378e62aaf0ae1a2c1b3f8269705b5dbba245
+parents 290a3c5a592c28c192528b260e1600243ad31827
+author ryanqi588-code 2026-10-11T19:42:44-05:00
+committer ryanqi588-code 2026-10-11T19:42:44-05:00
+
+    P-wave measure development; register Chapman-Shaoxing test
+
+
+A	afib_chapman_test.py
+A	afib_pwave_dev.py
+M	ecg.py
+A	results/afib_pwave_dev.csv
+M	tests/test_ecg.py
+commit 290a3c5a592c28c192528b260e1600243ad31827
+tree 6bc1d922c4e8d468c6faead86279b3800461b6de
+parents dba1e05477b7cc03fedc1f0efd9dd4736e9a03ae
+author ryanqi588-code 2026-10-11T17:40:09-05:00
+committer ryanqi588-code 2026-10-11T17:40:09-05:00
+
+    PTB-XL re-test: labels explain the Georgia gap; clinical model at 87.4%
+
+
+M	README.md
+A	figures/afib_ptbxl_test_roc.png
+A	results/afib_ptbxl_test.csv
+A	results/afib_ptbxl_test_recordings.csv
+commit dba1e05477b7cc03fedc1f0efd9dd4736e9a03ae
+tree f56c1dfa59bcde6e3a0e683ecbaaf1804f49acbd
+parents f9d8fe7e910b3e22c2e50cb2db725e639937dea8
+author ryanqi588-code 2026-10-11T15:18:53-05:00
+committer ryanqi588-code 2026-10-11T15:18:53-05:00
+
+    Register PTB-XL re-test of the clinical AF models
+
+
+A	afib_ptbxl_test.py
+commit f9d8fe7e910b3e22c2e50cb2db725e639937dea8
+tree 820561290351978c8d5d25fb351f7f83099a2d80
+parents e1b24b99633f704a7e84089c4c2be74305929659
+author ryanqi588-code 2026-10-11T15:09:33-05:00
+committer ryanqi588-code 2026-10-11T15:09:33-05:00
+
+    Report Georgia test: clinical 12-lead model doesn't fix sensitivity
+
+
+M	README.md
+M	afib_georgia_test.py
+A	figures/afib_georgia_test_roc.png
+A	figures/georgia_missed_af.png
+A	results/afib_georgia_test.csv
+A	results/afib_georgia_test_recordings.csv
+M	tests/test_ecg.py
+commit e1b24b99633f704a7e84089c4c2be74305929659
+tree 03d70b6209bcc8507a7d01ada09b5c000aed89ce
+parents f923132d87dbaa3e8bd3a1fffd8fc073053d4353
+author ryanqi588-code 2026-10-11T14:59:59-05:00
+committer ryanqi588-code 2026-10-11T14:59:59-05:00
+
+    Add clinical 12-lead AF model and register the Georgia test
+
+
+M	af.py
+A	afib_clinical_dev.py
+A	afib_georgia_test.py
+M	ecg.py
+A	results/afib_clinical_dev.csv
+commit f923132d87dbaa3e8bd3a1fffd8fc073053d4353
+tree 6df97abca09b82f9a9d87568567b8177748797c3
+parents 23da508cc5cdf91269899e4e9598763ae05c0fa1
+author ryanqi588-code 2026-10-11T12:29:47-05:00
+committer ryanqi588-code 2026-10-11T12:29:47-05:00
+
+    Report CPSC-extra test of device routing
+
+
+M	README.md
+A	results/afib_cpscx_test.csv
+A	results/afib_cpscx_test_recordings.csv
+commit 23da508cc5cdf91269899e4e9598763ae05c0fa1
+tree 19de2438c7b5b2b2e3cf6c01372a04c69c5dd6b6
+parents 7b2b983d2c7c6b1cb0ee8a824a0073dbd9b33142
+author ryanqi588-code 2026-10-11T11:55:25-05:00
+committer ryanqi588-code 2026-10-11T11:55:25-05:00
+
+    Route AF models by device; register CPSC-extra clinical test
+
+
+M	af.py
+A	afib_cpscx_test.py
+A	afib_handheld_cv.py
+A	results/afib_handheld_cv.csv
+commit 7b2b983d2c7c6b1cb0ee8a824a0073dbd9b33142
+tree 7c8b63293b67d4518e049e17822f12cd87cc2f6b
+parents 5f921368ef793cf9bf7e7fb0121a146aac7737b8
+author ryanqi588-code 2026-10-11T02:43:21-05:00
+committer ryanqi588-code 2026-10-11T02:43:21-05:00
+
+    Report CPSC 2018 test: P-wave override confirmed, handheld training not
+
+
+M	README.md
+A	figures/afib_cpsc_test_roc.png
+A	results/afib_cpsc_test.csv
+A	results/afib_cpsc_test_recordings.csv
+commit 5f921368ef793cf9bf7e7fb0121a146aac7737b8
+tree 3ead427cd5850a1d5fcd5a6cdb802aca4fa5b263
+parents 2df82b5e9ef5bb4d954a4536b06f48dd0ea5d431
+author ryanqi588-code 2026-10-11T02:25:42-05:00
+committer ryanqi588-code 2026-10-11T02:25:42-05:00
+
+    Normalise entropy for beat count, train on handheld data, register CPSC test
+
+
+M	af.py
+A	afib_cpsc_test.py
+M	tests/test_af.py
+commit 2df82b5e9ef5bb4d954a4536b06f48dd0ea5d431
+tree 65b96e1ba31ca3ab9da98e49bee890caa3725836
+parents d52e2f560e82a3792ca94818694c8581ab5eef99
+author ryanqi588-code 2026-10-11T01:59:33-05:00
+committer ryanqi588-code 2026-10-11T01:59:33-05:00
+
+    Report Challenge 2017 test of the P-wave override
+
+
+M	README.md
+M	afib_cinc_test.py
+A	results/afib_cinc_test.csv
+A	results/afib_cinc_test_recordings.csv
+commit d52e2f560e82a3792ca94818694c8581ab5eef99
+tree 3141cd2b93c6f6d45c62f4714990f82f89725848
+parents 57c7e277487eead7ab9693c11bc704c7b7e135c3
+author ryanqi588-code 2026-10-11T01:45:39-05:00
+committer ryanqi588-code 2026-10-11T01:45:39-05:00
+
+    Add P-wave override and register the Challenge 2017 test
+
+
+M	af.py
+M	afib.py
+A	afib_cinc_test.py
+M	results/afib_classifiers_95sens.csv
+M	results/afib_windows_ectopic_removed.csv
+M	tests/test_af.py
+commit 57c7e277487eead7ab9693c11bc704c7b7e135c3
+tree 3fad09162c06d0a8631882afe6b5322d4e3db4bb
+parents efc7dfa7a686dbc9f535ba2f3cd563a6a01c0a6f
+author ryanqi588-code 2026-10-11T01:26:49-05:00
+committer ryanqi588-code 2026-10-11T01:26:49-05:00
+
+    Report SVDB atrial-ectopy test: p_match doesn't reduce false alarms
+
+
+M	README.md
+M	figures/afib_roc.png
+M	results/afib_classifiers_95sens.csv
+A	results/afib_svdb_test.csv
+A	results/afib_svdb_test_windows.csv
+M	results/afib_windows_ectopic_removed.csv
+A	results/svdb_beat_flags.csv
+A	results/svdb_records.csv
+commit efc7dfa7a686dbc9f535ba2f3cd563a6a01c0a6f
+tree 51b977289ee13c8565afb6cee112856bc63c87f4
+parents 79396a0bea389c3bad27983bb2652502226e351b
+author ryanqi588-code 2026-10-11T01:12:11-05:00
+committer ryanqi588-code 2026-10-11T01:12:11-05:00
+
+    Add P-wave features and register the SVDB atrial-ectopy test
+
+
+M	af.py
+M	afib.py
+A	afib_svdb_test.py
+M	ecg.py
+M	tests/test_af.py
+M	tests/test_ecg.py
+commit 79396a0bea389c3bad27983bb2652502226e351b
+tree 9a47a3e03f1e04f22bc05543b14a057bf8a98138
+parents 71b6ee25acf05bb92e0b34d6d1ffc521f21d5d9c
+author ryanqi588-code 2026-10-11T00:19:38-05:00
+committer ryanqi588-code 2026-10-11T00:19:38-05:00
+
+    Test AF models on 84 new patients (Long-Term AF Database)
+
+
+M	README.md
+A	figures/afib_ltaf_test_roc.png
+M	figures/afib_test_roc.png
+A	ltaf_errors.py
+A	results/afib_ltaf_test.csv
+A	results/afib_ltaf_test_windows.csv
+M	results/afib_test.csv
+M	results/afib_test_windows.csv
+A	results/ltaf_errors.csv
+commit 71b6ee25acf05bb92e0b34d6d1ffc521f21d5d9c
+tree 28f81202b7fe3cca12d2a6837f7ca1bddae28363
+parents 2132642d08658840c8c84a72a12d3c805ce1ca83
+author ryanqi588-code 2026-10-10T23:00:23-05:00
+committer ryanqi588-code 2026-10-10T23:00:30-05:00
+
+    Detect ectopic beats and remove them before computing AF features
+
+
+M	af.py
+M	afib.py
+M	afib_test.py
+M	ecg.py
+M	figures/afib_roc.png
+M	results/afib_classifiers_95sens.csv
+M	results/afib_windows.csv
+A	results/afib_windows_ectopic_removed.csv
+M	tests/test_af.py
+M	tests/test_ecg.py
+commit 2132642d08658840c8c84a72a12d3c805ce1ca83
+tree aede229e3b9baf5556e21cddf5698b9940b6f813
+parents 857fd650e9d064e60bcb3fabbe3ea33ba7a428a0
+author ryanqi588-code 2026-10-10T22:32:59-05:00
+committer ryanqi588-code 2026-10-10T22:32:59-05:00
+
+    Set AF cutoffs out-of-fold with records weighted equally
+
+
+M	af.py
+M	afib.py
+M	afib_test.py
+M	figures/afib_roc.png
+M	results/afib_classifiers_95sens.csv
+M	tests/test_af.py
+commit 857fd650e9d064e60bcb3fabbe3ea33ba7a428a0
+tree 4d940c3034b532f4dedd6f96da00dcc634fde908
+parents 40124b5f25f4cf3867aebf551a8ce037f686849c
+author ryanqi588-code 2026-10-10T22:18:29-05:00
+committer ryanqi588-code 2026-10-10T22:18:29-05:00
+
+    Add offline test suite and GitHub Actions CI badge
+
+
+A	.github/workflows/tests.yml
+M	.gitignore
+M	README.md
+M	af.py
+A	pytest.ini
+A	tests/test_af.py
+A	tests/test_ecg.py
+commit 40124b5f25f4cf3867aebf551a8ce037f686849c
+tree 395f9431eae20797a543164ae6d8221bc0fb7925
+parents 9ff9bfa254c82b23a602318f284500b35892908d
+author ryanqi588-code 2026-10-08T20:17:14-05:00
+committer ryanqi588-code 2026-10-08T20:17:14-05:00
+
+    Fix formatting in README.md table
+
+
+M	README.md
+commit 9ff9bfa254c82b23a602318f284500b35892908d
+tree c45ed54c2982ee3343f1a79236d6686d73429158
+parents 574b49749582afb842e9ecc96780ba035a8f3edb
+author ryanqi588-code 2026-10-08T20:10:39-05:00
+committer ryanqi588-code 2026-10-08T20:10:39-05:00
+
+    Run held-out AF test on hours 2-end; update README
+
+
+M	README.md
+M	afib_test.py
+A	figures/afib_test_roc.png
+A	results/afib_test.csv
+A	results/afib_test_windows.csv
+commit 574b49749582afb842e9ecc96780ba035a8f3edb
+tree 5dc5bf2353fcfb96191e45f1b346e75a64727e63
+parents 6d642824856434f51d26dcd223ca1f6028b3e1d3
+author ryanqi588-code 2026-10-08T18:23:20-05:00
+committer ryanqi588-code 2026-10-08T18:23:20-05:00
+
+    Choose AF cutoffs in-fold for 95% sensitivity; trim entropy outliers
+
+
+A	af.py
+M	afib.py
+A	afib_test.py
+M	figures/afib_roc.png
+M	results/afib_classifiers.csv
+A	results/afib_classifiers_95sens.csv
+M	results/afib_windows.csv
+commit 6d642824856434f51d26dcd223ca1f6028b3e1d3
+tree 83515677a25e570d7fc594aeb6d165c3d801aaf0
+parents 592f9289f167332a3dc47e8566d4898e651a09df
+author ryanqi588-code 2026-10-08T18:10:08-05:00
+committer ryanqi588-code 2026-10-08T18:10:08-05:00
+
+    Add entropy, TPR and pNN50 features and logistic regression for AF
+
+
+M	README.md
+M	afib.py
+A	figures/afib_roc.png
+M	requirements.txt
+A	results/afib_classifiers.csv
+M	results/afib_windows.csv
+commit 592f9289f167332a3dc47e8566d4898e651a09df
+tree f6b96ff4e11fc9d4722d97ddf812e0868aa1162d
+parents 509ffba4f9e2b67acf1d0f248f3c5440c7d40645
+author ryanqi588-code 2026-10-08T17:49:40-05:00
+committer ryanqi588-code 2026-10-08T17:49:40-05:00
+
+    Add README with method, results and limitations
+
+
+A	README.md
+commit 509ffba4f9e2b67acf1d0f248f3c5440c7d40645
+tree 9a4228eb482f0c6069c8d33c021701761ba42053
+parents b027dced7a10fb7d7555897c6a61b5bcffd2d6f5
+author ryanqi588-code 2026-10-08T17:49:40-05:00
+committer ryanqi588-code 2026-10-08T17:49:40-05:00
+
+    Report AF results on reference beat positions too
+
+
+M	afib.py
+commit b027dced7a10fb7d7555897c6a61b5bcffd2d6f5
+tree dd862fe9decddd60928f87b947137494043f930e
+parents db8b7d3ddef0b8feb17c4a1eeeb2608a61771b3c
+author ryanqi588-code 2026-10-08T17:41:08-05:00
+committer ryanqi588-code 2026-10-08T17:41:08-05:00
+
+    Add AF detection from RR irregularity on the MIT-BIH AF Database
+
+
+A	afib.py
+A	figures/afib_07162_reference.png
+A	figures/afib_scatter.png
+A	figures/afib_tachogram.png
+A	results/afib_beat_detection.csv
+A	results/afib_windows.csv
+commit db8b7d3ddef0b8feb17c4a1eeeb2608a61771b3c
+tree b8717a426cfc7552ef0b538dc1f80da30ddf7b55
+parents 1f6a193b4f28c94571c2dd603d1759e3d5cc74a7
+author ryanqi588-code 2026-10-08T17:13:40-05:00
+committer ryanqi588-code 2026-10-08T17:13:40-05:00
+
+    Benchmark detectors against wfdb xqrs on dev and held-out records
+
+
+A	figures/record100_beats.png
+A	figures/record100_heart_rate.png
+A	figures/record215_thresholds.png
+A	qrs_benchmark.py
+A	results/qrs_benchmark.csv
+commit 1f6a193b4f28c94571c2dd603d1759e3d5cc74a7
+tree ddf08ceb3bef875376bff38832074b70c109b7d0
+parents 
+author ryanqi588-code 2026-10-08T17:13:40-05:00
+committer ryanqi588-code 2026-10-08T17:13:40-05:00
+
+    Add R-peak detection helpers for MIT-BIH
+
+
+A	.gitignore
+A	ecg.py
+A	requirements.txt
