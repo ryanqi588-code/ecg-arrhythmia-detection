@@ -478,7 +478,7 @@ probabilities are not calibrated risks
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
   test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
   `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57; test 13 `007f6ab`
-  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05; test 16 `ba3839e` 18:55.
+  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05; test 16 `ba3839e` 18:55; MIMIC label check `e14302f` 21:12.
   Each is followed by its results commit. For tests 8–16 the registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
@@ -509,15 +509,19 @@ probabilities are not calibrated risks
   regular beats) still lean towards AF: after the test 12 fix, 76% of
   such non-AF recordings are still called AF (100% before). And 5.6–5.7%
   of CODE-15% recordings (many 7 s long) couldn't be scored at all.
-- Slow, rate-controlled AF is often missed. At a US hospital
-  (MIMIC-IV-ECG, supplement tests 14–15) the model caught only about 84%
-  of AF: it misses 28% of AF under 60 beats a minute but 7% above 100,
-  because slow AF is less irregular and its quiet stretches before each
-  beat can pass for consistent P waves. Some of MIMIC's machine-made AF
-  labels also describe regular strips
+- At a US hospital (MIMIC-IV-ECG, supplement tests 14–16) the model
+  caught only about 84% of AF, missing slow AF most (28% under 60 beats a
+  minute, 7% above 100). But MIMIC's AF labels are the ECG machine's,
+  not a doctor's
   ([supplement](SUPPLEMENT.md#why-the-model-misses-af-at-the-us-hospital-mimic-iv-ecg)).
-  A fix adding per-beat P-wave presence caught more AF on new patients
-  (82.5% → 84.6%; slow AF 73.2% → 76.1%) but raised PAC false alarms by
+  In a registered label check, when another ECG within 24 hours also
+  showed AF, the model caught **94.3%** of AF (545 recordings; 92.5% under
+  80 a minute), against 75.8% when only sinus rhythm was recorded nearby
+  ([supplement](SUPPLEMENT.md#better-labels-is-the-machines-af-confirmed-by-the-patients-other-ecgs)).
+  So much of the gap is probably label error, though confirmed AF is
+  also likely easier AF; only cardiologist labels, which need
+  credentialed access, can settle it. A fix adding per-beat P-wave
+  presence caught more AF (82.5% → 84.6%) but raised PAC false alarms by
   more than its pre-set limit allowed, so it wasn't adopted (supplement,
   test 16).
 - The model needs all 12 leads, and leaves out atrial flutter (handled

@@ -52,6 +52,13 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
 | 16 | MIMIC-IV-ECG, 989 AF, 1971 PAC and 1986 sinus new patients | per-beat P-wave presence and a gated P-wave match, trained with MIMIC development data | **84.6%** (adopted 82.5%); under 80/min 76.1% (73.2%) | PAC 12.6% → 14.3%, sinus 0.8% unchanged | failed the PAC limit; adopted model stays |
 
+After test 16, a registered label check re-scored tests 14–16's AF
+recordings against the patient's other ECGs. It is not a new test. On
+the 545 AF recordings that another AF ECG within 24 hours confirms, the
+model catches **94.3%**, against 75.8% where only sinus rhythm was
+recorded nearby
+([details](#better-labels-is-the-machines-af-confirmed-by-the-patients-other-ecgs)).
+
 ## S2. Beat detection
 
 [`ecg.py`](ecg.py) contains the detector:
@@ -940,7 +947,9 @@ is shared, not a quirk of hand-made features.
   flutter, another regular rhythm or a misread than AF. Leaving the
   regular recordings out (caught and missed alike) raises sensitivity
   only from 84.4% to 89.6%, so this explains part of the gap, not all.
-- **Slow, rate-controlled AF is the model's real weakness.** The missed
+- **Slow, rate-controlled AF is the model's real weakness** (the later
+  label check revises this: on confirmed AF the model catches 92.5% under
+  80 a minute, so much of this is probably mislabelled slow rhythms). The missed
   irregular AF is slower (median 72 a minute, 65% under 80) and less
   irregular (CV 0.12 against 0.18) than the AF it catches. The miss rate
   falls steadily with heart rate: 27.7% under 60 a minute, 22.3% at
@@ -1013,7 +1022,71 @@ less than 2 points (upper bound below +0.02).
 - **Slow AF stays hard.** Even with the fix, about 1 in 4 AF recordings
   under 80 a minute is missed. Part of what's left is probably labels:
   about 40% of misses at this hospital are almost perfectly regular (see
-  above), which per-beat P-wave measures can't change.
+  above), which per-beat P-wave measures can't change. The label check
+  below confirms this.
+
+### Better labels: is the machine's AF confirmed by the patient's other ECGs?
+
+MIMIC's AF labels are the ECG machine's. The cardiologist reports for
+these ECGs are not openly released (MIMIC-IV-ECG says they will join
+MIMIC-IV-Note later, and that module is credentialed), and the
+discharge-diagnosis labels (MIMIC-IV-ECG-Ext-ICD) are credentialed too.
+One better label is open, though: **real AF usually shows on the same
+patient's other ECGs taken within hours**, while a single machine "AF"
+between sinus-rhythm ECGs is less certain.
+
+[`afib_mimic_labels.py`](afib_mimic_labels.py) uses only the machine
+reports and ECG times, no signals and no model output, and sorts each AF
+recording of tests 14–16 (2947, one per patient) by the patient's other
+ECGs within 24 hours:
+
+- **confirmed:** another ECG states AF;
+- **sinus nearby:** none states AF, but one states sinus rhythm;
+- **no comparison:** neither, which mostly means no other ECG that day.
+
+It then re-scores the calls the tests already saved. It was registered
+(`e14302f`) before any neighbouring ECG was looked at (the code was
+smoke-tested on development recordings only) and run once. It is a
+re-analysis of tests 14–16, not a new fresh-data test.
+
+**Primary:** the adopted model's sensitivity on confirmed AF minus on
+sinus-nearby AF, with its interval entirely above 0. **Result: +18.6
+points (95% CI +14.7 to +22.4). Passed.** With a 6-hour window it was
++13.0 points (+8.2 to +18.2; 273 confirmed, 334 sinus nearby).
+
+| Tests 14–16 AF recordings | Recordings | Adopted model | under 80 a minute | CNN (tests 14–15 only) | Near-regular, CV < 0.05 (tests 14–15) |
+|---|---|---|---|---|---|
+| **Confirmed** (another AF ECG within 24 h) | 545 | **94.3%** (92.0–96.0) | **92.5%** (161/174) | 95.7% (356/372) | 2.4% |
+| Sinus nearby | 623 | 75.8% (72.2–79.0) | 58.3% (120/206) | 77.3% (314/406) | 12.3% |
+| No comparison | 1779 | 83.4% (81.6–85.0) | 75.7% (556/734) | 86.1% (1016/1180) | 6.4% |
+| All | 2947 | 83.8% (82.4–85.1) | 75.1% (837/1114) | 86.1% (1686/1958) | 6.8% |
+
+- **On AF that the patient's other ECGs confirm, the model catches 94%,
+  in line with its 92–98% on cardiologist-labelled data.** The gap at
+  this hospital is mostly in the AF calls that nothing else supports.
+- **The slow-AF weakness mostly goes away on confirmed AF**: 92.5% under
+  80 a minute against 58.3% when sinus rhythm was recorded nearby. So
+  much of what looked like slow AF fooling the model is probably slow
+  sinus rhythm or another rhythm that the machine called AF. This
+  revises the error analysis above, which put slow AF first.
+- **The regular strips sit in the unconfirmed groups**: 12.3% of
+  sinus-nearby AF is near-regular against 2.4% of confirmed AF.
+- **Test 16's fix gains little on confirmed AF**: 93.6% → 95.4% (+1.7
+  points, +0.0 to +3.9; 173 recordings), so it mainly changed calls on
+  doubtful labels.
+- **Labels err the other way too.** Of the PAC recordings whose patient has
+  an AF ECG within 24 hours (301 of 5924), the model calls 37.2% AF, against
+  12.8% of the rest. Some of these "PAC" strips are probably AF, or
+  paroxysmal AF patients' sinus rhythm with very irregular ectopy.
+
+**What this does and doesn't show.** The confirmation comes from the
+same machines, which are probably most reliable on obvious, persistent
+AF. Confirmed AF is therefore surer AF but probably also easier AF, and
+the sinus-nearby group includes real paroxysmal AF. So 94.3% is not
+proof that every other miss is a label error. The model's sensitivity on
+real AF at this hospital is most likely between 84% and 94%, and only
+cardiologist labels can pin it down. The tests' own numbers stand as
+reported.
 
 ## S9. Reporting details for the supplementary tests
 
@@ -1147,6 +1220,7 @@ python afib_slowaf_dev.py select # MIMIC development set (results/mimic_dev_sele
 python afib_slowaf_dev.py     # slow-AF fix development, previews
 python afib_slowaf_test.py select # test 16's recordings
 python afib_slowaf_test.py    # test 16
+python afib_mimic_labels.py   # label check: machine AF confirmed by the patient's other ECGs (after tests 14-16)
 ```
 
 MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
@@ -1181,3 +1255,7 @@ MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
   so the calls it removes have no transparent reason. Its override
   threshold (0.9) was chosen after seeing test 14's data, and all of the
   MIMIC labels are the machine's.
+- MIMIC labels: the label check confirms only 18% of AF recordings
+  (most patients have no other ECG that day), and the confirmation comes
+  from the same machines. Cardiologist reports (credentialed access) would
+  settle it.
