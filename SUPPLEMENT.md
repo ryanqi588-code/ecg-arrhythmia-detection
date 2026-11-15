@@ -5,7 +5,8 @@ which reports one story: an interpretable 12-lead AF model, compared
 head-to-head with deep learning and doctors (tests 9, 11 and 12). Here are
 the beat detector it builds on, the earlier Holter, handheld and clinical
 models and the tests they failed or passed (tests 1–8), the calibration
-check, atrial flutter (test 10), and a hybrid with a CNN (tests 13–15).
+check, atrial flutter (test 10), a hybrid with a CNN (tests 13–15), and an
+attempt to catch the slow AF the model misses at a US hospital (test 16).
 References are in the README.
 
 - [S1. Full test log](#s1-full-test-log)
@@ -49,6 +50,7 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 13 | INCART PAC crops, CODE-15% part 2 | hybrid: interpretable model screens, CNN confirms | 93.6% (alone 93.2%) | INCART PAC 9.2% → **2.7%**; non-AF 3.8% → 2.7% | offered as an alternative |
 | 14 | MIMIC-IV-ECG (USA), 1976 PAC and 976 AF patients | test 13's hybrid, unchanged, on many more patients | 84.6% (alone 85.3%) | PAC 14.3% → **8.8%** | PAC gain confirmed; sensitivity bar narrowly missed, so not confirmed |
 | 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
+| 16 | MIMIC-IV-ECG, 989 AF, 1971 PAC and 1986 sinus new patients | per-beat P-wave presence and a gated P-wave match, trained with MIMIC development data | **84.6%** (adopted 82.5%); under 80/min 76.1% (73.2%) | PAC 12.6% → 14.3%, sinus 0.8% unchanged | failed the PAC limit; adopted model stays |
 
 ## S2. Beat detection
 
@@ -958,6 +960,61 @@ is shared, not a quirk of hand-made features.
   (13.6% missed), bundle branch block or wide QRS (16.3%), low voltage
   (12.0%), against 15.6% overall.
 
+### Test 16: a fix for slow AF (failed its false-alarm limit)
+
+**The idea.** [`ecg.p_presence`](ecg.py) asks, beat by beat, whether a
+wave before the QRS stands out from the quiet part of the same interval,
+so a flat baseline can't pass for a P wave. It is scorable exactly where
+the problem is, since slow beats leave a quiet stretch. On test 14–15's
+(used) recordings it scores the missed AF 0.11 and the PAC recordings the
+model correctly clears 0.60. And the original development data has little
+slow AF to learn from (133 of 3416 AF units fool the P-wave match), so
+[`afib_slowaf_dev.py`](afib_slowaf_dev.py) added a **MIMIC development
+set** from patients in no test (1500 AF, 1500 PAC, 1500 sinus-rhythm
+patients chosen from the reports; 4439 scored).
+
+**Development** (5-fold CV by patient; cutoffs set by the usual rule on
+CPSC, PTB-XL and Chapman only):
+
+| Development (CV) | MIMIC AF caught | under 80/min | MIMIC PAC called AF | MIMIC AF-vs-PAC AUC | MIMIC AF caught at 10% PAC false alarms |
+|---|---|---|---|---|---|
+| Adopted model | 84.1% | 74.0% | 14.3% | 0.901 | 79.9% |
+| + P-wave presence | 86.1% | 78.1% | 15.4% | 0.916 | 82.2% |
+| Gated P-wave match only | 87.5% | 80.8% | 23.9% | 0.898 | 75.6% |
+| **+ P-wave presence + gated match, + MIMIC training** | 86.5% | 79.5% | 15.1% | **0.922** | **83.0%** |
+| as above, MIMIC also a cutoff source | 95.2% | 92.0% | 41.3% | 0.922 | 82.7% |
+
+The chosen model (bold) separated AF from PACs best. Previews on used
+data showed a cost on PACs at some hospitals: SPH 8.9% → 8.2%, but Ningbo
+25.2% → 27.2% and Chapman (CV) 18.2% → 21.7%. So the test checked it.
+
+**The test** ([`afib_slowaf_test.py`](afib_slowaf_test.py)), registered
+(`ba3839e`) before the recordings were downloaded: new MIMIC patients
+(none in tests 14–15 or the development set), 1000 AF, 2000 PAC and 2000
+sinus rhythm, one recording each. The new model was to be recommended
+only if sensitivity rose (interval above 0) and PAC false alarms rose by
+less than 2 points (upper bound below +0.02).
+
+| Test 16 (4946 scored: 989 AF, 1971 PAC, 1986 sinus) | Adopted model | New model | Difference (95% CI) |
+|---|---|---|---|
+| AF caught | 82.5% (816) | **84.6%** (837) | +2.1 points (+1.1 to +3.3) ✓ |
+| AF under 80 a minute caught (373) | 73.2% | **76.1%** | +3.0 points (+1.1 to +4.9) |
+| PAC called AF | 12.6% (249) | 14.3% (281) | +1.6 points (+0.5 to +2.7) ✗ |
+| Sinus rhythm called AF | 0.8% | 0.8% | 0.0 |
+| AF-vs-PAC AUC | 0.894 | **0.922** | |
+
+- **Failed: the adopted model stays.** Sensitivity rose as predicted, but
+  the interval for PAC false alarms reaches +2.7 points, past the +2
+  limit fixed in advance.
+- **Most of the sensitivity gain is a shift in operating point, not a
+  better model.** The new model ranks AF above PACs better (AUC 0.922 vs
+  0.894), but at the adopted model's PAC false-alarm rate (12.6%) it
+  catches 83.5% of AF, only 1 point more than 82.5%.
+- **Slow AF stays hard.** Even with the fix, about 1 in 4 AF recordings
+  under 80 a minute is missed. Part of what's left is probably labels:
+  about 40% of misses at this hospital are almost perfectly regular (see
+  above), which per-beat P-wave measures can't change.
+
 ## S9. Reporting details for the supplementary tests
 
 The main paper's TRIPOD+AI section covers tests 9, 11 and 12 and the
@@ -976,12 +1033,14 @@ final AF model. These are the matching details for the other tests.
 | SPH | Shandong Provincial Hospital, Jinan (China) | August 2019 – August 2020 | AHA statements standardized from physicians' reports | test 10 (flutter; recordings not in test 9) |
 | CODE-15% part 2 | Telehealth Network of Minas Gerais, Brazil | 2010–2016 | as in the main paper | test 13 |
 | INCART | St Petersburg Institute of Cardiological Technics (Russia), 12-lead Holter | not given in the release | beat-by-beat annotations (automatic, then corrected by hand) | test 13 (PAC crops only) |
-| MIMIC-IV-ECG | Beth Israel Deaconess Medical Center, Boston (USA), hospital ECGs | 2008–2019 | the ECG machine's report statements (not reviewed by a cardiologist) | tests 14–15 (PAC and AF only; different patients) |
+| MIMIC-IV-ECG | Beth Israel Deaconess Medical Center, Boston (USA), hospital ECGs | 2008–2019 | the ECG machine's report statements (not reviewed by a cardiologist) | tests 14–16 (different patients in each) and the test 16 development set |
 
 All recordings meeting each test's rules were used, except PTB-XL's
 sinus group in test 7 (1500 drawn at random, seed 0) and MIMIC-IV-ECG
 (one recording per patient, 2000 PAC and 1000 AF patients drawn at
-random, seed 0 for test 14 and seed 1 for test 15).
+random, seed 0 for test 14 and seed 1 for test 15; 1500 AF, 1500 PAC and
+1500 sinus-rhythm patients for the test 16 development set, seed 2; 1000
+AF, 2000 PAC and 2000 sinus-rhythm patients for test 16, seed 3).
 
 ### Flow of recordings
 
@@ -1000,6 +1059,7 @@ random, seed 0 for test 14 and seed 1 for test 15).
 | 13 CODE-15% part 2 | 20,000 | – | 1144 (8 AF) | 18,856 |
 | 14 MIMIC-IV-ECG | 3000 (one per patient) | – | 48 (24 AF, 24 PAC; including missing samples) | 2952 |
 | 15 MIMIC-IV-ECG, new patients | 3000 (one per patient) | test 14's patients excluded beforehand | 41 (18 AF, 23 PAC) | 2959 |
+| 16 MIMIC-IV-ECG, new patients | 5000 (one per patient) | patients of tests 14–15 and the development set excluded beforehand | 54 (11 AF, 29 PAC, 14 sinus) | 4946 |
 
 ```mermaid
 flowchart TD
@@ -1083,6 +1143,10 @@ python afib_hybrid2_dev.py    # the confident-call override (development; previe
 python afib_mimic_select.py test15   # test 15's recordings (new patients)
 python afib_mimic15_test.py   # test 15, after `python afib_compare_dnn.py mimic15`
 python afib_mimic_errors.py   # why AF is missed on MIMIC (after tests 14-15)
+python afib_slowaf_dev.py select # MIMIC development set (results/mimic_dev_selected.txt)
+python afib_slowaf_dev.py     # slow-AF fix development, previews
+python afib_slowaf_test.py select # test 16's recordings
+python afib_slowaf_test.py    # test 16
 ```
 
 MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in

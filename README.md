@@ -28,7 +28,7 @@ black boxes, and each of its errors can be traced to a named feature. Its
 real cost is atrial premature beats (PACs), where both networks make far
 fewer false alarms.
 
-This paper reports tests 9, 11 and 12. The project ran fifteen tests in
+This paper reports tests 9, 11 and 12. The project ran sixteen tests in
 all, several of which failed; the beat detector, the earlier Holter,
 handheld and clinical models, atrial flutter, and a hybrid with a CNN
 are in the [supplement](SUPPLEMENT.md), with the
@@ -38,7 +38,7 @@ are in the [supplement](SUPPLEMENT.md), with the
 independent research. It started from an earlier Colab notebook of mine;
 the repository's first commit was on 8 October 2026, and the first ten
 fresh-data tests were run between 11 and 12 October 2026. The comparison
-with other methods, a false-alarm fix and a hybrid (tests 11–15) were added
+with other methods, a false-alarm fix and a hybrid (tests 11–16) were added
 on 14 November 2026. The commit history shows each step.
 
 ## 1. Methods
@@ -478,8 +478,8 @@ probabilities are not calibrated risks
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
   test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
   `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57; test 13 `007f6ab`
-  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05. Each is
-  followed by its results commit. For tests 8–15 the registration commit
+  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05; test 16 `ba3839e` 18:55.
+  Each is followed by its results commit. For tests 8–16 the registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
   the order. Test 1 (LTAFDB) has no separate registration commit. The
@@ -516,6 +516,10 @@ probabilities are not calibrated risks
   beat can pass for consistent P waves. Some of MIMIC's machine-made AF
   labels also describe regular strips
   ([supplement](SUPPLEMENT.md#why-the-model-misses-af-at-the-us-hospital-mimic-iv-ecg)).
+  A fix adding per-beat P-wave presence caught more AF on new patients
+  (82.5% → 84.6%; slow AF 73.2% → 76.1%) but raised PAC false alarms by
+  more than its pre-set limit allowed, so it wasn't adopted (supplement,
+  test 16).
 - The model needs all 12 leads, and leaves out atrial flutter (handled
   by a separate model in the supplement).
 - The probabilities are not calibrated risks: on SPH they're too cautious
