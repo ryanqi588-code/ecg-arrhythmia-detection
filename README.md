@@ -15,18 +15,18 @@ clinical 12-lead ECGs.
 | AF on Holter recordings, 60 s windows | 84 new patients (Long-Term AF Database) | sensitivity **96.4%**, specificity 81.8%; with ectopic beats removed 95.8%, **84.3%** (original two-threshold rule: 94.3%, 59.1%) |
 | AF on 10 s clinical 12-lead ECGs | 15,113 ECGs from Shandong Provincial Hospital | sensitivity **98.4%** (95% CI 97.1–99.1%); false alarms **9.5%** on atrial premature beats, **0.1%** on normal ECGs |
 | Atrial flutter on 10 s clinical 12-lead ECGs | 99 flutter and 711 sinus tachycardia ECGs (Shandong) | **83.8%** of flutter caught as AF or flutter (AF model alone: 54.5%), 70.7% named flutter; 3.7% of sinus tachycardia flagged |
-| AF with a CNN confirming the interpretable model's calls (optional hybrid) | 447 PAC crops (INCART, Russia), 18,856 ECGs (CODE-15% part 2, Brazil); then 1976 PAC and 976 AF patients (MIMIC-IV-ECG, USA) | PAC false alarms **9.2% → 2.7%** (INCART) and **14.3% → 8.8%** (MIMIC); sensitivity 93.2% → 93.6% (CODE-15%) but 85.3% → 84.6% (MIMIC), just missing the non-inferiority bar; the CNN makes most decisions |
+| AF with a CNN confirming the interpretable model's less confident calls (optional hybrid) | 1977 PAC and 982 AF patients, none used before (MIMIC-IV-ECG, Boston) | PAC false alarms **15.1% → 10.3%** and sensitivity **83.5% → 85.4%** compared with the interpretable model alone; the CNN makes most decisions below the confident range |
 | AF on handheld recordings | – (no unused data left) | cross-validation only: 92.7% sensitivity |
 | Against deep learning and doctors | Shandong, Ningbo (China), CODE-15% and the CODE test set (Brazil) | within 0.01 AUC of a published deep network and of a CNN trained on the same data (AUC 0.996 vs 0.998 and 1.000), but **1.4–2.6 times as many false alarms on atrial premature beats**; on 13 AF cases, sensitivity like the best doctors (12/13) at lower specificity (96.4% vs 98.8–100%) |
 
-These took fourteen tests on fresh data, several of which failed; all of them
+These took fifteen tests on fresh data, several of which failed; all of them
 are in the [test log](#test-log).
 
 **Timeline.** This was an intensive five-day project, not months of
 independent research. It started from an earlier Colab notebook of mine;
 the repository's first commit was on 8 October 2026, and the first ten
 fresh-data tests were run between 11 and 12 October 2026. The comparison
-with other methods, a false-alarm fix and a hybrid (tests 11–14) were added
+with other methods, a false-alarm fix and a hybrid (tests 11–15) were added
 on 14 November 2026. The commit history shows each step.
 
 ## How the tests were run
@@ -72,6 +72,7 @@ on 14 November 2026. The commit history shows each step.
 | 12 | CODE-15% part 1 (Brazil) | unmeasurable P waves marked as unmeasured, not absent | 91.7%, unchanged | non-AF 3.8% → **3.3%** | adopted |
 | 13 | INCART PAC crops, CODE-15% part 2 | hybrid: interpretable model screens, CNN confirms | 93.6% (alone 93.2%) | INCART PAC 9.2% → **2.7%**; non-AF 3.8% → 2.7% | offered as an alternative |
 | 14 | MIMIC-IV-ECG (USA), 1976 PAC and 976 AF patients | test 13's hybrid, unchanged, on many more patients | 84.6% (alone 85.3%) | PAC 14.3% → **8.8%** | PAC gain confirmed; sensitivity bar narrowly missed, so not confirmed |
+| 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
 
 ## 1. Beat detection
 
@@ -1058,6 +1059,45 @@ fibrillation. The same two conditions as test 13 applied.
   no scikit-learn, so `afib_mimic_select.py` defines the 12-lead order
   itself instead of importing it from `af.py` (checked identical).
 
+**A fix: the CNN may veto only less confident calls.** Some AF the hybrid
+lost had high interpretable probabilities that the CNN overruled. So
+[`afib_hybrid2_dev.py`](afib_hybrid2_dev.py) added an override: AF is also
+called whenever the interpretable probability is at least `t_high`, with
+no CNN check. The rule fixed first for choosing `t_high` (the highest value
+keeping development sensitivity in every source at least the interpretable
+model's) **failed**: it gave 0.46, next to the interpretable cutoff (0.43),
+which undoes nearly all of the PAC gain (preview on test 14: PAC 15.7%).
+I then chose **0.9** by looking at the trade-off on the development grid
+(PAC 7.0% vs 11.8% alone) and on test 14's recordings (sensitivity 87.1%
+vs 85.3%, PAC 10.5% vs 14.3%). Since test 14's data informed this choice,
+it was tested on new patients.
+
+**Test 15** ([`afib_mimic15_test.py`](afib_mimic15_test.py)), registered
+(`041a560`) before the new recordings were downloaded: the same selection
+rules on MIMIC-IV-ECG, 2000 PAC and 1000 AF patients, none of them in
+test 14 (seed 1). The same two conditions, against the interpretable model
+alone.
+
+| Test 15 (2959 scored: 1977 PAC, 982 AF; 41 unscorable) | Interpretable alone | Hybrid (test 13) | **Hybrid + override** | Override minus alone (95% CI) |
+|---|---|---|---|---|
+| PAC recordings called AF | 15.1% (298) | 8.7% (172) | **10.3%** (203) | −4.8 points (−6.1 to −3.5) |
+| AF caught | 83.5% (820) | 84.3% (828) | **85.4%** (839) | +1.9 points (+0.3 to +3.7) |
+
+- **Both conditions met.** The hybrid with the override makes about a
+  third fewer PAC false alarms than the interpretable model alone *and*
+  catches more AF (its sensitivity interval lies entirely above 0). It
+  replaces test 13's hybrid as the offered alternative.
+- The override gives back part of the PAC gain (8.7% → 10.3%) for 11 more
+  AF patients caught.
+- On these new patients test 13's hybrid would also have passed
+  (sensitivity +0.8 points, −1.0 to +2.7), so test 14's failure was partly
+  chance. Its sensitivity is closer to the limit than the override's, though.
+- Every AF call still has the interpretable explanation; calls the CNN
+  vetoes (interpretable probability 0.43–0.9) still have no transparent
+  reason. MIMIC's labels are the ECG machine's, and both models catch only
+  83–85% of its AF (see test 14). The interpretable model stays the main
+  model.
+
 ## Reporting details (TRIPOD+AI)
 
 This section collects items of the TRIPOD+AI reporting guideline that the
@@ -1080,7 +1120,7 @@ the saved test outputs; nothing was refitted.
 | CODE-15% | Telehealth Network of Minas Gerais, Brazil, mostly primary care | 2010–2016 | cardiologist reports (text-mined) agreeing with automatic analysis; AF also required an irregular pulse | tests 11–12 |
 | CODE test set | as CODE-15% | as CODE-15% | two cardiologists, a third deciding disagreements | test 11 |
 | INCART | St Petersburg Institute of Cardiological Technics (Russia), 12-lead Holter | not given in the release | beat-by-beat annotations (automatic, then corrected by hand) | test 13 (PAC crops only) |
-| MIMIC-IV-ECG | Beth Israel Deaconess Medical Center, Boston (USA), hospital ECGs | 2008–2019 | the ECG machine's report statements (not reviewed by a cardiologist) | test 14 (PAC and AF only) |
+| MIMIC-IV-ECG | Beth Israel Deaconess Medical Center, Boston (USA), hospital ECGs | 2008–2019 | the ECG machine's report statements (not reviewed by a cardiologist) | tests 14–15 (PAC and AF only; different patients) |
 
 **Eligibility.** Recordings were chosen from labels or headers alone,
 before any signal was looked at, by the rules in each test's section:
@@ -1111,6 +1151,7 @@ of each recording.
 | 13 INCART PAC crops | 447 (14 patients) | 2 patients with AF excluded beforehand | 0 | 447 |
 | 13 CODE-15% part 2 | 20,000 | – | 1144 (8 AF) | 18,856 |
 | 14 MIMIC-IV-ECG | 3000 (one per patient) | – | 48 (24 AF, 24 PAC; including missing samples) | 2952 |
+| 15 MIMIC-IV-ECG, new patients | 3000 (one per patient) | test 14's patients excluded beforehand | 41 (18 AF, 23 PAC) | 2959 |
 
 ```mermaid
 flowchart TD
@@ -1280,8 +1321,8 @@ library version (scikit-learn 1.9.1).
   test 6 `e1b24b9` 14:59; test 7 `dba1e05` 15:18; test 8 `fa9efa8` 19:42;
   test 9 `759d00c` 22:26; test 10 `85c65d2` 2026-10-12 00:12; test 11
   `d8c5ce2` 2026-11-14 13:06; test 12 `6da6e6b` 13:57; test 13 `007f6ab`
-  15:38; test 14 `9d82cbf` 17:48. Each is followed by its results commit.
-  For tests 8–14 the
+  15:38; test 14 `9d82cbf` 17:48; test 15 `041a560` 18:05. Each is followed by
+  its results commit. For tests 8–15 the
   registration commit
   was also pushed to GitHub before the data were opened; for tests 2–7 it
   was pushed together with the results, so only the commit time records
@@ -1330,6 +1371,9 @@ python afib_hybrid_dev.py     # hybrid thresholds (needs results/afib_cnn_dev_oo
 python afib_hybrid_test.py    # test 13, after `python afib_compare_dnn.py incart code15p2`
 python afib_mimic_select.py   # test 14's recordings, from the MIMIC-IV-ECG reports
 python afib_mimic_test.py     # test 14, after `python afib_compare_dnn.py mimic`
+python afib_hybrid2_dev.py    # the confident-call override (development; preview on used sets)
+python afib_mimic_select.py test15   # test 15's recordings (new patients)
+python afib_mimic15_test.py   # test 15, after `python afib_compare_dnn.py mimic15`
 ```
 
 Test 11's neural networks need a separate TensorFlow environment
@@ -1360,7 +1404,7 @@ only, written to a `SELECTED` file of one `record label` pair per line.
 | Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | `data/ningbo/SELECTED` lists `gN/JSxxxxx label` |
 | CODE-15% | `exams.csv`, `exams_part0.zip` and `exams_part1.zip` (2.7 GB each) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` (test 11) and `exams_part1.hdf5` (test 12) |
 | INCART | the `.hea`, `.atr` and `.dat` files of the recordings in [`results/incart_selected.txt`](results/incart_selected.txt) from [PhysioNet](https://physionet.org/content/incartdb/1.0.0/) | `data/incart/` | copy `results/incart_selected.txt` there as `SELECTED` |
-| MIMIC-IV-ECG | `machine_measurements.csv` and `record_list.csv`, then the `.hea` and `.dat` files of the recordings in [`results/mimic_selected.txt`](results/mimic_selected.txt) (3000, ~360 MB), from [PhysioNet](https://physionet.org/content/mimic-iv-ecg/1.0/) | `data/mimic/` | keep the `files/pNNNN/...` paths |
+| MIMIC-IV-ECG | `machine_measurements.csv` and `record_list.csv`, then the `.hea` and `.dat` files of the recordings in [`results/mimic_selected.txt`](results/mimic_selected.txt) and [`results/mimic15_selected.txt`](results/mimic15_selected.txt) (3000 each, ~360 MB each), from [PhysioNet](https://physionet.org/content/mimic-iv-ecg/1.0/) | `data/mimic/` | keep the `files/pNNNN/...` paths |
 | CODE test set and Ribeiro's network | `data.zip` (218 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625006)) and `model.zip` (336 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625017)) | `data/ribeiro/` | unzip both there |
 
 ### Tests
@@ -1401,10 +1445,12 @@ GitHub Actions runs them on Python 3.11 and 3.12 on every push.
   published deep network and a CNN trained on the same data call far
   fewer PAC recordings AF (test 11). PAC false alarms also vary by
   hospital (9.5% at SPH, 24.5% at Ningbo). The hybrid of section 9 closes
-  much of this gap (test 13: 9.2% → 2.7%, mostly from 2 patients; test 14:
-  14.3% → 8.8% on 1976 patients), but by letting the CNN make most
-  decisions, and on MIMIC-IV-ECG it could not show that sensitivity
-  doesn't drop by more than 2 points.
+  much of this gap, but by letting the CNN make most decisions. Without
+  the override it failed test 14's sensitivity bar narrowly; with it
+  (test 15, 1977 new PAC patients) PAC false alarms fell 15.1% → 10.3%
+  and sensitivity rose 83.5% → 85.4%. The override threshold (0.9) was
+  chosen after seeing test 14's data, and all of the MIMIC labels are the
+  machine's.
 - Recordings whose P waves can't be measured (fewer than 3 usable
   regular beats) still lean towards AF: after the test 12 fix, 76% of
   such non-AF recordings are still called AF (100% before). And 5.6–5.7%
