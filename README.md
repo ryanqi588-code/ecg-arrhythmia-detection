@@ -32,8 +32,12 @@ opened, and run once.
 beats (PACs): it ranks AF against PACs with about three times as many
 errors as either network and makes far more PAC false alarms. Its overall
 AUC is close to theirs only because normal ECGs, which every model gets
-right, make up most of the data. Each of its errors can be traced to a
-named feature.
+right, make up most of the data. The gap is clearest on recordings with
+atrial premature complexes alone (8.1% called AF against 2.6% and 1.3%).
+Mixed atrial and ventricular ectopy is the worst case for every model,
+and this model's worst of all: it called 14 of 26 such recordings AF,
+against 5 for each network (a split after the test). Each of its errors
+can be traced to a named feature.
 
 This paper reports tests 9, 11 and 12. The project ran sixteen tests in
 all, several of which failed; the beat detector, the earlier Holter,
@@ -236,6 +240,26 @@ above −0.01)? The test sets:
   of the models had seen, 10.1% and 17.1% against 24.5%. At the same
   sensitivity as this model (98.4%) on SPH, the networks call 1.7–1.9%
   of PAC recordings AF against its 7.6% (worked out after the run).
+- **The gap holds on plain PACs, and mixed ectopy is everyone's worst
+  case** (split by the other statements on each SPH PAC recording, after
+  the test; [`afib_comparison_ectopy.py`](afib_comparison_ectopy.py)):
+
+  | SPH PAC recordings | This model | Ribeiro's network | Same-data CNN |
+  |---|---|---|---|
+  | PAC only (235): called AF | **8.1%** | 2.6% | 1.3% |
+  | PAC only: AF-vs-PAC AUC | 0.987 | 0.997 | 1.000 |
+  | Other findings, no ventricular ectopy (276): called AF | 6.5% | 7.6% | 4.3% |
+  | Ventricular premature complexes too (26): called AF | **53.8%** | 19.2% | 19.2% |
+  | Ventricular premature complexes too: AF-vs-PAC AUC | 0.964 | 0.989 | 0.962 |
+
+  On PAC-only recordings both networks are clearly better: this model has
+  5.5 and 6.8 more false alarms per 100 (95% CI +2.3 to +8.9 and +3.6 to
+  +10.4), and both AUC differences exclude 0. With other findings but no
+  ventricular ectopy there is no clear difference. Mixed atrial and
+  ventricular ectopy is the hardest group for all three models. This
+  model's false-alarm rate there is far higher (difference +34.6 points
+  against each network, CI +9.5 to +57.7 against Ribeiro's), but the CNN
+  ranks this group no better (AUC 0.962). It has only 26 recordings.
 - **PAC false alarms depend heavily on the hospital** for every model:
   this model's 9.5% at SPH is 24.5% at Ningbo, so the SPH figure
   shouldn't be quoted as general.
