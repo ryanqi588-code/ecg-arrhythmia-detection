@@ -852,13 +852,26 @@ pip install pytest
 pytest
 ```
 
-The 37 tests in [`tests/`](tests/) use synthetic ECG and RR series, so
-they run offline in about a second. They check the detectors (upside-down
-beats, T waves, one tall spike, a small biphasic lead), each feature on
-series where the answer is known (e.g. TPR = 1 for alternating
-intervals, ≈ 2/3 for random ones), the ectopic and atrial-premature beat
-rules, the P-wave, f-wave and flutter-wave measures, and per-source
-cutoffs. GitHub Actions runs them on Python 3.11 and 3.12 on every push.
+The 80 tests in [`tests/`](tests/) run offline in a few seconds:
+- **Synthetic ECG and RR series** check the detectors (upside-down beats,
+  T waves, one tall spike, a small biphasic lead), each feature on series
+  where the answer is known (e.g. TPR = 1 for alternating intervals,
+  ≈ 2/3 for random ones), the ectopic and atrial-premature beat rules,
+  the P-wave, f-wave and flutter-wave measures, per-source cutoffs, and
+  `predict.py`'s scoring.
+- **Golden tests** ([`tests/golden/`](tests/golden/)) run four real SPH
+  ECGs (AF, a PAC false alarm, "needs review" and normal sinus rhythm)
+  and 11 CODE-15% feature rows through the model and must reproduce the
+  published probabilities, calls and beat counts.
+- **Statistics:** the Wilson interval against published values (Newcombe
+  1998), and the patient-level bootstrap (same seed, same interval;
+  whole patients resampled). Every interval in the paper comes from
+  these two, now in [`stats.py`](stats.py) for new code; the copies in
+  the registered test scripts are left as they were, and a test checks
+  they're still identical.
+
+GitHub Actions runs them on every push: on Python 3.11 and 3.12 with the
+latest packages, and with the exact versions in `requirements-lock.txt`.
 
 ## References
 
