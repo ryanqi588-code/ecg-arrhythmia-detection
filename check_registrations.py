@@ -40,6 +40,10 @@ import urllib.request
 REPO = "ryanqi588-code/ecg-arrhythmia-detection"
 
 # (test, registration commit, results commit, registered test script)
+# The paper numbers its tests 1-5; the repository keeps the project's own numbers (in script names,
+# commit messages and the supplement's full log), so the history stays checkable.
+PAPER_TEST = {"9": "1", "11": "2", "12": "3", "17": "4", "18": "5"}
+
 REGISTRATIONS = [
     ("2", "efc7dfa", "57c7e27", "afib_svdb_test.py"),
     ("3", "d52e2f5", "2df82b5", "afib_cinc_test.py"),
@@ -122,7 +126,7 @@ def main():
         p_reg, p_res = first_push(reg, pushes), first_push(res, pushes)
         separate = bool(p_reg and p_res and p_reg["timestamp"] < p_res["timestamp"])
         ok_all &= in_history and script_registered and p_reg is not None
-        rows.append({"test": test, "registration": reg, "results": res, "script": script,
+        rows.append({"test": test, "paper test": PAPER_TEST.get(test, ""), "registration": reg, "results": res, "script": script,
                      "order in history ok": in_history, "script in registration commit": script_registered,
                      "registration pushed (GitHub, UTC)": p_reg["timestamp"] if p_reg else "not found",
                      "results pushed (GitHub, UTC)": p_res["timestamp"] if p_res else "not found",
@@ -134,10 +138,11 @@ def main():
     late_forced = [e for e in forced if e["timestamp"] >= first_reg]
 
     w = max(len(r["test"]) for r in rows)
-    print(f"{'test':<{w}}  registration  pushed (UTC)          results  pushed (UTC)          separate  "
+    print("Paper test numbers: " + ", ".join(f"project test {k} = paper test {v}" for k, v in PAPER_TEST.items()))
+    print(f"{'test':<{w}}  paper  registration  pushed (UTC)          results  pushed (UTC)          separate  "
           f"Python changed between registration and results")
     for r in rows:
-        print(f"{r['test']:<{w}}  {r['registration']:<12}  {r['registration pushed (GitHub, UTC)']:<20}  "
+        print(f"{r['test']:<{w}}  {r['paper test']:<5}  {r['registration']:<12}  {r['registration pushed (GitHub, UTC)']:<20}  "
               f"{r['results']}  {r['results pushed (GitHub, UTC)']:<20}  "
               f"{'yes' if r['registration pushed separately, before results'] else 'no':<8}  "
               f"{r['Python changed between']}")

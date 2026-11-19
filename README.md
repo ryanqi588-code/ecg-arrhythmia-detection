@@ -679,7 +679,10 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
   [`check_registrations.py`](check_registrations.py) checks the claims
   against GitHub's server-side log of pushes, which the author can't
   edit; CI runs it on every push, and anyone can run it in a full clone
-  (`python check_registrations.py`, standard library only). It shows
+  (`python check_registrations.py`, standard library only). It also maps
+  the paper's test numbers to the project's (paper tests 1–5 are project
+  tests 9, 11, 12, 17 and 18; script names keep the project's numbers).
+  It shows
   ([table](SUPPLEMENT.md#checking-the-registrations)):
   - for tests 8–18 and the label check, the registration was public on
     GitHub in an earlier push than the results (98 seconds to 2.3 hours
