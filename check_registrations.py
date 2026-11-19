@@ -57,6 +57,7 @@ REGISTRATIONS = [
     ("15", "041a560", "47339b8", "afib_mimic15_test.py"),
     ("16", "ba3839e", "2f9bf16", "afib_slowaf_test.py"),
     ("label check", "e14302f", "9cf49b2", "afib_mimic_labels.py"),
+    ("17", "8884656", "f09d3d7", "afib_abstain_test.py"),
 ]
 
 

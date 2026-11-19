@@ -635,10 +635,11 @@ of a call. The probabilities are not calibrated risks
   - the repository's only force push was on 9 October 2026, before the
     first registration, so no registration has been rewritten since;
   - no registered test logic changed between registration and results.
-    The four code changes in that window (two error analyses appended
-    after the run and marked as such, a unit test, a figure script, and
-    one constant moved in test 14's selection script) are listed in the
-    supplement.
+    The code changes in that window (two error analyses appended after
+    the run and marked as such, a unit test, a figure script, one
+    constant moved in test 14's selection script, and, for test 17, the
+    "needs review" output added to `predict.py` after the test passed)
+    are listed in the supplement.
   - For tests 14–16 the registration commit also holds the list of test
     recordings, chosen by seeded code from the public machine reports, and
     re-running the selection (`python afib_mimic_select.py`, `... test15`,

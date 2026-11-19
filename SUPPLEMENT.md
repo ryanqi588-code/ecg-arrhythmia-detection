@@ -85,10 +85,11 @@ which the author's computer sets.
 | 15 | `041a560` | 2026-11-15 00:05:10 | `47339b8` | 00:13:42 | yes |
 | 16 | `ba3839e` | 2026-11-15 00:55:14 | `2f9bf16` | 01:08:22 | yes |
 | label check | `e14302f` | 2026-11-15 03:12:03 | `9cf49b2` | 03:13:41 | yes |
+| 17 | `8884656` | 2026-11-19 20:39:53 | `f09d3d7` | 21:09:39 | yes |
 
 The repository's only force push was at 2026-10-09 01:21:01 UTC, before
 the first registration. Code changed between a registration and its
-results in four cases, none of them the registered test logic (see each
+results in five cases, none of them the registered test logic (see each
 with `git diff <registration> <results> -- '*.py'`):
 
 | Test | Changed | What |
@@ -97,6 +98,7 @@ with `git diff <registration> <results> -- '*.py'`):
 | 6 | `afib_georgia_test.py` (+32, −0); `tests/test_ecg.py` (+11, −2) | error analysis appended after the run, marked as such; a unit test for `f_wave_activity` |
 | 11 | `afib_comparison_figure.py` (+48, new file) | figure of the results |
 | 14 | `afib_mimic_select.py` (+2, −2) | `LEADS_12` defined in the file instead of imported, so it runs without sklearn (same list) |
+| 17 | `predict.py` (+10, −5); `tests/test_predict.py` (+1, −0) | the "needs review" output, added because the test passed (as its plan says); `afib_abstain_test.py` unchanged |
 
 ## S2. Beat detection
 
