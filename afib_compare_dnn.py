@@ -22,6 +22,7 @@ Sets (see afib_comparison_test.py for how each was chosen):
   incart, code15p2 - test 13's sets (afib_hybrid_test.py); CNN only
   mimic    - test 14's set (afib_mimic_select.py); CNN only
   mimic15  - test 15's set (afib_mimic_select.py test15); CNN only
+  mimic18  - test 18's set (afib_afpac_test.py select); both networks
 """
 
 import os
@@ -120,9 +121,10 @@ def iter_set(name):
                 if eid not in exams.index:
                     continue
                 yield int(eid), "A" if exams.AF[eid] else "notAF", "code15", strip_padding(f["tracings"][i]), FS_R
-    elif name in ("mimic", "mimic15"):
+    elif name in ("mimic", "mimic15", "mimic18"):
         from afib_mimic_select import MIMIC_DIR, load_mimic, read_selected
-        for path, subject, label in read_selected("mimic_selected" if name == "mimic" else "mimic15_selected"):
+        for path, subject, label in read_selected({"mimic": "mimic_selected", "mimic15": "mimic15_selected",
+                                                   "mimic18": "mimic18_selected"}[name]):
             sig, fs = load_mimic(f"{MIMIC_DIR}/{path}")
             yield path.split("/")[-1], label, "mimic", np.nan_to_num(sig), fs
     elif name == "codetest":
@@ -137,12 +139,12 @@ if __name__ == "__main__":
     import tensorflow as tf
     import tf_keras
     sets = sys.argv[1:] or ["dev", "sph", "ningbo", "code15", "codetest"]
-    needs_ribeiro = any(n in ("dev", "sph", "ningbo", "codetest") for n in sets)
+    needs_ribeiro = any(n in ("dev", "sph", "ningbo", "codetest", "mimic18") for n in sets)
     ribeiro = tf_keras.models.load_model(RIBEIRO_MODEL, compile=False) if needs_ribeiro else None
     cnn = tf.keras.models.load_model(MODEL_PATH)
     for name in sets:
         rows, xr, xc = [], [], []
-        use_ribeiro = name in ("dev", "sph", "ningbo", "codetest")      # test 11's sets only
+        use_ribeiro = name in ("dev", "sph", "ningbo", "codetest", "mimic18")      # test 11's sets and test 18
         use_cnn = name != "dev"
         for i, (rec, label, source, sig, fs) in enumerate(iter_set(name)):
             if i % 1000 == 0:
