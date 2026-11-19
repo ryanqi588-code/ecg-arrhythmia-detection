@@ -24,14 +24,18 @@ opened, and run once.
 | 11: against doctors¹ | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
 | 12: fixing a failure test 11 exposed² | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
 | 17: follow-up to 12² | 18,883 ECGs, CODE-15% part 3 (Brazil) | when P waves can't be measured, "needs review" instead of a call: 215 false AF calls became "needs review", at the cost of 65 new flags and 16 AF calls; recordings needing a human look 1040 → 1105; adopted as an honest "can't tell" |
+| 18: test 11's AF-vs-PAC finding, registered | 2950 new US patients, MIMIC-IV-ECG (979 AF, 1971 PAC; machine labels) | **confirmed: worse than both networks at telling AF from PACs**, AUC 0.907 against 0.934 (CNN) and 0.935 (Ribeiro), differences −0.027 (95% CI −0.038 to −0.016) and −0.028 (−0.039 to −0.017); 1.4 times the ranking errors here, against about 3 times at SPH (after the test); PAC false alarms 14.7% against 8.9% and 11.5% |
 
 ¹ The model version before the fix (commit `d8c5ce2`, cutoff 0.4736).
 
 ² Test 12 compares that version with the adopted model, which adds the fix for unmeasurable P waves (cutoff 0.4309; [specification](#final-model-specification)). Test 17 adds the "needs review" output to the adopted model.
 
 **Conclusion.** The interpretable model's real cost is atrial premature
-beats (PACs): it ranks AF against PACs with about three times as many
-errors as either network and makes far more PAC false alarms. Its overall
+beats (PACs): it ranks AF against PACs worse than either network and
+makes more PAC false alarms. First seen after test 11 (about three times
+the ranking errors at SPH), this was then registered and confirmed on
+2950 new patients at a US hospital (test 18), where the gap was smaller
+(1.4 times the ranking errors). Its overall
 AUC is close to theirs only because normal ECGs, which every model gets
 right, make up most of the data. The gap is clearest on recordings with
 atrial premature complexes alone (8.1% called AF against 2.6% and 1.3%).
@@ -40,7 +44,7 @@ and this model's worst of all: it called 14 of 26 such recordings AF,
 against 5 for each network (a split after the test). Each of its errors
 can be traced to a named feature.
 
-This paper reports tests 9, 11 and 12, and test 17, a follow-up to 12. The project ran seventeen tests in
+This paper reports tests 9, 11 and 12, test 17 (a follow-up to 12) and test 18 (test 11's AF-vs-PAC finding, registered). The project ran eighteen tests in
 all, several of which failed; the beat detector, the earlier Holter,
 handheld and clinical models, atrial flutter, and a hybrid with a CNN
 are in the [supplement](SUPPLEMENT.md), with the
@@ -221,7 +225,7 @@ above −0.01)? The test sets:
 ![Comparison](figures/afib_comparison.png)
 
 - **The networks tell AF from atrial premature beats better**
-  (calculated after the test, so not registered;
+  (calculated after the test, so not registered here; test 18 below registered it and confirmed it on new patients;
   [`afib_comparison_afpac.py`](afib_comparison_afpac.py)). On SPH's 671
   AF and 537 PAC recordings this model's AF-vs-PAC AUC is 0.988, against
   0.996 for both networks (difference 0.008, 95% CI 0.002 to 0.016
@@ -261,6 +265,32 @@ above −0.01)? The test sets:
   model's false-alarm rate there is far higher (difference +34.6 points
   against each network, CI +9.5 to +57.7 against Ribeiro's), but the CNN
   ranks this group no better (AUC 0.962). It has only 26 recordings.
+- **Test 18 registered the AF-vs-PAC finding and confirmed it on new
+  patients.** The AF-vs-PAC comparison above was calculated after the
+  test, so it was registered as a prediction ([`afib_afpac_test.py`](afib_afpac_test.py),
+  `9d6edc8`, with the list of recordings, before any signal was
+  downloaded): on new MIMIC-IV-ECG patients (Boston, USA; one recording
+  each, chosen from the machine reports by test 16's rules, leaving out
+  every patient of tests 14–16 and development), the interpretable
+  model's AF-vs-PAC AUC is lower than both networks', with the interval's
+  upper bound below 0 against both. All three models ran unchanged.
+
+  | MIMIC-IV-ECG, new patients (979 AF, 1971 PAC) | This model | Same-data CNN | Ribeiro's network |
+  |---|---|---|---|
+  | AF-vs-PAC AUC | **0.907** | 0.934 | 0.935 |
+  | This model minus network (95% CI) | | −0.027 (−0.038 to −0.016) ✓ | −0.028 (−0.039 to −0.017) ✓ |
+  | Pairs ranked wrong | 9.3% | 6.6% | 6.5% |
+  | PAC called AF (own cutoff) | 14.7% | 8.9% | 11.5% |
+  | AF caught (own cutoff) | 86.1% | 86.9% | 84.6% |
+
+  **Confirmed against both networks.** The gap is real but smaller than
+  SPH's: 1.4 times the ranking errors, not about 3 times. MIMIC's labels
+  are the ECG machine's, and on the 159 AF recordings confirmed by
+  another AF ECG of the patient within 24 hours the differences shrink
+  and their intervals include 0 (−0.004, −0.017 to +0.010 against the
+  CNN; −0.008, −0.019 to +0.004 against Ribeiro's), so part of the gap
+  may come from doubtful machine labels. Used MIMIC data (tests 14 and
+  15, shown in the plan) had already pointed the same way.
 - **PAC false alarms depend heavily on the hospital** for every model:
   this model's 9.5% at SPH is 24.5% at Ningbo, so the SPH figure
   shouldn't be quoted as general.
@@ -640,7 +670,7 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
   Registration commits: test 2 `efc7dfa`, 3 `d52e2f5`, 4 `5f92136`,
   5 `23da508`, 6 `e1b24b9`, 7 `dba1e05`, 8 `fa9efa8`, 9 `759d00c`,
   10 `85c65d2`, 11 `d8c5ce2`, 12 `6da6e6b`, 13 `007f6ab`, 14 `9d82cbf`,
-  15 `041a560`, 16 `ba3839e`, MIMIC label check `e14302f`, 17 `8884656`, each followed
+  15 `041a560`, 16 `ba3839e`, MIMIC label check `e14302f`, 17 `8884656`, 18 `9d6edc8`, each followed
   by its results commit. Test 1 (LTAFDB) has no separate registration
   commit. The exceptions to the protocol in the earlier tests are
   disclosed in the supplement where they happen.
@@ -651,7 +681,7 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
   edit; CI runs it on every push, and anyone can run it in a full clone
   (`python check_registrations.py`, standard library only). It shows
   ([table](SUPPLEMENT.md#checking-the-registrations)):
-  - for tests 8–17 and the label check, the registration was public on
+  - for tests 8–18 and the label check, the registration was public on
     GitHub in an earlier push than the results (98 seconds to 2.3 hours
     earlier); for tests 2–7 both arrived in the same push, so only the
     commit times record the order;

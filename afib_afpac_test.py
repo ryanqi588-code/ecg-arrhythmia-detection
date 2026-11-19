@@ -57,6 +57,7 @@ on new patients.
 
 import os
 import sys
+import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -77,14 +78,32 @@ COL = {"interpretable": "prob_interp", "CNN": "prob_cnn", "Ribeiro": "prob_ribei
 
 
 def download():
+    import shutil
+    import ssl
+    try:                                   # python.org builds on macOS ship without CA certificates
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        ctx = None
+
     def get(path):
         for ext in (".hea", ".dat"):
             dest = f"{MIMIC_DIR}/{path}{ext}"
             if not os.path.exists(dest):
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
-                urllib.request.urlretrieve(f"{URL}{path}{ext}", dest)
+                for attempt in range(6):            # PhysioNet sometimes answers 502 under load
+                    try:
+                        with urllib.request.urlopen(f"{URL}{path}{ext}", context=ctx, timeout=60) as r, \
+                                open(dest + ".part", "wb") as f:
+                            shutil.copyfileobj(r, f)
+                        os.replace(dest + ".part", dest)
+                        break
+                    except OSError:
+                        time.sleep(2 ** attempt)
+                else:
+                    raise RuntimeError(f"could not download {path}{ext}")
     paths = [p for p, _, _ in read_selected(NAME)]
-    with ThreadPoolExecutor(8) as pool:
+    with ThreadPoolExecutor(4) as pool:
         list(pool.map(get, paths))
     print(f"{len(paths)} recordings downloaded")
 

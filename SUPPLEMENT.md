@@ -52,6 +52,7 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
 | 16 | MIMIC-IV-ECG, 989 AF, 1971 PAC and 1986 sinus new patients | per-beat P-wave presence and a gated P-wave match, trained with MIMIC development data | **84.6%** (adopted 82.5%); under 80/min 76.1% (73.2%) | PAC 12.6% → 14.3%, sinus 0.8% unchanged | failed the PAC limit; adopted model stays |
 | 17 | CODE-15% part 3 (Brazil), 397 AF, 18,486 non-AF | "needs review" instead of a call when P waves can't be measured | 353 of 397 AF still called AF; 16 sent to review | non-AF called AF 671 → 456, but 280 non-AF sent to review (215 former false alarms, 65 former correct calls): non-AF needing a look 671 → 736 | passed (limit 1 nearly guaranteed by design); adopted as an honest "can't tell", not a cut in workload |
+| 18 | MIMIC-IV-ECG, 979 AF and 1971 PAC new patients | test 11's AF-vs-PAC finding as a registered prediction: interpretable model vs the CNN and Ribeiro's network, all unchanged | 86.1% (CNN 86.9%, Ribeiro 84.6%) | PAC 14.7% (CNN 8.9%, Ribeiro 11.5%); AF-vs-PAC AUC 0.907 vs 0.934 and 0.935 | confirmed against both (main README, test 11 section); gap 1.4 times the ranking errors, smaller than SPH's |
 
 After test 16, a registered label check re-scored tests 14–16's AF
 recordings against the patient's other ECGs. It is not a new test. On
@@ -1175,6 +1176,7 @@ AF, 2000 PAC and 2000 sinus-rhythm patients for test 16, seed 3).
 | 15 MIMIC-IV-ECG, new patients | 3000 (one per patient) | test 14's patients excluded beforehand | 41 (18 AF, 23 PAC) | 2959 |
 | 16 MIMIC-IV-ECG, new patients | 5000 (one per patient) | patients of tests 14–15 and the development set excluded beforehand | 54 (11 AF, 29 PAC, 14 sinus) | 4946 |
 | 17 CODE-15% part 3 | 20,000 | – | 1117 (18 AF) | 18,883 |
+| 18 MIMIC-IV-ECG, new patients | 3000 (one per patient) | patients of tests 14–16 and the development set excluded beforehand | 50 (21 AF, 29 PAC); 51 more "needs review", kept for the AUC | 2950 |
 
 ```mermaid
 flowchart TD
@@ -1265,6 +1267,10 @@ python afib_slowaf_test.py    # test 16
 python afib_mimic_labels.py   # label check: machine AF confirmed by the patient's other ECGs (after tests 14-16)
 python afib_abstain_test.py preview  # test 17 previews on used CODE-15% parts 0-2
 python afib_abstain_test.py   # test 17; needs CODE-15% exams_part3 (as part 0)
+python afib_afpac_test.py select    # test 18's recordings (machine reports only)
+python afib_afpac_test.py download  # their .hea/.dat files from PhysioNet
+python afib_compare_dnn.py mimic18  # TensorFlow environment: both networks
+python afib_afpac_test.py           # test 18
 ```
 
 MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
