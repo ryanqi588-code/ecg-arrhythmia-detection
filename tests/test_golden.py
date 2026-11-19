@@ -8,10 +8,15 @@ scoring, makes them fail.
   - 11 feature rows from test 17 (CODE-15% part 3): score_features must
     reproduce the probability test 17 saved, and its call. This is pure
     arithmetic on the published table, so the tolerance is tight.
-  - Two raw SPH recordings (the README figure's examples): the whole path,
-    from signal to call. The beats found and the ventricular-ectopic flags
-    must match exactly, and so must the call; the probability must match
-    the published one to a relative 1e-8. It isn't bit-identical across
+  - Four raw SPH recordings, one for each outcome and the README figure's
+    two examples: AF called AF, PAC wrongly called AF, AF whose P waves
+    can't be measured ("needs review", through the beat-count rule), and a
+    normal sinus ECG called not AF. The whole path, from signal to call:
+    the beats found, the ventricular-ectopic flags and the usable P-wave
+    beats must match exactly, and so must the call; the probability must
+    match to a relative 1e-8 (the published one for the first three; for
+    the normal ECG, which has no saved probability, the locked
+    environment's). It isn't bit-identical across
     library versions (the saved values differ from a rebuilt environment's
     by up to 4e-10, from rounding in the filters), but a real change in
     beats or features moves it far more.
@@ -24,7 +29,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from af import regular_beats
+from af import clinical_features, regular_beats
 from ecg import detect_peaks_multilead, flag_ectopic
 from predict import I_II_V1, load_model, predict, score_features
 
@@ -56,6 +61,11 @@ def test_raw_recording_reproduces_published_result(rec):
     assert len(peaks) == exp["beats"]
     assert int(flag_ectopic(sig[:, 1], fs, peaks).sum()) == exp["ventricular_ectopic"]
     assert int(regular_beats(peaks, fs).sum()) == exp["regular"]
+    assert clinical_features(sig[:, I_II_V1], fs, False, "multilead", sig)["n_p_beats"] == exp["n_p_beats"]
     out = predict(sig, fs, MODEL)
     assert out["result"] == exp["result"]
     assert out["probability"] == pytest.approx(exp["probability"], rel=1e-8)
+
+
+def test_raw_recordings_cover_every_outcome():
+    assert {e["result"] for e in EXPECTED.values()} == {"AF", "not AF", "needs review"}

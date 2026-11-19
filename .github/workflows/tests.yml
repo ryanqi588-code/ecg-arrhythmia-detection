@@ -21,6 +21,19 @@ jobs:
       - name: Run tests
         run: pytest -v
 
+  pytest-locked:
+    # The exact versions that reproduce the published results (requirements-lock.txt).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.2"
+      - name: Install locked dependencies
+        run: pip install -r requirements-lock.txt
+      - name: Run tests
+        run: pytest -v
+
   registrations:
     runs-on: ubuntu-latest
     steps:

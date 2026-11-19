@@ -2,7 +2,9 @@
  "A22886": {
   "label": "A",
   "probability": 0.9969475990282192,
+  "probability_source": "published (results/afib_example_scores.csv)",
   "result": "AF",
+  "n_p_beats": 7,
   "beats": 12,
   "ventricular_ectopic": 3,
   "regular": 7,
@@ -23,7 +25,9 @@
  "A04870": {
   "label": "PAC",
   "probability": 0.686099778274799,
+  "probability_source": "published (results/afib_example_scores.csv)",
   "result": "AF",
+  "n_p_beats": 6,
   "beats": 15,
   "ventricular_ectopic": 6,
   "regular": 12,
@@ -39,6 +43,52 @@
    "p_unmeasured": -0.02177206620762107,
    "f_ratio_II": 0.014504001417046056,
    "tpr": 0.0060334862855669
+  }
+ },
+ "A06017": {
+  "label": "A",
+  "probability": 0.5966363316261892,
+  "probability_source": "published (results/afib_example_scores.csv)",
+  "result": "needs review",
+  "n_p_beats": 1,
+  "beats": 28,
+  "ventricular_ectopic": 27,
+  "regular": 26,
+  "contributions_at_build": {
+   "p_unmeasured": 2.2921631303383534,
+   "p_match_mean": -1.3238781251930172,
+   "cv": 0.7827341695977134,
+   "log_f_wave": 0.6852276133254777,
+   "f_ratio_V1": -0.44651417602199794,
+   "f_ratio_II": 0.44260908973980445,
+   "p_match_regular": -0.4188563109039895,
+   "nrmssd": -0.17971253211756535,
+   "entropy_norm": 0.1667029153167321,
+   "pnn50": -0.1398360336262782,
+   "tpr": 0.0010429871662012956
+  }
+ },
+ "A00002": {
+  "label": "N",
+  "probability": 0.010698987949707748,
+  "probability_source": "computed at build in the locked environment",
+  "result": "not AF",
+  "n_p_beats": 11,
+  "beats": 12,
+  "ventricular_ectopic": 0,
+  "regular": 11,
+  "contributions_at_build": {
+   "p_match_mean": -1.5761352105651862,
+   "log_f_wave": -0.6571281300571478,
+   "cv": -0.4445014460875458,
+   "p_match_regular": -0.4188563109039895,
+   "entropy_norm": 0.31617235015342604,
+   "pnn50": -0.26992921406975096,
+   "f_ratio_V1": -0.240220943726893,
+   "nrmssd": 0.23225809281663337,
+   "f_ratio_II": 0.028137345654983183,
+   "p_unmeasured": -0.02177206620762107,
+   "tpr": -0.0046604403987879645
   }
  }
 }
