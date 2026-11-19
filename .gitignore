@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-dnn/
 .ipynb_checkpoints/
 .DS_Store
 

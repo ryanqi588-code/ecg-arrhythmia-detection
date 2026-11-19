@@ -777,6 +777,34 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
 
 ## 8. Running it
 
+**Exact versions.** Two isolated environments, each pinned by a lock file
+(Python 3.12.2 from python.org, macOS arm64). The networks need their own
+because TensorFlow 2.16 requires numpy below 2:
+
+```bash
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-lock.txt              # analysis
+python3.12 -m venv .venv-dnn && .venv-dnn/bin/pip install -r requirements-dnn-lock.txt  # the two networks
+```
+
+`requirements.txt` and `requirements-dnn.txt` list the same packages
+unpinned. The lock files were made on 19 November 2026, after the original
+environment was partly lost, and were checked against the published
+results:
+- the published model refits to within a relative 3 × 10⁻¹³;
+- test 17's results and test 18's interpretable-model results come out
+  identical, as do test 17's features recomputed from the raw signals
+  (1456 recordings);
+- `predict.py` matches test 16's saved probabilities to within
+  1.5 × 10⁻⁹;
+- the networks match their saved SPH and test 18 outputs to within
+  about 10⁻⁷ (float32 rounding);
+- all unit tests pass.
+
+The original environment for tests 1–16 is known only in part. Its
+cached features need numpy 2 and pyarrow, as the lock has, but its
+scikit-learn version wasn't recorded. Test 17 ran with numpy 2.2.6 and
+test 18 with numpy 1.26.4, both otherwise as locked.
+
 ```bash
 pip install -r requirements.txt
 python predict.py path/to/record   # score one 12-lead ECG (WFDB, or CSV with --fs)
@@ -790,8 +818,8 @@ python afib_unmeasured_test.py   # test 12; needs CODE-15% exams_part1 (as part 
 ```
 
 Test 11's neural networks need a separate TensorFlow environment
-(`pip install -r requirements-dnn.txt`, tested with Python 3.12 on an
-Apple M3):
+(`.venv-dnn` above, or unpinned `pip install -r requirements-dnn.txt`;
+tested with Python 3.12 on an Apple M3):
 
 ```bash
 python afib_cnn.py            # trains the same-data CNN (models/cnn_model.keras is the registered one)
