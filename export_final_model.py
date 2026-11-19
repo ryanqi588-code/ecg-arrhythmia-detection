@@ -30,6 +30,9 @@ INPUT = {"cv": "log(cv)", "nrmssd": "log(nrmssd)"}
 if __name__ == "__main__":
     raw = dev_units("multilead12")
     units = prepare(raw)
+    # The old rule (p_match_mean == 0), kept so this reproduces the published model exactly; the saved
+    # development features have no n_p_beats. If the model is ever retrained, recompute the features and
+    # use af.p_unmeasured instead (as predict.py does), so training and scoring agree.
     train = units.assign(patient=units.record, p_unmeasured=(units.p_match_mean == 0).astype(float))
     model, cutoff = fit(train, FEATURES, True)
     assert abs(cutoff - ADOPTED_CUTOFF) < 5e-5, cutoff

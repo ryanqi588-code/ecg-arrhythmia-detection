@@ -599,8 +599,14 @@ of a call. `p_unmeasured` is now set from the count of usable beats
 `p_match_mean` = 0. The two differ only if P waves are measured on 3 or
 more beats and match in no lead, meaning truly absent, not unmeasurable.
 Tests 12 and 17 used the old definition; on CODE-15% parts 2 and 3 all
-593 recordings it flagged had fewer than 3 usable beats, so their results
-are the same either way. The probabilities are not calibrated risks
+593 recordings it flagged had fewer than 3 usable beats (at most 2;
+[`check_unmeasured_definition.py`](check_unmeasured_definition.py), counts
+per recording in
+[`results/unmeasured_definition_check.csv`](results/unmeasured_definition_check.csv)),
+so their results are the same either way. Training (`afib_fa_dev.py`,
+`export_final_model.py`) and the registered scripts of tests 12 and 17
+still use the old rule, to reproduce past results; a retrained model
+should use `af.p_unmeasured` so training and scoring agree. The probabilities are not calibrated risks
 ([supplement S6](SUPPLEMENT.md#s6-calibration)).
 
 ### Usability
