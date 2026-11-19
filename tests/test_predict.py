@@ -26,6 +26,7 @@ def test_unmeasured_p_waves_are_filled_not_zero():
     out = score_features({**ROW, "p_match_regular": 0.0, "p_match_mean": 0.0})
     c = {x["feature"]: x for x in out["contributions"]}
     assert c["p_unmeasured"]["value"] == 1
+    assert out["result"] == "needs review"
     assert c["p_match_regular"]["filled"] and c["p_match_regular"]["value"] == 1.0
     assert c["p_match_mean"]["filled"] and c["p_match_mean"]["value"] == 0.9375
 

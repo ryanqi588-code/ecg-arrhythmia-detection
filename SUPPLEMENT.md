@@ -23,7 +23,7 @@ References are in the README.
 
 ## S1. Full test log
 
-Every fresh-data test of the project, in order. Tests 9, 11 and 12 are the
+Every fresh-data test of the project, in order. Tests 9, 11, 12 and 17 are the
 main paper's; the rest are below. All follow the main paper's protocol.
 Downloaded files were checked against their expected sizes and
 incomplete ones re-fetched (3 for Georgia, 17 for PTB-XL); later scripts
@@ -51,6 +51,7 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 14 | MIMIC-IV-ECG (USA), 1976 PAC and 976 AF patients | test 13's hybrid, unchanged, on many more patients | 84.6% (alone 85.3%) | PAC 14.3% → **8.8%** | PAC gain confirmed; sensitivity bar narrowly missed, so not confirmed |
 | 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
 | 16 | MIMIC-IV-ECG, 989 AF, 1971 PAC and 1986 sinus new patients | per-beat P-wave presence and a gated P-wave match, trained with MIMIC development data | **84.6%** (adopted 82.5%); under 80/min 76.1% (73.2%) | PAC 12.6% → 14.3%, sinus 0.8% unchanged | failed the PAC limit; adopted model stays |
+| 17 | CODE-15% part 3 (Brazil), 397 AF, 18,486 non-AF | "needs review" instead of a call when P waves can't be measured | 92.7% of AF given a call (88.9% if review counts as a miss); 16 AF sent to review | non-AF 3.6% → **2.5%**; 1.6% of recordings sent to review | passed; "needs review" adopted (main README, test 12 section) |
 
 After test 16, a registered label check re-scored tests 14–16's AF
 recordings against the patient's other ECGs. It is not a new test. On
@@ -1171,6 +1172,7 @@ AF, 2000 PAC and 2000 sinus-rhythm patients for test 16, seed 3).
 | 14 MIMIC-IV-ECG | 3000 (one per patient) | – | 48 (24 AF, 24 PAC; including missing samples) | 2952 |
 | 15 MIMIC-IV-ECG, new patients | 3000 (one per patient) | test 14's patients excluded beforehand | 41 (18 AF, 23 PAC) | 2959 |
 | 16 MIMIC-IV-ECG, new patients | 5000 (one per patient) | patients of tests 14–15 and the development set excluded beforehand | 54 (11 AF, 29 PAC, 14 sinus) | 4946 |
+| 17 CODE-15% part 3 | 20,000 | – | 1117 (18 AF) | 18,883 |
 
 ```mermaid
 flowchart TD
@@ -1259,6 +1261,8 @@ python afib_slowaf_dev.py     # slow-AF fix development, previews
 python afib_slowaf_test.py select # test 16's recordings
 python afib_slowaf_test.py    # test 16
 python afib_mimic_labels.py   # label check: machine AF confirmed by the patient's other ECGs (after tests 14-16)
+python afib_abstain_test.py preview  # test 17 previews on used CODE-15% parts 0-2
+python afib_abstain_test.py   # test 17; needs CODE-15% exams_part3 (as part 0)
 ```
 
 MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
@@ -1269,6 +1273,7 @@ MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
 | Challenge 2017 | [`training2017.zip`](https://physionet.org/files/challenge-2017/1.0.0/training2017.zip) (99 MB), [`REFERENCE-v3.csv`](https://physionet.org/files/challenge-2017/1.0.0/REFERENCE-v3.csv) | `data/cinc2017/` | unzip there |
 | Georgia | [`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/) (2942, ~350 MB) | `data/georgia/` | |
 | CODE-15% part 2 | `exams_part2.zip` from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part2.hdf5` |
+| CODE-15% part 3 | `exams_part3.zip` from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part3.hdf5` |
 | INCART | the `.hea`, `.atr` and `.dat` files of the recordings in [`results/incart_selected.txt`](results/incart_selected.txt) from [PhysioNet](https://physionet.org/content/incartdb/1.0.0/) | `data/incart/` | copy `results/incart_selected.txt` there as `SELECTED` |
 | MIMIC-IV-ECG | `machine_measurements.csv` and `record_list.csv`, then the `.hea` and `.dat` files of the recordings in [`results/mimic_selected.txt`](results/mimic_selected.txt) and [`results/mimic15_selected.txt`](results/mimic15_selected.txt) (3000 each, ~360 MB each), from [PhysioNet](https://physionet.org/content/mimic-iv-ecg/1.0/) | `data/mimic/` | keep the `files/pNNNN/...` paths |
 

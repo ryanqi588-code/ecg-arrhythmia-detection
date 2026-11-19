@@ -23,10 +23,11 @@ opened, and run once.
 | 11: against deep learning¹ | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | **worse at telling AF from atrial premature beats**: AF-vs-PAC AUC 0.988 against 0.996 for both a published deep network and a CNN trained on the same data, so **about three times as many AF–PAC pairs ranked the wrong way round** (1.2% vs 0.4%; calculated after the test), and 1.4–2.6 times as many false alarms on atrial premature beats. Registered primary: overall AUC within the pre-set 0.01 of both networks (0.996 vs 0.998 and 1.000) |
 | 11: against doctors¹ | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
 | 12: fixing a failure test 11 exposed² | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
+| 17: follow-up to 12² | 18,883 ECGs, CODE-15% part 3 (Brazil) | when P waves can't be measured, "needs review" instead of a call: false alarms 3.6% → **2.5%**; 1.6% of recordings sent to review, including 16 of 397 AF; adopted |
 
 ¹ The model version before the fix (commit `d8c5ce2`, cutoff 0.4736).
 
-² Compares that version with the adopted model, which adds the fix for unmeasurable P waves (cutoff 0.4309; [specification](#final-model-specification)).
+² Test 12 compares that version with the adopted model, which adds the fix for unmeasurable P waves (cutoff 0.4309; [specification](#final-model-specification)). Test 17 adds the "needs review" output to the adopted model.
 
 **Conclusion.** The interpretable model's real cost is atrial premature
 beats (PACs): it ranks AF against PACs with about three times as many
@@ -39,7 +40,7 @@ and this model's worst of all: it called 14 of 26 such recordings AF,
 against 5 for each network (a split after the test). Each of its errors
 can be traced to a named feature.
 
-This paper reports tests 9, 11 and 12. The project ran sixteen tests in
+This paper reports tests 9, 11 and 12, and test 17, a follow-up to 12. The project ran seventeen tests in
 all, several of which failed; the beat detector, the earlier Holter,
 handheld and clinical models, atrial flutter, and a hybrid with a CNN
 are in the [supplement](SUPPLEMENT.md), with the
@@ -363,6 +364,40 @@ than 2 points.
 - **It doesn't touch PAC false alarms**, which CODE-15% can't measure (it
   has no PAC label), and three in four unmeasurable non-AF recordings are
   still called AF.
+
+**Test 17: when P waves can't be measured, say so instead of guessing.**
+Development on the used data showed why the fix stops short. Within
+recordings whose P waves can't be measured, no available feature tells
+AF from non-AF well (AUC 0.64), and the `p_unmeasured` flag itself pushes
+towards AF (+2.29 log-odds), because in the original training sources
+such recordings were mostly AF (66 of 100); in Brazilian primary care
+they're mostly not (12 of 337). No model change helped. Dropping the flag
+lost a quarter of these AF and raised PAC false alarms from 16.2% to
+20.1%, and retraining on all seven used sources removed only 35 of 286
+such false alarms. So the rule tested was to make no call: such a
+recording gets **"needs review"**, with the model otherwise unchanged
+([`afib_abstain_test.py`](afib_abstain_test.py), registered `8884656`
+before CODE-15% part 3 was downloaded; previews on parts 0–2 are in the
+script). Two limits were fixed in advance: false alarms must fall by more
+than half a point (interval below −0.5), since abstaining can only remove
+calls, and fewer than 3% of recordings may go to review (Wilson upper
+bound).
+
+| CODE-15% part 3 (18,883 scored: 397 AF, 18,486 non-AF) | Adopted model | With "needs review" |
+|---|---|---|
+| Non-AF called AF | 3.6% (671) | **2.5%** (456) |
+| Change (95% CI) | | **−1.16 points** (−1.32 to −1.00) ✓ |
+| Sent to review | | **1.57%** (296; upper bound 1.75%) ✓ |
+| AF sent to review | | 16 of 397 (4.0%) |
+| AF caught | 92.9% | 92.7% among recordings given a call; 88.9% if review counts as a miss |
+
+- **Both limits met; "needs review" is now part of the recommended
+  model's output** ([`predict.py`](predict.py)). Tests 9–16 keep their
+  numbers.
+- **The cost is AF sent to review:** the 16 AF recordings in that group
+  had all been caught before. They aren't missed if someone reads the
+  review group, which, at 1.6% of recordings, is a small extra workload;
+  counted as misses, sensitivity falls from 92.9% to 88.9%.
 - The adopted model's specification is [below](#final-model-specification).
   Tests 9–11 used the earlier version (commit `d8c5ce2`); its numbers
   there stand.
@@ -546,8 +581,9 @@ checks it against the published coefficients).
 coefficient times its standardized input in log-odds; on 42 test 16
 recordings it reproduced the saved probabilities exactly. The
 version tested in tests 9–11 had no `p_unmeasured` and a cutoff of
-0.4736; its coefficients are in that file at commit `d8c5ce2`. The
-probabilities are not calibrated risks
+0.4736; its coefficients are in that file at commit `d8c5ce2`. Since
+test 17, a recording with `p_unmeasured` = 1 gets "needs review" instead
+of a call. The probabilities are not calibrated risks
 ([supplement S6](SUPPLEMENT.md#s6-calibration)).
 
 ### Usability
@@ -556,8 +592,10 @@ probabilities are not calibrated risks
   III, aVR, aVL, aVF, V1–V6). All 12 leads are needed: the loaders reject
   recordings without them, and the P-wave features use leads across the
   ECG. Recordings at 400 and 500 Hz were tested.
-- **Output:** "AF", "not AF", or "unscored". The probabilities shouldn't
-  be read as risks.
+- **Output:** "AF", "not AF", "needs review" (P waves can't be measured,
+  so no call; test 17), or "unscored" (too few beats). Both of the last
+  two should be read by a person. The probabilities shouldn't be read as
+  risks.
 - **Poor-quality input:** there is no separate noise check. Recordings
   with too few detected beats are left unscored. Noise that adds false
   beats, a flat or disconnected lead, or a lead swap isn't detected and
@@ -579,7 +617,7 @@ probabilities are not calibrated risks
   Registration commits: test 2 `efc7dfa`, 3 `d52e2f5`, 4 `5f92136`,
   5 `23da508`, 6 `e1b24b9`, 7 `dba1e05`, 8 `fa9efa8`, 9 `759d00c`,
   10 `85c65d2`, 11 `d8c5ce2`, 12 `6da6e6b`, 13 `007f6ab`, 14 `9d82cbf`,
-  15 `041a560`, 16 `ba3839e`, MIMIC label check `e14302f`, each followed
+  15 `041a560`, 16 `ba3839e`, MIMIC label check `e14302f`, 17 `8884656`, each followed
   by its results commit. Test 1 (LTAFDB) has no separate registration
   commit. The exceptions to the protocol in the earlier tests are
   disclosed in the supplement where they happen.
@@ -590,7 +628,7 @@ probabilities are not calibrated risks
   edit; CI runs it on every push, and anyone can run it in a full clone
   (`python check_registrations.py`, standard library only). It shows
   ([table](SUPPLEMENT.md#checking-the-registrations)):
-  - for tests 8–16 and the label check, the registration was public on
+  - for tests 8–17 and the label check, the registration was public on
     GitHub in an earlier push than the results (98 seconds to 2.3 hours
     earlier); for tests 2–7 both arrived in the same push, so only the
     commit times record the order;
@@ -642,8 +680,10 @@ probabilities are not calibrated risks
   results may be worse at other sites.
 - The comparison with doctors rests on 13 AF cases.
 - Recordings whose P waves can't be measured (fewer than 3 usable
-  regular beats) still lean towards AF: after the test 12 fix, 76% of
-  such non-AF recordings are still called AF (100% before). And 5.6–5.7%
+  regular beats) can't be called reliably: after the test 12 fix, 76% of
+  such non-AF recordings were still called AF. Since test 17 they get
+  "needs review" (1.6% of recordings in primary care, including 4% of
+  AF), so this model needs a person to read them. And 5.6–5.7%
   of CODE-15% recordings (many 7 s long) couldn't be scored at all.
 - AF on a regular rhythm is mostly missed (3 of 11 at SPH, 3 of 21 in
   CODE-15%), where the CNN catches most of it. CODE-15%'s label rule can

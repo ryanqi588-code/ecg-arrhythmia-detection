@@ -1,4 +1,4 @@
-"""Score one 12-lead ECG with the adopted AF model: AF, not AF, or unscored, with each feature's contribution.
+"""Score one 12-lead ECG with the adopted AF model: AF, not AF, needs review, or unscored, with each feature's contribution.
 
     python predict.py path/to/record            # WFDB record (.hea/.dat; leads matched by name)
     python predict.py ecg.csv --fs 500          # CSV, one column per lead (header with lead names,
@@ -18,8 +18,11 @@ the intercept (the log-odds of a recording at the training average), to
 the score z, and the probability of AF is 1 / (1 + e^-z). Positive
 contributions push towards AF. The probability is not a calibrated risk.
 
-"Unscored" means the recording has too few beats to measure the rhythm
-(fewer than 7 detected) or missing samples. The model is a research tool,
+"Needs review" means the P waves couldn't be measured (fewer than 3
+regular, non-ectopic beats): the model can't tell AF from non-AF there,
+so it makes no call (test 17); the probability and contributions are
+still shown. "Unscored" means the recording has too few beats to measure
+the rhythm (fewer than 7 detected) or missing samples. The model is a research tool,
 not a medical device.
 """
 
@@ -84,7 +87,8 @@ def score_features(row, model=None):
     z = intercept + sum(c["contribution"] for c in contributions)
     prob = 1 / (1 + np.exp(-z))
     contributions.sort(key=lambda c: -abs(c["contribution"]))
-    return {"result": "AF" if prob >= cutoff else "not AF", "probability": float(prob), "cutoff": cutoff,
+    result = "needs review" if p_unmeasured else "AF" if prob >= cutoff else "not AF"
+    return {"result": result, "probability": float(prob), "cutoff": cutoff,
             "score": float(z), "intercept": intercept, "contributions": contributions}
 
 
@@ -114,7 +118,8 @@ def main():
     if out["result"] == "unscored":
         print(f"unscored: {out['reason']}")
         return
-    print(f"{out['result']}  (probability {out['probability']:.3f}; AF if >= {out['cutoff']:.4f})")
+    note = "; P waves can't be measured, so no call" if out["result"] == "needs review" else ""
+    print(f"{out['result']}  (probability {out['probability']:.3f}; AF if >= {out['cutoff']:.4f}{note})")
     print(f"\n{'feature':<16}{'value':>10}{'standardized':>14}{'contribution':>14}")
     for c in out["contributions"]:
         print(f"{c['feature']:<16}{c['value']:>10.4g}{c['standardized']:>14.2f}{c['contribution']:>+14.3f}"
