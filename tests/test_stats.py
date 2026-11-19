@@ -113,3 +113,15 @@ def _function_source(path, name):
 def test_registered_copies_are_identical_to_stats(script, name):
     # read, not imported: several of these scripts run their test on import
     assert _function_source(os.path.join(ROOT, script), name) == _function_source(os.path.join(ROOT, "stats.py"), name)
+
+
+def _constant(path, name):
+    tree = ast.parse(open(path).read())
+    node = next(n for n in tree.body if isinstance(n, ast.Assign) and any(
+        isinstance(t, ast.Name) and t.id == name for t in n.targets))
+    return ast.literal_eval(node.value)
+
+
+def test_registered_bootstrap_resample_count_matches_stats():
+    # boot_ci's default n=B comes from each script's own B, which the code comparison above doesn't cover
+    assert _constant(os.path.join(ROOT, "afib_comparison_test.py"), "B") == B == 2000
