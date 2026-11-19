@@ -45,3 +45,13 @@ def test_unscored_recordings():
     gap = np.random.default_rng(0).normal(size=(5000, 12))
     gap[100, 3] = np.nan
     assert predict(gap, 500) == {"result": "unscored", "reason": "missing samples"}
+
+
+def test_unmeasured_comes_from_the_beat_count_not_a_zero_match():
+    # P waves measured on enough beats but matching in no lead: truly absent, not unmeasured.
+    absent = score_features({**ROW, "p_match_regular": 0.0, "p_match_mean": 0.0, "n_p_beats": 8})
+    c = {x["feature"]: x for x in absent["contributions"]}
+    assert c["p_unmeasured"]["value"] == 0 and not c["p_match_mean"]["filled"]
+    assert absent["result"] != "needs review"
+    few = score_features({**ROW, "n_p_beats": 2})
+    assert few["result"] == "needs review"

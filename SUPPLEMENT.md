@@ -51,7 +51,7 @@ override threshold (test 15) was chosen after seeing test 14's data.
 | 14 | MIMIC-IV-ECG (USA), 1976 PAC and 976 AF patients | test 13's hybrid, unchanged, on many more patients | 84.6% (alone 85.3%) | PAC 14.3% → **8.8%** | PAC gain confirmed; sensitivity bar narrowly missed, so not confirmed |
 | 15 | MIMIC-IV-ECG, 1977 PAC and 982 new AF patients | hybrid plus override: interpretable probability ≥ 0.9 calls AF without the CNN | **85.4%** (alone 83.5%) | PAC 15.1% → **10.3%** | passed; offered as the alternative |
 | 16 | MIMIC-IV-ECG, 989 AF, 1971 PAC and 1986 sinus new patients | per-beat P-wave presence and a gated P-wave match, trained with MIMIC development data | **84.6%** (adopted 82.5%); under 80/min 76.1% (73.2%) | PAC 12.6% → 14.3%, sinus 0.8% unchanged | failed the PAC limit; adopted model stays |
-| 17 | CODE-15% part 3 (Brazil), 397 AF, 18,486 non-AF | "needs review" instead of a call when P waves can't be measured | 92.7% of AF given a call (88.9% if review counts as a miss); 16 AF sent to review | non-AF 3.6% → **2.5%**; 1.6% of recordings sent to review | passed; "needs review" adopted (main README, test 12 section) |
+| 17 | CODE-15% part 3 (Brazil), 397 AF, 18,486 non-AF | "needs review" instead of a call when P waves can't be measured | 353 of 397 AF still called AF; 16 sent to review | non-AF called AF 671 → 456, but 280 non-AF sent to review (215 former false alarms, 65 former correct calls): non-AF needing a look 671 → 736 | passed (limit 1 nearly guaranteed by design); adopted as an honest "can't tell", not a cut in workload |
 
 After test 16, a registered label check re-scored tests 14–16's AF
 recordings against the patient's other ECGs. It is not a new test. On

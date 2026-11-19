@@ -224,6 +224,9 @@ def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_R
                      lead (as p_match_regular is for lead II); 0 with fewer
                      than `min_regular` such beats
     p_match_mean   - their mean over the 12 leads
+    n_p_beats      - the number of regular, non-ventricular beats P waves
+                     were measured on; below `min_regular` they can't be
+                     measured (see p_unmeasured)
     f_ratio_<lead> - ecg.f_wave_ratio in leads II and V1
     hr             - heart rate from the median RR interval (beats/min)
     fl_*_<lead>    - ecg.flutter_features in leads II, aVF and V1
@@ -238,6 +241,7 @@ def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_R
         else:
             out[f"p_match_{name}"] = 0.0
     out["p_match_mean"] = np.mean([out[f"p_match_{n}"] for n in LEADS_12])
+    out["n_p_beats"] = int(use.sum())
     for name in ["II", "V1"]:
         out[f"f_ratio_{name}"] = f_wave_ratio(sig12[:, LEADS_12.index(name)], fs, peaks)
     out["hr"] = 60 / np.median(np.diff(peaks) / fs)
@@ -245,6 +249,22 @@ def atrial_features(sig12, fs, peaks, regular, not_v, min_regular=CLINICAL_MIN_R
         for k, v in flutter_features(sig12[:, LEADS_12.index(name)], fs, peaks).items():
             out[f"{k}_{name}"] = v
     return out
+
+
+def p_unmeasured(row):
+    """1.0 if the recording's P waves couldn't be measured (too few usable beats), else 0.0.
+
+    Uses n_p_beats from atrial_features. Rows computed before n_p_beats
+    existed (all saved features up to test 17) fall back to the definition
+    tests 12 and 17 used, p_match_mean == 0. That also catches the
+    possible case of P waves measured on enough beats and matching in no
+    lead (truly absent); on CODE-15% parts 2 and 3 it never happened (all
+    593 recordings with p_match_mean == 0 had fewer than 3 usable beats).
+    """
+    n = row.get("n_p_beats", np.nan)
+    if n is not None and np.isfinite(n):
+        return float(n < CLINICAL_MIN_REGULAR)
+    return float(row["p_match_mean"] == 0)
 
 
 def clinical_features(leads3, fs, is_af, detector="lead2", sig12=None):

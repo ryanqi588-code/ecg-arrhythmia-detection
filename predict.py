@@ -34,7 +34,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-from af import LEADS_12, clinical_features
+from af import LEADS_12, clinical_features, p_unmeasured as unmeasured
 
 MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "final_af_model.csv")
 I_II_V1 = [0, 1, 6]
@@ -72,7 +72,7 @@ def read_ecg(path, fs=None):
 def score_features(row, model=None):
     """Probability, call and contributions from a clinical_features row (dict)."""
     feats, intercept, cutoff = model or load_model()
-    p_unmeasured = float(row["p_match_mean"] == 0)
+    p_unmeasured = unmeasured(row)
     contributions = []
     for name, f in feats.iterrows():
         value = p_unmeasured if name == "p_unmeasured" else row.get(name, np.nan)

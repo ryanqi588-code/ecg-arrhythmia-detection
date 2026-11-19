@@ -23,7 +23,7 @@ opened, and run once.
 | 11: against deep learning¹ | the same ECGs, plus Ningbo (China) and CODE-15% (Brazil) | **worse at telling AF from atrial premature beats**: AF-vs-PAC AUC 0.988 against 0.996 for both a published deep network and a CNN trained on the same data, so **about three times as many AF–PAC pairs ranked the wrong way round** (1.2% vs 0.4%; calculated after the test), and 1.4–2.6 times as many false alarms on atrial premature beats. Registered primary: overall AUC within the pre-set 0.01 of both networks (0.996 vs 0.998 and 1.000) |
 | 11: against doctors¹ | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
 | 12: fixing a failure test 11 exposed² | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
-| 17: follow-up to 12² | 18,883 ECGs, CODE-15% part 3 (Brazil) | when P waves can't be measured, "needs review" instead of a call: false alarms 3.6% → **2.5%**; 1.6% of recordings sent to review, including 16 of 397 AF; adopted |
+| 17: follow-up to 12² | 18,883 ECGs, CODE-15% part 3 (Brazil) | when P waves can't be measured, "needs review" instead of a call: 215 false AF calls became "needs review", at the cost of 65 new flags and 16 AF calls; recordings needing a human look 1040 → 1105; adopted as an honest "can't tell" |
 
 ¹ The model version before the fix (commit `d8c5ce2`, cutoff 0.4736).
 
@@ -365,7 +365,7 @@ than 2 points.
   has no PAC label), and three in four unmeasurable non-AF recordings are
   still called AF.
 
-**Test 17: when P waves can't be measured, say so instead of guessing.**
+**Test 17: when P waves can't be measured, say "needs review" instead of guessing.**
 Development on the used data showed why the fix stops short. Within
 recordings whose P waves can't be measured, no available feature tells
 AF from non-AF well (AUC 0.64), and the `p_unmeasured` flag itself pushes
@@ -378,26 +378,37 @@ such false alarms. So the rule tested was to make no call: such a
 recording gets **"needs review"**, with the model otherwise unchanged
 ([`afib_abstain_test.py`](afib_abstain_test.py), registered `8884656`
 before CODE-15% part 3 was downloaded; previews on parts 0–2 are in the
-script). Two limits were fixed in advance: false alarms must fall by more
-than half a point (interval below −0.5), since abstaining can only remove
-calls, and fewer than 3% of recordings may go to review (Wilson upper
-bound).
+script). Two limits were fixed in advance: false AF calls must fall by
+more than half a point (interval below −0.5), and fewer than 3% of
+recordings may go to review (Wilson upper bound). The first was nearly
+guaranteed: abstaining can only remove calls, and the previews had
+already shown drops of 1.1–1.3 points.
 
 | CODE-15% part 3 (18,883 scored: 397 AF, 18,486 non-AF) | Adopted model | With "needs review" |
 |---|---|---|
-| Non-AF called AF | 3.6% (671) | **2.5%** (456) |
-| Change (95% CI) | | **−1.16 points** (−1.32 to −1.00) ✓ |
-| Sent to review | | **1.57%** (296; upper bound 1.75%) ✓ |
-| AF sent to review | | 16 of 397 (4.0%) |
-| AF caught | 92.9% | 92.7% among recordings given a call; 88.9% if review counts as a miss |
+| Non-AF called AF | 671 (3.6%) | 456 (2.5%); change −1.16 points (−1.32 to −1.00) ✓ |
+| Non-AF sent to review | – | 280: 215 had been called AF, 65 correctly not AF |
+| **Non-AF needing a human look** (called AF or review) | **671 (3.6%)** | **736 (4.0%)** |
+| All recordings needing a look (AF calls and review) | 1040 | 1105 |
+| Sent to review | – | 296 (1.57%; upper bound 1.75%) ✓ |
+| AF caught | 369 (92.9%) | 353 (88.9%) if review counts as a miss; 16 AF sent to review |
 
-- **Both limits met; "needs review" is now part of the recommended
-  model's output** ([`predict.py`](predict.py)). Tests 9–16 keep their
-  numbers.
-- **The cost is AF sent to review:** the 16 AF recordings in that group
-  had all been caught before. They aren't missed if someone reads the
-  review group, which, at 1.6% of recordings, is a small extra workload;
-  counted as misses, sensitivity falls from 92.9% to 88.9%.
+- **This mostly relabels false alarms; it doesn't remove them.** 215
+  false AF calls became "needs review", at the cost of 65 new flags on
+  recordings the model had correctly called not AF, and 16 AF
+  recordings that lost their AF call. Where every positive call is
+  checked by a clinician anyway (the setting the 95%-sensitivity cutoff
+  assumes), "needs review" still needs a person, so the workload goes up
+  slightly: 1105 recordings to look at instead of 1040.
+- **What it buys is honesty, not fewer looks.** For these recordings the
+  model can't tell AF from non-AF (AUC 0.64 within the group), so "I
+  can't tell" is more accurate than a confident call that's wrong three
+  times in four. Both pre-set limits were met, so "needs review" is part
+  of the recommended model's output ([`predict.py`](predict.py)); tests
+  9–16 keep their numbers.
+- **The 16 AF recordings sent to review aren't missed** if someone reads
+  the review group (1.6% of recordings); counted as misses, sensitivity
+  falls from 92.9% to 88.9%.
 - The adopted model's specification is [below](#final-model-specification).
   Tests 9–11 used the earlier version (commit `d8c5ce2`); its numbers
   there stand.
@@ -583,7 +594,13 @@ recordings it reproduced the saved probabilities exactly. The
 version tested in tests 9–11 had no `p_unmeasured` and a cutoff of
 0.4736; its coefficients are in that file at commit `d8c5ce2`. Since
 test 17, a recording with `p_unmeasured` = 1 gets "needs review" instead
-of a call. The probabilities are not calibrated risks
+of a call. `p_unmeasured` is now set from the count of usable beats
+(`n_p_beats` < 3, from [`af.p_unmeasured`](af.py)), not from
+`p_match_mean` = 0. The two differ only if P waves are measured on 3 or
+more beats and match in no lead, meaning truly absent, not unmeasurable.
+Tests 12 and 17 used the old definition; on CODE-15% parts 2 and 3 all
+593 recordings it flagged had fewer than 3 usable beats, so their results
+are the same either way. The probabilities are not calibrated risks
 ([supplement S6](SUPPLEMENT.md#s6-calibration)).
 
 ### Usability
@@ -684,7 +701,9 @@ of a call. The probabilities are not calibrated risks
   regular beats) can't be called reliably: after the test 12 fix, 76% of
   such non-AF recordings were still called AF. Since test 17 they get
   "needs review" (1.6% of recordings in primary care, including 4% of
-  AF), so this model needs a person to read them. And 5.6–5.7%
+  AF). That makes the uncertainty honest but doesn't remove the work: a
+  person still has to read them, and slightly more recordings need a
+  look than before (test 17). And 5.6–5.7%
   of CODE-15% recordings (many 7 s long) couldn't be scored at all.
 - AF on a regular rhythm is mostly missed (3 of 11 at SPH, 3 of 21 in
   CODE-15%), where the CNN catches most of it. CODE-15%'s label rule can
