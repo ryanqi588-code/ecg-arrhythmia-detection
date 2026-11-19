@@ -1,0 +1,16 @@
+dataset,source,files,GB,download failed: the server's 404 page was saved instead,no publisher checksum posted,publisher MD5 match,publisher SHA-256 match,unpacked: matches archive member
+chapman,physionet: challenge-2021/1.0.3,15760.0,0.67,0.0,0.0,0.0,15760.0,0.0
+cinc2017,none: challenge-2017/1.0.0 (no checksum list posted),17061.0,0.27,0.0,2.0,0.0,0.0,17059.0
+code15,zenodo: 4916206,9.0,26.46,0.0,0.0,5.0,0.0,4.0
+cpsc2018,physionet: challenge-2020/1.0.2,7808.0,0.28,0.0,0.0,0.0,7808.0,0.0
+cpsc2018_extra,physionet: challenge-2020/1.0.2,4689.0,0.37,0.0,0.0,0.0,4689.0,0.0
+georgia,physionet: challenge-2020/1.0.2,13286.0,0.36,0.0,0.0,0.0,13286.0,0.0
+incart,physionet-path: incartdb/1.0.0,173.0,0.22,0.0,0.0,0.0,173.0,0.0
+mimic,physionet-path: mimic-iv-ecg/1.0,37002.0,2.48,0.0,0.0,0.0,37002.0,0.0
+ningbo,physionet: challenge-2021/1.0.3,39987.0,0.33,35.0,0.0,0.0,39952.0,0.0
+ptbxl,physionet-path: ptb-xl/1.0.3,6470.0,0.4,0.0,0.0,0.0,6470.0,0.0
+ribeiro,"zenodo: 3625006, 3625017",27.0,1.24,0.0,0.0,2.0,0.0,25.0
+sph,"figshare: 17912444, 17912441, 17912507",25773.0,4.54,0.0,0.0,3.0,0.0,25770.0
+afdb,"PhysioNet via wfdb (streamed; only .npy caches on disk, not checkable)",,,,,,,
+ltafdb,"PhysioNet via wfdb (streamed; only .npy caches on disk, not checkable)",,,,,,,
+svdb,"PhysioNet via wfdb (streamed; only .npy caches on disk, not checkable)",,,,,,,

@@ -206,6 +206,16 @@ above −0.01)? The test sets:
 | CODE-15%, part 0 (Brazil, mostly primary care, 2010–2016) | 18,851: 424 AF (1149 unscorable by this model) | this model and the CNN; Ribeiro's network was trained on CODE, so it's left out |
 | CODE test set | 793: 13 AF (34 unscorable) | this model and the CNN; it's Ribeiro's own test set |
 
+*A download fault found after the test* (by the checksum manifest below):
+35 Ningbo headers had failed to download. Each folder's `RECORDS` file
+also lists the first recording of the next folder, and those were fetched
+from the wrong folder, so PhysioNet's 404 page was saved in their place.
+Selection reads the headers, so these 35 recordings were never
+candidates. By their real headers, one (JS20646) had atrial premature
+complexes without AF or flutter and would have joined the 1041 PAC
+recordings, and about six sinus-rhythm recordings were missing from the
+pool the 1500 were drawn from. The data are left as tested.
+
 **Results at each model's cutoff** (95% intervals):
 
 | | This model | Same-data CNN | Ribeiro's network |
@@ -804,6 +814,23 @@ The original environment for tests 1–16 is known only in part. Its
 cached features need numpy 2 and pyarrow, as the lock has, but its
 scikit-learn version wasn't recorded. Test 17 ran with numpy 2.2.6 and
 test 18 with numpy 1.26.4, both otherwise as locked.
+
+**The data are the public releases.** [`data_manifest.py`](data_manifest.py)
+records the SHA-256 of every downloaded file
+([`results/data_sha256sums.txt.gz`](results/data_sha256sums.txt.gz);
+check a copy with `gunzip -c results/data_sha256sums.txt.gz | shasum -a 256 -c`).
+It compares each file with the checksums the publisher posts: PhysioNet's
+SHA-256 lists, and Zenodo's and figshare's MD5s. Files unpacked from an
+archive are compared with that archive's member. 168,008 of 168,045 files
+match ([summary](results/data_manifest_summary.csv),
+[exceptions](results/data_manifest_problems.csv)), with no file differing
+from its release. The exceptions:
+- 35 Ningbo headers that had failed to download (above, test 11);
+- Challenge 2017's zip and label file, for which PhysioNet posts no
+  checksums (the 17,059 files unpacked from the zip match it).
+
+The Holter databases (AFDB, LTAFDB, SVDB) were streamed and only cached,
+so they can't be checked.
 
 ```bash
 pip install -r requirements.txt

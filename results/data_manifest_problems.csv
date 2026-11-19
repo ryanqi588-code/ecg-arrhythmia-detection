@@ -1,0 +1,38 @@
+dataset,file,bytes,status,publisher_path
+cinc2017,cinc2017/REFERENCE-v3.csv,76752,no publisher checksum posted,challenge-2017/1.0.0 (no checksum list posted)
+cinc2017,cinc2017/training2017.zip,99226822,no publisher checksum posted,challenge-2017/1.0.0 (no checksum list posted)
+ningbo,ningbo/g10_JS20646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g11/JS20646.hea
+ningbo,ningbo/g11_JS21646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g12/JS21646.hea
+ningbo,ningbo/g12_JS22646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g13/JS22646.hea
+ningbo,ningbo/g13_JS23074.hea,153,download failed: the server's 404 page was saved instead,
+ningbo,ningbo/g13_JS23646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g14/JS23646.hea
+ningbo,ningbo/g14_JS24646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g15/JS24646.hea
+ningbo,ningbo/g15_JS25646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g16/JS25646.hea
+ningbo,ningbo/g16_JS26646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g17/JS26646.hea
+ningbo,ningbo/g17_JS27646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g18/JS27646.hea
+ningbo,ningbo/g18_JS28646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g19/JS28646.hea
+ningbo,ningbo/g19_JS29646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g20/JS29646.hea
+ningbo,ningbo/g1_JS11646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g2/JS11646.hea
+ningbo,ningbo/g20_JS30646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g21/JS30646.hea
+ningbo,ningbo/g21_JS31646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g22/JS31646.hea
+ningbo,ningbo/g22_JS32646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g23/JS32646.hea
+ningbo,ningbo/g23_JS33646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g24/JS33646.hea
+ningbo,ningbo/g24_JS34646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g25/JS34646.hea
+ningbo,ningbo/g25_JS35646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g26/JS35646.hea
+ningbo,ningbo/g26_JS36646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g27/JS36646.hea
+ningbo,ningbo/g27_JS37646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g28/JS37646.hea
+ningbo,ningbo/g28_JS38646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g29/JS38646.hea
+ningbo,ningbo/g29_JS39646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g30/JS39646.hea
+ningbo,ningbo/g2_JS12646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g3/JS12646.hea
+ningbo,ningbo/g30_JS40646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g31/JS40646.hea
+ningbo,ningbo/g31_JS41646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g32/JS41646.hea
+ningbo,ningbo/g32_JS42646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g33/JS42646.hea
+ningbo,ningbo/g33_JS43646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g34/JS43646.hea
+ningbo,ningbo/g34_JS44646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g35/JS44646.hea
+ningbo,ningbo/g3_JS13646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g4/JS13646.hea
+ningbo,ningbo/g4_JS14646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g5/JS14646.hea
+ningbo,ningbo/g5_JS15646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g6/JS15646.hea
+ningbo,ningbo/g6_JS16646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g7/JS16646.hea
+ningbo,ningbo/g7_JS17646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g8/JS17646.hea
+ningbo,ningbo/g8_JS18646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g9/JS18646.hea
+ningbo,ningbo/g9_JS19646.hea,153,download failed: the server's 404 page was saved instead,training/ningbo/g10/JS19646.hea
