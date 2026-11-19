@@ -218,6 +218,14 @@ if __name__ == "__main__":
             with open(os.path.join(DATA, f), "rb") as fh:
                 if fh.read(200).lstrip().lower().startswith(b"<html") and size < 2000:
                     status = "download failed: the server's 404 page was saved instead"
+                    if not ref and kind == "physionet":      # is the file missing from the release itself?
+                        stem = re.sub(r"^g\d+_", "", rest.rsplit("/", 1)[-1]).rsplit(".", 1)[0]
+                        others = [p for p in pn[spec, prefix][0] if p.startswith(prefix)
+                                  and p.rsplit("/", 1)[-1].rsplit(".", 1)[0] == stem]
+                        if others:
+                            status = "not in the public release (404 page saved); the release has only " + \
+                                     ", ".join(o.rsplit("/", 1)[-1] for o in others)
+                            ref = "; ".join(others)
         rows.append({"dataset": ds, "file": f, "bytes": size, "sha256": sha, "status": status, "publisher_path": ref})
     d = pd.DataFrame(rows)
 

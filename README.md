@@ -207,11 +207,13 @@ above −0.01)? The test sets:
 | CODE test set | 793: 13 AF (34 unscorable) | this model and the CNN; it's Ribeiro's own test set |
 
 *A download fault found after the test* (by the checksum manifest below):
-35 Ningbo headers had failed to download. Each folder's `RECORDS` file
-also lists the first recording of the next folder, and those were fetched
-from the wrong folder, so PhysioNet's 404 page was saved in their place.
-Selection reads the headers, so these 35 recordings were never
-candidates. By their real headers, one (JS20646) had atrial premature
+35 Ningbo headers had failed to download, and PhysioNet's 404 page was
+saved in their place. 34 are a folder quirk: each folder's `RECORDS` file
+lists the first recording of the next folder, and those were fetched from
+the wrong folder. The 35th, JS23074, is a gap in the public release: it's
+listed in its folder's `RECORDS` and its signal (`.mat`) is published,
+but its header isn't, so no one can label it. Selection reads the
+headers, so these 35 recordings were never candidates. By their real headers, one (JS20646) had atrial premature
 complexes without AF or flutter and would have joined the 1041 PAC
 recordings, and about six sinus-rhythm recordings were missing from the
 pool the 1500 were drawn from. The data are left as tested.
@@ -825,7 +827,9 @@ archive are compared with that archive's member. 168,008 of 168,045 files
 match ([summary](results/data_manifest_summary.csv),
 [exceptions](results/data_manifest_problems.csv)), with no file differing
 from its release. The exceptions:
-- 35 Ningbo headers that had failed to download (above, test 11);
+- 35 Ningbo headers that had failed to download (above, test 11): 34
+  fetched from the wrong folder, and one (JS23074) that the release
+  itself doesn't include;
 - Challenge 2017's zip and label file, for which PhysioNet posts no
   checksums (the 17,059 files unpacked from the zip match it).
 
