@@ -87,10 +87,11 @@ which the author's computer sets.
 | 16 | `ba3839e` | 2026-11-15 00:55:14 | `2f9bf16` | 01:08:22 | yes |
 | label check | `e14302f` | 2026-11-15 03:12:03 | `9cf49b2` | 03:13:41 | yes |
 | 17 | `8884656` | 2026-11-19 20:39:53 | `f09d3d7` | 21:09:39 | yes |
+| 18 | `9d6edc8` | 2026-11-19 21:32:24 | `36e30aa` | 21:50:07 | yes |
 
 The repository's only force push was at 2026-10-09 01:21:01 UTC, before
 the first registration. Code changed between a registration and its
-results in five cases, none of them the registered test logic (see each
+results in six cases, none of them the registered test logic (see each
 with `git diff <registration> <results> -- '*.py'`):
 
 | Test | Changed | What |
@@ -100,6 +101,7 @@ with `git diff <registration> <results> -- '*.py'`):
 | 11 | `afib_comparison_figure.py` (+48, new file) | figure of the results |
 | 14 | `afib_mimic_select.py` (+2, −2) | `LEADS_12` defined in the file instead of imported, so it runs without sklearn (same list) |
 | 17 | `predict.py` (+10, −5); `tests/test_predict.py` (+1, −0) | the "needs review" output, added because the test passed (as its plan says); `afib_abstain_test.py` unchanged |
+| 18 | `afib_afpac_test.py` (+21, −2) | the download helper only: certificates (certifi) and retries after PhysioNet 502 errors; selection and analysis unchanged |
 
 ## S2. Beat detection
 

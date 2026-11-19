@@ -691,7 +691,8 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
     The code changes in that window (two error analyses appended after
     the run and marked as such, a unit test, a figure script, one
     constant moved in test 14's selection script, and, for test 17, the
-    "needs review" output added to `predict.py` after the test passed)
+    "needs review" output added to `predict.py` after the test passed,
+    and test 18's download helper)
     are listed in the supplement.
   - For tests 14–16 the registration commit also holds the list of test
     recordings, chosen by seeded code from the public machine reports, and
