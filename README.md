@@ -289,8 +289,11 @@ above −0.01)? The test sets:
   another AF ECG of the patient within 24 hours the differences shrink
   and their intervals include 0 (−0.004, −0.017 to +0.010 against the
   CNN; −0.008, −0.019 to +0.004 against Ribeiro's), so part of the gap
-  may come from doubtful machine labels. Used MIMIC data (tests 14 and
-  15, shown in the plan) had already pointed the same way.
+  may come from doubtful machine labels. But SPH's labels came from
+  physicians and showed a larger gap, so doubtful machine labels can't
+  explain all of it; and the confirmed-AF group (159) is small, so its
+  interval is wide. Used MIMIC data (tests 14 and 15, shown in the plan)
+  had already pointed the same way.
 - **PAC false alarms depend heavily on the hospital** for every model:
   this model's 9.5% at SPH is 24.5% at Ningbo, so the SPH figure
   shouldn't be quoted as general.
@@ -447,8 +450,9 @@ already shown drops of 1.1–1.3 points.
 
 **What interpretability costs, measured instead of assumed.** The cost
 is in telling AF from atrial premature beats: the transparent model
-ranks AF–PAC pairs wrong about three times as often as either network
-(calculated after the test), and the networks make 40–70% as many PAC
+ranks AF–PAC pairs wrong 1.4–3 times as often as either network,
+depending on the hospital (registered and confirmed in test 18), and the
+networks make 40–70% as many PAC
 false alarms. It does meet the registered criterion (overall AUC within
 0.01 of both black boxes), catches as much AF as the best human readers,
 and its errors can be traced to a named feature and a specific rule, as

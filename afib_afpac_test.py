@@ -162,8 +162,9 @@ def run(name=NAME, nets_path="results/compare_probs_mimic18.csv", out="results/a
     print(f"PRIMARY: worse than CNN {'yes' if ok[0] else 'NO'}; worse than Ribeiro {'yes' if ok[1] else 'NO'}; "
           f"VERDICT: {verdict}")
     rpt.to_csv(f"{out}.csv", index=False)
-    pd.DataFrame([{"comparison": k, "diff": v, "lo": lo, "hi": hi} for k, (v, lo, hi) in diffs.items()]
-                 ).assign(verdict=verdict).to_csv(f"{out}_diffs.csv", index=False)
+    pd.DataFrame([{"comparison": k, "diff": v, "lo": lo, "hi": hi,                  # verdict on the primary rows only
+                   "verdict": verdict if not k.startswith("confirmed AF") else ""}
+                  for k, (v, lo, hi) in diffs.items()]).to_csv(f"{out}_diffs.csv", index=False)
     t.assign(confirmed_af=conf & y).to_csv(f"{out}_recordings.csv", index=False)
 
 
