@@ -1,0 +1,44 @@
+{
+ "A22886": {
+  "label": "A",
+  "probability": 0.9969475990282192,
+  "result": "AF",
+  "beats": 12,
+  "ventricular_ectopic": 3,
+  "regular": 7,
+  "contributions_at_build": {
+   "p_match_mean": 3.158536237958634,
+   "cv": 2.501217936873543,
+   "p_match_regular": 0.8894177231720448,
+   "f_ratio_V1": 0.7964633820723251,
+   "nrmssd": -0.7439406914612297,
+   "pnn50": 0.575676458812822,
+   "log_f_wave": 0.504717937646626,
+   "entropy_norm": -0.3798282887791673,
+   "f_ratio_II": -0.031103515114697312,
+   "p_unmeasured": -0.02177206620762107,
+   "tpr": 0.009598128513685186
+  }
+ },
+ "A04870": {
+  "label": "PAC",
+  "probability": 0.686099778274799,
+  "result": "AF",
+  "beats": 15,
+  "ventricular_ectopic": 6,
+  "regular": 12,
+  "contributions_at_build": {
+   "f_ratio_V1": 1.3951907105052126,
+   "cv": 0.9965335997912527,
+   "log_f_wave": 0.6982950095456961,
+   "p_match_regular": -0.4188563109039895,
+   "p_match_mean": -0.398935478828391,
+   "nrmssd": -0.32621599253604294,
+   "entropy_norm": 0.1870341307765752,
+   "pnn50": 0.12035032726066734,
+   "p_unmeasured": -0.02177206620762107,
+   "f_ratio_II": 0.014504001417046056,
+   "tpr": 0.0060334862855669
+  }
+ }
+}
