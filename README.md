@@ -789,6 +789,9 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
 
 ## 8. Running it
 
+Which script produces each test, figure and result file, and which early
+scripts are archived: [`SCRIPTS.md`](SCRIPTS.md).
+
 **Exact versions.** Two isolated environments, each pinned by a lock file
 (Python 3.12.2 from python.org, macOS arm64). The networks need their own
 because TensorFlow 2.16 requires numpy below 2:
