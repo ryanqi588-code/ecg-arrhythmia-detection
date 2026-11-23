@@ -499,6 +499,25 @@ unseen data. The missed AF has mixed causes: frequent PVCs (one recording
 has 30% of beats flagged ectopic), a fairly regular ventricular response
 (CV 0.087), one labelled "AF and flutter", and two just under the cutoff.
 
+*Duplicates (found after the test).* The plan said no CPSC-extra recording
+was shared with CPSC 2018, but 40 are exact copies of CPSC 2018 recordings
+([`check_duplicates.py`](check_duplicates.py); README, *Duplicate
+recordings*). 36 of them were scored here, including 16 of the 45 AF, and
+every one's original was among the 777 CPSC recordings the clinical cutoff
+was set on. Without them (881 recordings, 29 AF):
+
+| CPSC-extra without CPSC 2018 copies (881: 29 AF) | Catches AF | Specificity | False alarms, PAC | False alarms, other |
+|---|---|---|---|---|
+| Holter cutoff | 82.8% (24/29) | 95.9% | 4.3% | 4.1% |
+| Holter cutoff + override | 82.8% (24/29) | 96.9% | 4.3% | 3.0% |
+| Clinical cutoff | 86.2% (25/29) | 95.2% | 13.0% | 4.6% |
+| **Clinical cutoff + override** | **86.2% (25/29)** | 96.8% | 8.7% | 3.0% |
+
+Sensitivity on the new recordings is about 3 points lower, so the
+conclusion (short of 95%) is, if anything, stronger. The two releases
+also label 11 of the 36 copies differently: 7 are AF in CPSC 2018 but
+neither AF nor flutter here, and 4 are PAC there and "other" here.
+
 ## S5. The road to the 12-lead model (tests 6–8, test 9 development)
 
 ### Test 6: Georgia, with lead II P waves and V1 f-waves

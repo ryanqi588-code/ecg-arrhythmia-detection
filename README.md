@@ -534,6 +534,35 @@ of each recording.
 | 11 CODE test set | 827 | 34 (0 AF) | 793 |
 | 12 CODE-15% part 1 | 20,000 | 1125 (17 AF) | 18,875 |
 
+### Duplicate recordings
+
+Checked after all the tests: [`check_duplicates.py`](check_duplicates.py)
+compares the 141,494 12-lead recordings any test or development set used
+(CPSC 2018 and CPSC-extra, PTB-XL, Chapman, Ningbo, Georgia, all of SPH,
+CODE-15% parts 0–3, the CODE test set, MIMIC-IV-ECG's selected
+recordings). First by an exact hash of each signal; then, to find the same
+ECG resampled, re-filtered or stored another way (as a release in another
+format would be), by matching beat times and comparing the aligned
+signals lead by lead (correlation and amplitude). 60 altered copies of
+real recordings (resampled, cropped, re-filtered, stored as float16),
+planted as controls, were all found. Every pair is in
+[`results/duplicate_check.csv`](results/duplicate_check.csv).
+
+| Overlap | Duplicate pairs | Effect |
+|---|---|---|
+| Chapman (development) and Ningbo (test 11) | 4 sinus recordings, exact copies | none: no model called any of them AF, and Ningbo's sinus false-alarm rates are unchanged without them (this model 1.93% → 1.94%) |
+| CPSC 2018 and CPSC-extra (supplement test 5) | 40 exact copies | test 5's cutoff was set on CPSC 2018, and 36 copies were scored in test 5, 16 of its 45 AF; on the 881 new recordings it caught 86.2% of AF (25/29), not 88.9% ([supplement](SUPPLEMENT.md#test-5-cpsc-2018-extra-clinical-cutoff)) |
+| CPSC 2018 or Chapman with SPH; CODE-15% with the CODE test set; any other two datasets | none | – |
+| CODE-15% parts (tests 11, 12, 13, 17) | 478 between parts, 170 within | the tests share some recordings; no model was trained on CODE-15% |
+| Within a dataset | SPH 168 (88 within test 9), Georgia 33, CPSC-extra 26, Chapman 11, CPSC 6, MIMIC-IV 2 | a few recordings counted twice |
+
+CODE-15%'s copies are of three kinds: the same exam sent twice; one
+tracing filed under up to 16 different patients (with different ages and
+sexes); and tracings stored at two gains (1.28×). Nine of its duplicate
+pairs carry opposite AF labels. In the development data, 83 pairs within
+and between CPSC, CPSC-extra and Chapman (under 1% of the 10,628 units)
+count a recording twice; the model was left as fitted.
+
 ### Recordings that can't be scored
 
 A 10 s ECG is left unscored, with no AF call, if fewer than 6 usable RR
@@ -812,6 +841,11 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
   presence caught more AF (82.5% → 84.6%) but raised PAC false alarms by
   more than its pre-set limit allowed, so it wasn't adopted (supplement,
   test 16).
+- Public ECG releases repeat recordings: 4 of Ningbo's test recordings
+  were also in the development data (Chapman), harmlessly, but 16 of
+  supplement test 5's 45 AF recordings were copies of CPSC 2018
+  recordings its cutoff was set on (see *Duplicate recordings*). The
+  check was run after the tests.
 - The model needs all 12 leads, and leaves out atrial flutter (handled
   by a separate model in the supplement).
 - The probabilities are not calibrated risks: on SPH they're too cautious

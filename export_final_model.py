@@ -44,6 +44,7 @@ def development_units():
     identical. The other features differ by filter rounding (relative 1e-7)
     and, in one duplicated recording (CPSC-extra Q0343 = Q2979), one beat's
     V2 P-wave match crosses its threshold; both are reported, not used.
+    (Duplicates across all the datasets: check_duplicates.py, README "Duplicate recordings".)
     """
     saved = dev_units("multilead12")
     new = dev_units("multilead12", cache=RECOMPUTED)
