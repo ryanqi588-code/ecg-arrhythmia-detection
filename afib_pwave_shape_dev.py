@@ -269,21 +269,29 @@ def main(lambdas=LAMBDAS, tag=""):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     t = -300 + BIN_S * 1000 * (np.arange(N_BINS) + 0.5)
-    fig, ax = plt.subplots(2, len(P_LEADS), figsize=(15, 6), sharex=True)
+    fig, ax = plt.subplots(3, len(P_LEADS), figsize=(15, 9), sharex=True)
     ww = final.wave_weights
+    classes = [("AF", af, "C3"), ("PAC", pac, "C2"), ("other non-AF", other, "C0")]
     for j, lead in enumerate(P_LEADS):
-        ax[0, j].bar(t, ww[j], width=8, color=np.where(ww[j] < 0, "C0", "C3"))
-        ax[0, j].axhline(0, color="k", lw=.5)
-        ax[0, j].set_title(f"lead {lead.replace('AV', 'aV')}")
         cols = [f"pw_{lead}_{k}" for k in range(N_BINS)]
-        for lab, m, col in [("AF", af, "C3"), ("PAC", pac, "C2"), ("other non-AF", other, "C0")]:
-            ax[1, j].plot(t, np.nanmean(d.loc[m, cols].values, axis=0), col, label=lab)
-        ax[1, j].axhline(0, color="k", lw=.5)
-        ax[1, j].set_xlabel("ms before R peak")
-    ax[0, 0].set_ylabel("weight (log-odds of AF per\nunit of QRS height); < 0 = against AF")
+        ax[0, j].bar(t, ww[j], width=8, color="0.5")      # grey: a weight's sign alone doesn't say which way it pushes
+        ax[0, j].set_title(f"lead {lead.replace('AV', 'aV')}")
+        for lab, m, col in classes:
+            mean = np.nanmean(d.loc[m, cols].values, axis=0)
+            ax[1, j].plot(t, mean, col, label=lab)
+            contrib = ww[j] * mean                        # what the weights do to that class's average recording
+            ax[2, j].plot(t, contrib, col, label=f"{lab}: total {contrib.sum():+.2f}")
+        ax[2, j].legend(fontsize=7, loc="lower left")
+        ax[2, j].set_xlabel("ms before R peak")
+        for r in range(3):
+            ax[r, j].axhline(0, color="k", lw=.5)
+    ax[0, 0].set_ylabel("weight (log-odds of AF per\nunit of QRS height)")
     ax[1, 0].set_ylabel("mean waveform\n(units of QRS height)")
     ax[1, 0].legend(fontsize=8)
-    fig.suptitle(f"P-wave window weights, fitted on all development data (lambda {lam}); {verdict}")
+    ax[2, 0].set_ylabel("contribution to log-odds of AF\n(weight x mean waveform);\n< 0 = against AF")
+    fig.suptitle(f"P-wave window weights, fitted on all development data (lambda {lam}); {verdict}\n"
+                 "A weight's effect depends on the sign of the waveform it multiplies: the bottom row shows "
+                 "weight x each class's mean waveform")
     plt.tight_layout()
     plt.savefig(write_path(f"figures/afib_pwave_shape_weights{tag}.png"), dpi=110)
     out.to_csv(write_path(f"results/afib_pwave_shape_dev{tag}.csv"))

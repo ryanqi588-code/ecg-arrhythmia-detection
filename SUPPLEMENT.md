@@ -1189,18 +1189,22 @@ of 10 ms, minus its first 20 ms (baseline) and divided by the lead's QRS
 height: 96 numbers. They joined the adopted model's 11 inputs in a
 balanced logistic regression whose waveform weights were penalised for
 differing from their neighbours, so the weights can be plotted over time
-and read ([figure](figures/afib_pwave_shape_weights.png)); the penalty's
-strength came from inner cross-validation over 1, 10, 100, 1000 and
-10,000, which chose 1, the weakest, in every fold. A check added after
-the run (`python afib_pwave_shape_dev.py widegrid`) put 0, 0.01 and 0.1
-into the grid too: the folds then chose 1, 1, 0.1, 1 and 0, the fit on
-all the data 1 again (the same weights), and the results barely moved
-(PAC called AF −0.3 points, −1.4 to +0.6; AF caught +0.3, 0.0 to +0.6;
-other non-AF called AF −0.2, −0.35 to −0.03; AUC +0.002, +0.001 to
-+0.004), so the model wasn't held back by the grid. Development data
-only (CPSC 2018 and CPSC-extra crops, PTB-XL, Chapman; 10,628 units),
-5-fold cross-validation grouped by patient with the usual cutoff rule,
-against the adopted model on the same folds.
+and read ([figure](figures/afib_pwave_shape_weights.png); a weight's
+effect depends on the sign of the waveform it multiplies, so the
+figure's bottom row shows weight × each class's mean waveform: the
+positive weights just before the QRS count against AF in PAC and sinus
+recordings, whose waveform dips there); the penalty's strength came from
+inner cross-validation over 1, 10, 100, 1000 and 10,000, which chose 1,
+the weakest, in every fold. A check added after the run (`python
+afib_pwave_shape_dev.py widegrid`) put 0, 0.01 and 0.1 into the grid
+too: the folds then chose 1, 1, 0.1, 1 and 0, the fit on all the data 1
+again (the same weights), and the results barely moved (PAC called AF
+−0.3 points, −1.4 to +0.6; AF caught +0.3, 0.0 to +0.6; other non-AF
+called AF −0.2, −0.35 to −0.03; AUC +0.002, +0.001 to +0.004), so the
+model wasn't held back by the grid. Development data only (CPSC 2018 and
+CPSC-extra crops, PTB-XL, Chapman; 10,628 units), 5-fold
+cross-validation grouped by patient with the usual cutoff rule, against
+the adopted model on the same folds.
 
 **The rule, set before the run (not committed separately):** it would go
 on to a registered test only if PAC false alarms fell with the 95%
