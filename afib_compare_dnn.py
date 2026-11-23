@@ -15,7 +15,7 @@ outside its training data.
 Sets (see afib_comparison_test.py for how each was chosen):
   dev      - the development recordings (for the Ribeiro cutoff only)
   sph      - the 15,113 recordings scored in test 9
-  ningbo   - Ningbo PAC and sinus recordings (data/ningbo/SELECTED)
+  ningbo   - Ningbo PAC and sinus recordings (results/ningbo_selected.txt)
   code15   - CODE-15% part 0 (Ribeiro's network is skipped: CODE-15% is a
              sample of its training data)
   codetest - the 827 CODE test ECGs annotated by cardiologists
@@ -63,13 +63,13 @@ def strip_padding(sig):
 def iter_set(name):
     """Yield (record, label, source, signal n x 12 in mV, fs) for a comparison set."""
     if name == "dev":
-        for r in open("data/cpsc2018/SELECTED").read().split():
+        for r in open("results/cpsc2018_selected.txt").read().split():
             dx = next(l for l in open(f"data/cpsc2018/{r}.hea") if l.startswith("# Dx")).split(":")[1].strip()
             sig, fs = load_wfdb_12(f"data/cpsc2018/{r}")
             n10 = int(10 * fs)
             for k in range(min(3, len(sig) // n10)):
                 yield f"data/cpsc2018/{r}", CPSC_CODES[dx], "cpsc", sig[k * n10:(k + 1) * n10], fs
-        for r in open("data/cpsc2018_extra/SELECTED").read().split():
+        for r in open("results/cpsc2018_extra_selected.txt").read().split():
             dx = next(l for l in open(f"data/cpsc2018_extra/{r}.hea") if l.startswith("# Dx")).split(":")[1]
             sig, fs = load_wfdb_12(f"data/cpsc2018_extra/{r}")
             n10 = int(10 * fs)
@@ -77,11 +77,11 @@ def iter_set(name):
                 yield (f"data/cpsc2018_extra/{r}", "A" if AF_CODE in dx.strip().split(",") else "other", "cpsc",
                        sig[k * n10:(k + 1) * n10], fs)
         db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-        for line in open("data/ptbxl/SELECTED").read().splitlines():
+        for line in open("results/ptbxl_selected.txt").read().splitlines():
             path, label = line.split()
             yield (f"ptbxl-{int(db.patient_id[path])}", label, "ptbxl",
                    *load_wfdb_12(os.path.join("data/ptbxl", path)))
-        for line in open("data/chapman/SELECTED").read().splitlines():
+        for line in open("results/chapman_selected.txt").read().splitlines():
             path, label = line.split()
             rec_id = os.path.basename(path)
             yield f"chapman-{rec_id}", label, "chapman", *load_wfdb_12(os.path.join("data/chapman", rec_id))
@@ -92,7 +92,7 @@ def iter_set(name):
                 sig = f["ecg"][()]
             yield rec, label, "sph", sig[:, :5000].T, 500
     elif name == "ningbo":
-        for line in open("data/ningbo/SELECTED").read().splitlines():
+        for line in open("results/ningbo_selected.txt").read().splitlines():
             path, label = line.split()
             rec = os.path.basename(path)
             yield rec, label, "ningbo", *load_wfdb_12(f"data/ningbo/rec/{rec}")
@@ -106,7 +106,7 @@ def iter_set(name):
                     continue
                 yield int(eid), "A" if exams.AF[eid] else "notAF", "code15", strip_padding(f["tracings"][i]), FS_R
     elif name == "incart":
-        for line in open("data/incart/SELECTED").read().splitlines():
+        for line in open("results/incart_selected.txt").read().splitlines():
             rec, k, patient, label = line.split()
             n = 2570                                        # 10 s at 257 Hz
             r = wfdb.rdrecord(f"data/incart/{rec}", sampfrom=int(k) * n, sampto=(int(k) + 1) * n)

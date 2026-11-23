@@ -75,7 +75,7 @@ def dev_units():
                 label = cpsc_labels.get(path, "A" if is_af else "other")
                 rows.append({**row, "source": "cpsc", "record": path, "label": label})
     db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-    for i, line in enumerate(open("data/ptbxl/SELECTED").read().splitlines()):
+    for i, line in enumerate(open("results/ptbxl_selected.txt").read().splitlines()):
         if i % 500 == 0:
             print(f"ptbxl {i} ...", flush=True)
         path, label = line.split()

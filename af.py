@@ -169,7 +169,7 @@ def cpsc_selected():
     long, chosen from the headers before any signal was looked at.
     """
     out = {}
-    for rec_id in open(os.path.join(CPSC_DIR, "SELECTED")).read().split():
+    for rec_id in open("results/cpsc2018_selected.txt").read().split():
         lines = open(os.path.join(CPSC_DIR, rec_id + ".hea")).read().splitlines()
         dx = next(l for l in lines if l.startswith("# Dx")).split(":")[1].strip()
         out[rec_id] = CPSC_CODES[dx]

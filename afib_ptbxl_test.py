@@ -60,7 +60,7 @@ print(f"cutoffs: current {c_current:.3f}, clinical {c_clinical:.3f}")
 # ----------------------------------------------------------------- test
 
 rows, skipped = [], {}
-for i, line in enumerate(open(os.path.join(PTBXL_DIR, "SELECTED")).read().splitlines()):
+for i, line in enumerate(open("results/ptbxl_selected.txt").read().splitlines()):
     path, label = line.split()
     if i % 500 == 0:
         print(f"test {i} ...", flush=True)

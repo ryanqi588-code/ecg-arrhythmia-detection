@@ -63,7 +63,7 @@ print(f"cutoffs: per source {cutoffs}, strictest {c_strict:.3f}, shared {c_share
 # ----------------------------------------------------------------- test
 
 rows, skipped = [], {}
-for i, line in enumerate(open(os.path.join(CHAPMAN_DIR, "SELECTED")).read().splitlines()):
+for i, line in enumerate(open("results/chapman_selected.txt").read().splitlines()):
     path, label = line.split()
     rec_id = os.path.basename(path)
     if i % 500 == 0:

@@ -15,7 +15,7 @@ Data, never opened, chosen from annotations or labels only:
              non-overlapping 10 s crop with at least 2 annotated atrial
              premature beats (A or S), excluding the 2 patients whose
              recordings are described with atrial fibrillation (447 crops, 14
-             patients; data/incart/SELECTED). Two patients supply most crops,
+             patients; results/incart_selected.txt). Two patients supply most crops,
              so intervals are by patient and results are also shown with
              every patient weighted equally.
   code15p2 - CODE-15% part 2 (Brazil), every exam (no PAC label; AF labels
@@ -49,7 +49,7 @@ ADOPTED_CUTOFF = 0.4309408380135387
 
 def incart_features():
     rows, skipped = [], {}
-    for line in open("data/incart/SELECTED").read().splitlines():
+    for line in open("results/incart_selected.txt").read().splitlines():
         rec, k, patient, label = line.split()
         r = wfdb.rdrecord(f"data/incart/{rec}", sampfrom=int(k) * 2570, sampto=(int(k) + 1) * 2570)
         assert [x.upper() for x in r.sig_name] == LEADS_12

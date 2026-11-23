@@ -63,7 +63,7 @@ print(f"cutoffs: current {c_current:.3f}, clinical {c_clinical:.3f}")
 # ----------------------------------------------------------------- test
 
 rows, skipped = [], {}
-for i, line in enumerate(open(os.path.join(GEORGIA_DIR, "SELECTED")).read().splitlines()):
+for i, line in enumerate(open("results/georgia_selected.txt").read().splitlines()):
     rec_id, label = line.split()
     if i % 500 == 0:
         print(f"test {i} ...", flush=True)

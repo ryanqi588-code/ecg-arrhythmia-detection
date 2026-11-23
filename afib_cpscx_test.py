@@ -75,7 +75,7 @@ print(f"Holter cutoff {holter_cutoff:.3f}; clinical cutoff {clinical_cutoff:.3f}
 # ----------------------------------------------------------------- test
 
 rows, skipped = [], {}
-for rec_id in open(os.path.join(EXTRA_DIR, "SELECTED")).read().split():
+for rec_id in open("results/cpsc2018_extra_selected.txt").read().split():
     lines = open(os.path.join(EXTRA_DIR, rec_id + ".hea")).read().splitlines()
     dx = next(l for l in lines if l.startswith("# Dx")).split(":")[1].strip().split(",")
     label = "A" if AF_CODE in dx else "PAC" if PAC_CODE in dx else "other"

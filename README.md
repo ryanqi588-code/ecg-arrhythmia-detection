@@ -866,19 +866,29 @@ python afib_compare_dnn.py    # both networks' probabilities on every comparison
 Results are written to [`results/`](results/) (the `*_recordings.csv`
 files list every recording scored) and plots to [`figures/`](figures/).
 The data need downloading first; "chosen as above" means by the
-definitions in that test's section, from headers or label tables only,
-written to a `SELECTED` file of one `record label` pair per line. The
+definitions in that test's section, from headers or label tables only.
+The chosen recordings are committed as `results/<source>_selected.txt`
+(one `record label` pair per line; CPSC's have record names only), and
+the scripts read them from there, so the data folders need only the
+downloaded files. These lists were kept at first only in the
+uncommitted `data/` folder and no committed code writes them; they were
+committed later, unchanged, and checked against the saved results (every
+recording each test scored or each network was run on is in its list,
+with the same label; the only listed recordings missing from the results
+are the ones reported as unscorable). For Ningbo the list is the only
+record of the draw: the code that drew the 1500 sinus recordings at
+random (seed 0) wasn't kept. The
 supplementary analyses and their data are in
 [supplement S10](SUPPLEMENT.md#s10-running-the-supplementary-analyses).
 
 | Data | Download | Into | Notes |
 |---|---|---|---|
-| CPSC 2018 | [`training/cpsc_2018/g1`–`g7`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018/) `.hea`, then the chosen `.mat` (~280 MB) | `data/cpsc2018/` | `SELECTED`: record names only (labels come from the headers) |
-| CPSC 2018 extra | [`training/cpsc_2018_extra/g1`–`g4`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018_extra/) (1236 recordings, ~370 MB) | `data/cpsc2018_extra/` | `SELECTED`: record names only |
-| PTB-XL | [`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv), then the chosen `records500/` `.hea` and `.dat` (2875, ~350 MB) | `data/ptbxl/` | records named `records500/xxxxx/yyyyy_hr` |
-| Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there |
+| CPSC 2018 | [`training/cpsc_2018/g1`–`g7`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018/) `.hea`, then the chosen `.mat` (~280 MB) | `data/cpsc2018/` | list: [`results/cpsc2018_selected.txt`](results/cpsc2018_selected.txt), record names only (labels come from the headers) |
+| CPSC 2018 extra | [`training/cpsc_2018_extra/g1`–`g4`](https://physionet.org/content/challenge-2020/1.0.2/training/cpsc_2018_extra/) (1236 recordings, ~370 MB) | `data/cpsc2018_extra/` | list: [`results/cpsc2018_extra_selected.txt`](results/cpsc2018_extra_selected.txt), record names only |
+| PTB-XL | [`ptbxl_database.csv`](https://physionet.org/files/ptb-xl/1.0.3/ptbxl_database.csv), then the chosen `records500/` `.hea` and `.dat` (2875, ~350 MB) | `data/ptbxl/` | list: [`results/ptbxl_selected.txt`](results/ptbxl_selected.txt); records named `records500/xxxxx/yyyyy_hr` |
+| Chapman-Shaoxing | Challenge 2021 [`training/chapman_shaoxing/g1`–`g11`](https://physionet.org/content/challenge-2021/1.0.3/training/chapman_shaoxing/) `.hea`, then the chosen `.mat` (3815, ~460 MB) | `data/chapman/` | list: [`results/chapman_selected.txt`](results/chapman_selected.txt); named `gN/JSxxxxx`; each folder's `RECORDS` also lists the first recording of the next folder, which lives there |
 | SPH | `metadata.csv` and `records.tar.gz` (2.3 GB, a plain tar despite the name) from [figshare](https://doi.org/10.6084/m9.figshare.c.5779802) | `data/sph/` | `tar -xf records.tar.gz`; the test chooses from `metadata.csv` itself; needs `h5py` |
-| Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | `data/ningbo/SELECTED` lists `gN/JSxxxxx label` |
+| Ningbo | Challenge 2021 [`training/ningbo/g1`–`g35`](https://physionet.org/content/challenge-2021/1.0.3/training/ningbo/) `.hea`, then the chosen `.mat` (2541, ~300 MB) | `data/ningbo/rec/` | list: [`results/ningbo_selected.txt`](results/ningbo_selected.txt), `gN/JSxxxxx label` |
 | CODE-15% | `exams.csv`, `exams_part0.zip` and `exams_part1.zip` (2.7 GB each) from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part0.hdf5` (test 11) and `exams_part1.hdf5` (test 12) |
 | CODE test set and Ribeiro's network | `data.zip` (218 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625006)) and `model.zip` (336 MB, [Zenodo](https://doi.org/10.5281/zenodo.3625017)) | `data/ribeiro/` | unzip both there |
 

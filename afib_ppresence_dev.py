@@ -66,12 +66,12 @@ def pp_units(cache=CACHE):
             v = pp(sig[k * n10:(k + 1) * n10], fs)
             if v is not None:
                 rows.append(("cpsc", path, k, *v))
-    for line in open("data/ptbxl/SELECTED").read().splitlines():
+    for line in open("results/ptbxl_selected.txt").read().splitlines():
         path = line.split()[0]
         v = pp(*load_12lead_all(os.path.join("data/ptbxl", path)))
         if v is not None:
             rows.append(("ptbxl", path, 0, *v))
-    for line in open("data/chapman/SELECTED").read().splitlines():
+    for line in open("results/chapman_selected.txt").read().splitlines():
         rec = os.path.basename(line.split()[0])
         v = pp(*load_12lead_all(f"data/chapman/{rec}"))
         if v is not None:
@@ -84,7 +84,7 @@ def pp_units(cache=CACHE):
             sig = f["ecg"][()][:, :5000].T
         v = pp(sig, 500)
         rows.append(("sph", rec, 0, *(v if v is not None else (np.nan,) * len(COLS))))
-    for line in open("data/ningbo/SELECTED").read().splitlines():
+    for line in open("results/ningbo_selected.txt").read().splitlines():
         rec = os.path.basename(line.split()[0])
         v = pp(*load_12lead_all(f"data/ningbo/rec/{rec}"))
         rows.append(("ningbo", rec, 0, *(v if v is not None else (np.nan,) * len(COLS))))
@@ -113,7 +113,7 @@ def units_with_pp(cache=CACHE, cols=None):
                 merged.append(cand.iloc[:len(grp)][cols].set_index(grp.index))
             out.append(us.join(pd.concat(merged)))
         elif src == "ptbxl":
-            ptb = [l.split()[0] for l in open("data/ptbxl/SELECTED").read().splitlines()]
+            ptb = [l.split()[0] for l in open("results/ptbxl_selected.txt").read().splitlines()]
             db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
             ps = ps.assign(record=[f"ptbxl-{int(db.patient_id[k])}" for k in ps.key])
             # several recordings per patient: match in order within patient

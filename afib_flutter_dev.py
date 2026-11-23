@@ -14,7 +14,7 @@ Development data, all from sources already used:
         (121), sinus tachycardia (600 of 1568 at random, seed 0)
       PTB-XL (validated reports): flutter without AF (44), SVT/PSVT
         without flutter or AF (30), sinus tachycardia (300 at random, seed 0)
-    (SELECTED_FLUTTER_DEV in data/chapman and data/ptbxl)
+    (results/chapman_flutter_dev_selected.txt and results/ptbxl_flutter_dev_selected.txt)
 Cross-validation is grouped by recording (CPSC, Chapman) or patient (PTB-XL).
 """
 
@@ -57,8 +57,8 @@ def flutter_units():
                 rows.append({**row, "source": "cpsc", "record": path,
                              "label": cpsc_labels.get(path, "A" if is_af else "other")})
     db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-    for sel in ["SELECTED", "SELECTED_FLUTTER_DEV"]:
-        for i, line in enumerate(open(f"data/ptbxl/{sel}").read().splitlines()):
+    for sel in ["selected", "flutter_dev_selected"]:
+        for i, line in enumerate(open(f"results/ptbxl_{sel}.txt").read().splitlines()):
             if i % 500 == 0:
                 print(f"ptbxl {sel} {i} ...", flush=True)
             path, label = line.split()
@@ -66,8 +66,8 @@ def flutter_units():
             if row:
                 rows.append({**row, "source": "ptbxl", "record": f"ptbxl-{int(db.patient_id[path])}",
                              "label": label})
-    for sel in ["SELECTED", "SELECTED_FLUTTER_DEV"]:
-        for i, line in enumerate(open(f"data/chapman/{sel}").read().splitlines()):
+    for sel in ["selected", "flutter_dev_selected"]:
+        for i, line in enumerate(open(f"results/chapman_{sel}.txt").read().splitlines()):
             if i % 500 == 0:
                 print(f"chapman {sel} {i} ...", flush=True)
             path, label = line.split()

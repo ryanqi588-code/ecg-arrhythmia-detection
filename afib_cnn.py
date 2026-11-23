@@ -65,12 +65,12 @@ def dev_data():
         z = np.load(DEV_CACHE, allow_pickle=True)
         return z["x"], pd.DataFrame(z["meta"].tolist())
     x, meta = [], []
-    cpsc = [r for r in open("data/cpsc2018/SELECTED").read().split()]
+    cpsc = [r for r in open("results/cpsc2018_selected.txt").read().split()]
     paths = []
     for r in cpsc:
         dx = next(l for l in open(f"data/cpsc2018/{r}.hea") if l.startswith("# Dx")).split(":")[1].strip()
         paths.append((f"data/cpsc2018/{r}", CPSC_CODES[dx]))
-    for r in open("data/cpsc2018_extra/SELECTED").read().split():
+    for r in open("results/cpsc2018_extra_selected.txt").read().split():
         dx = next(l for l in open(f"data/cpsc2018_extra/{r}.hea") if l.startswith("# Dx")).split(":")[1]
         paths.append((f"data/cpsc2018_extra/{r}", "A" if AF_CODE in dx.strip().split(",") else "other"))
     for i, (path, label) in enumerate(paths):
@@ -82,11 +82,11 @@ def dev_data():
             x.append(preprocess(sig[k * n10:(k + 1) * n10], fs))
             meta.append({"source": "cpsc", "record": path, "label": label})
     db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-    for line in open("data/ptbxl/SELECTED").read().splitlines():
+    for line in open("results/ptbxl_selected.txt").read().splitlines():
         path, label = line.split()
         x.append(preprocess(*load_wfdb_12(os.path.join("data/ptbxl", path))))
         meta.append({"source": "ptbxl", "record": f"ptbxl-{int(db.patient_id[path])}", "label": label})
-    for line in open("data/chapman/SELECTED").read().splitlines():
+    for line in open("results/chapman_selected.txt").read().splitlines():
         path, label = line.split()
         rec_id = os.path.basename(path)
         x.append(preprocess(*load_wfdb_12(os.path.join("data/chapman", rec_id))))

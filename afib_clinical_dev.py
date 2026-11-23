@@ -26,7 +26,7 @@ CACHE = "data/clinical_dev_crops.pkl"
 
 def dev_recordings():
     out = [(f"data/cpsc2018/{r}", lab == "A") for r, lab in cpsc_selected().items()]
-    for r in open("data/cpsc2018_extra/SELECTED").read().split():
+    for r in open("results/cpsc2018_extra_selected.txt").read().split():
         dx = next(l for l in open(f"data/cpsc2018_extra/{r}.hea").read().splitlines() if l.startswith("# Dx"))
         out.append((f"data/cpsc2018_extra/{r}", AF_CODE in dx.split(":")[1].strip().split(",")))
     return out

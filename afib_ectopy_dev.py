@@ -77,14 +77,14 @@ def ectopy_units():
                 rows.append({**row, "source": "cpsc", "record": path,
                              "label": cpsc_labels.get(path, "A" if is_af else "other")})
     db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-    for i, line in enumerate(open("data/ptbxl/SELECTED").read().splitlines()):
+    for i, line in enumerate(open("results/ptbxl_selected.txt").read().splitlines()):
         if i % 500 == 0:
             print(f"ptbxl {i} ...", flush=True)
         path, label = line.split()
         row = unit_with_variants(*load_12lead_all(os.path.join("data/ptbxl", path)), label == "A")
         if row:
             rows.append({**row, "source": "ptbxl", "record": f"ptbxl-{int(db.patient_id[path])}", "label": label})
-    for i, line in enumerate(open("data/chapman/SELECTED").read().splitlines()):
+    for i, line in enumerate(open("results/chapman_selected.txt").read().splitlines()):
         if i % 500 == 0:
             print(f"chapman {i} ...", flush=True)
         path, label = line.split()

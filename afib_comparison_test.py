@@ -71,7 +71,7 @@ def our_features(name):
             rows.append({**row, "record": rec, "label": label, "patient": patient if patient is not None else rec})
 
     if name == "ningbo":
-        for line in open("data/ningbo/SELECTED").read().splitlines():
+        for line in open("results/ningbo_selected.txt").read().splitlines():
             path, label = line.split()
             rec = os.path.basename(path)
             add(rec, label, *load_wfdb_12(f"data/ningbo/rec/{rec}"))

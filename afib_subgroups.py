@@ -85,11 +85,11 @@ if __name__ == "__main__":
     ages, sexes = header_demographics(cpsc_paths)
     demo.append(describe("CPSC 2018 + extra (development)", ages, (sexes == "F").mean(), len(cpsc_paths)))
     db = pd.read_csv("data/ptbxl/ptbxl_database.csv", index_col="filename_hr")
-    ptb = [l.split()[0] for f in ["SELECTED", "SELECTED_FLUTTER_DEV"] for l in open(f"data/ptbxl/{f}")]
+    ptb = [l.split()[0] for f in ["selected", "flutter_dev_selected"] for l in open(f"results/ptbxl_{f}.txt")]
     p = db.loc[ptb]
     demo.append(describe("PTB-XL (development)", p.age.where(p.age < 300), (p.sex == 1).mean(), len(p)))
-    ch = [f"data/chapman/{os.path.basename(l.split()[0])}" for f in ["SELECTED", "SELECTED_FLUTTER_DEV"]
-          for l in open(f"data/chapman/{f}")]
+    ch = [f"data/chapman/{os.path.basename(l.split()[0])}" for f in ["selected", "flutter_dev_selected"]
+          for l in open(f"results/chapman_{f}.txt")]
     ages, sexes = header_demographics(ch)
     demo.append(describe("Chapman-Shaoxing (development)", ages, (sexes == "F").mean(), len(ch)))
     for name, t in [("SPH test 9", t9), ("SPH test 10 (new recordings)", t10[t10.label != "A"])]:

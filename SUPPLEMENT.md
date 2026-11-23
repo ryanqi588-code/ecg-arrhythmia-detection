@@ -1250,7 +1250,7 @@ python afib_pwave_dev.py      # P-wave measure and cutoff development (CPSC + PT
 python afib_chapman_test.py   # test 8
 python afib_ectopy_dev.py     # atrial premature beat removal (development only)
 python afib_calibration.py    # calibration of the saved test 6-9 outputs
-python afib_flutter_dev.py    # flutter development (needs SELECTED_FLUTTER_DEV for Chapman and PTB-XL)
+python afib_flutter_dev.py    # flutter development (also uses results/{chapman,ptbxl}_flutter_dev_selected.txt)
 python afib_flutter_test.py   # test 10
 python afib_pconc_dev.py      # P-wave concentration (development only)
 python afib_ppresence_dev.py  # per-beat P-wave presence (development only)
@@ -1281,10 +1281,10 @@ MIT-BIH, AFDB, LTAFDB and SVDB are fetched automatically and cached in
 | Data | Download | Into | Notes |
 |---|---|---|---|
 | Challenge 2017 | [`training2017.zip`](https://physionet.org/files/challenge-2017/1.0.0/training2017.zip) (99 MB), [`REFERENCE-v3.csv`](https://physionet.org/files/challenge-2017/1.0.0/REFERENCE-v3.csv) | `data/cinc2017/` | unzip there |
-| Georgia | [`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/) (2942, ~350 MB) | `data/georgia/` | |
+| Georgia | [`training/georgia/g1`–`g11`](https://physionet.org/content/challenge-2020/1.0.2/training/georgia/) (2942, ~350 MB) | `data/georgia/` | list: [`results/georgia_selected.txt`](results/georgia_selected.txt) |
 | CODE-15% part 2 | `exams_part2.zip` from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part2.hdf5` |
 | CODE-15% part 3 | `exams_part3.zip` from [Zenodo](https://doi.org/10.5281/zenodo.4916206) | `data/code15/` | unzip to `exams_part3.hdf5` |
-| INCART | the `.hea`, `.atr` and `.dat` files of the recordings in [`results/incart_selected.txt`](results/incart_selected.txt) from [PhysioNet](https://physionet.org/content/incartdb/1.0.0/) | `data/incart/` | copy `results/incart_selected.txt` there as `SELECTED` |
+| INCART | the `.hea`, `.atr` and `.dat` files of the recordings in [`results/incart_selected.txt`](results/incart_selected.txt) from [PhysioNet](https://physionet.org/content/incartdb/1.0.0/) | `data/incart/` | |
 | MIMIC-IV-ECG | `machine_measurements.csv` and `record_list.csv`, then the `.hea` and `.dat` files of the recordings in [`results/mimic_selected.txt`](results/mimic_selected.txt) and [`results/mimic15_selected.txt`](results/mimic15_selected.txt) (3000 each, ~360 MB each), from [PhysioNet](https://physionet.org/content/mimic-iv-ecg/1.0/) | `data/mimic/` | keep the `files/pNNNN/...` paths |
 
 ## S11. Limitations of the supplementary work

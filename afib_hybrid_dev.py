@@ -39,7 +39,7 @@ def aligned_dev():
     keys = keys[keys.source.isin(SOURCES)].reset_index(drop=True)
     assert (keys.source.values == u.source.values).all()
     cnn = pd.read_csv("results/afib_cnn_dev_oof.csv")
-    ptb = [l.split()[0] for l in open("data/ptbxl/SELECTED").read().splitlines()]
+    ptb = [l.split()[0] for l in open("results/ptbxl_selected.txt").read().splitlines()]
     cnn.loc[cnn.source == "ptbxl", "key"] = ptb
     cnn.loc[cnn.source == "chapman", "key"] = cnn.record[cnn.source == "chapman"].str.replace("chapman-", "")
     cnn.loc[cnn.source == "cpsc", "key"] = cnn.record[cnn.source == "cpsc"]
