@@ -43,7 +43,8 @@ feature ideas were developed on them (supplement S8), so a pass here is
 more likely to be chance than a first attempt's would be.
 
     python afib_pwave_shape_dev.py            # computes the waveforms once (~25 min, cached in data/), then minutes
-    python afib_pwave_shape_dev.py widegrid   # the same with lambda 0, 0.01 and 0.1 added (a check made afterwards)
+    python afib_pwave_shape_dev.py widegrid   # the same with lambda 0, 0.01 and 0.1 added (a check made afterwards);
+                                              #   its figure and weights only if they differ from the main run's
 """
 
 from outputs import write_path      # committed outputs go to rerun/ unless --force
@@ -265,10 +266,17 @@ def main(lambdas=LAMBDAS, tag=""):
 
     # The explanation: weights over time, fitted on all the development data.
     final, cut, lam = fit_smooth(d, lambdas)
+    t = -300 + BIN_S * 1000 * (np.arange(N_BINS) + 0.5)
+    weights = pd.DataFrame(final.wave_weights, index=P_LEADS, columns=[f"{x:.0f} ms" for x in t])
+    same = False
+    if tag:                                            # a check run: no copy of the main run's figure and weights
+        main_w = pd.read_csv("results/afib_pwave_shape_weights.csv", index_col=0)
+        same = weights.shape == main_w.shape and np.allclose(weights.values, main_w.values, rtol=1e-12, atol=1e-12)  # CSV round-trip
+        if same:
+            print(f"weights identical to the main run's (lambda {lam}): figure and weights not written again")
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    t = -300 + BIN_S * 1000 * (np.arange(N_BINS) + 0.5)
     fig, ax = plt.subplots(3, len(P_LEADS), figsize=(15, 9), sharex=True)
     ww = final.wave_weights
     classes = [("AF", af, "C3"), ("PAC", pac, "C2"), ("other non-AF", other, "C0")]
@@ -293,11 +301,14 @@ def main(lambdas=LAMBDAS, tag=""):
                  "A weight's effect depends on the sign of the waveform it multiplies: the bottom row shows "
                  "weight x each class's mean waveform")
     plt.tight_layout()
-    plt.savefig(write_path(f"figures/afib_pwave_shape_weights{tag}.png"), dpi=110)
+    if not same:
+        plt.savefig(write_path(f"figures/afib_pwave_shape_weights{tag}.png"), dpi=110)
+    plt.close(fig)
     out.to_csv(write_path(f"results/afib_pwave_shape_dev{tag}.csv"))
     pd.DataFrame([{"comparison": f"shape minus adopted, {k}", "diff": v, "lo": lo, "hi": hi} for k, (v, lo, hi) in diffs.items()]
                  ).assign(verdict=verdict, lambdas=str(lams)).to_csv(write_path(f"results/afib_pwave_shape_dev{tag}_diffs.csv"), index=False)
-    pd.DataFrame(ww, index=P_LEADS, columns=[f"{x:.0f} ms" for x in t]).to_csv(write_path(f"results/afib_pwave_shape_weights{tag}.csv"))
+    if not same:
+        weights.to_csv(write_path(f"results/afib_pwave_shape_weights{tag}.csv"))
     return d, res, diffs, final
 
 
