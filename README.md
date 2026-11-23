@@ -660,10 +660,16 @@ Tests 12 and 17 used the old definition; on CODE-15% parts 2 and 3 all
 [`check_unmeasured_definition.py`](check_unmeasured_definition.py), counts
 per recording in
 [`results/unmeasured_definition_check.csv`](results/unmeasured_definition_check.csv)),
-so their results are the same either way. Training (`afib_fa_dev.py`,
-`export_final_model.py`) and the registered scripts of tests 12 and 17
-still use the old rule, to reproduce past results; a retrained model
-should use `af.p_unmeasured` so training and scoring agree. The probabilities are not calibrated risks
+so their results are the same either way. The published model is now
+exported with the same rule as `predict.py`:
+[`export_final_model.py`](export_final_model.py) recomputes the
+development features from the signals to get each unit's usable-beat
+count, flags units with `af.p_unmeasured`, and asserts that the
+coefficients, means, SDs, fills and cutoff come out as published. On the
+10,628 development units both rules flag the same 100 (each with at most
+2 usable beats), so the exported table is identical either way. The
+development script (`afib_fa_dev.py`) and the registered scripts of tests
+12 and 17 keep the old rule, to reproduce past results. The probabilities are not calibrated risks
 ([supplement S6](SUPPLEMENT.md#s6-calibration)).
 
 ### Usability

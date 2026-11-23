@@ -20,21 +20,58 @@ from outputs import write_path      # committed outputs go to rerun/ unless --fo
 import numpy as np
 import pandas as pd
 
-from af import CLINICAL_FEATURES_12, model_inputs
+from af import CLINICAL_FEATURES_12, model_inputs, p_unmeasured
 from afib_fa_dev import P_COLS, fit
 from afib_pac_dev import dev_units, prepare
 
 FEATURES = CLINICAL_FEATURES_12 + ["p_unmeasured"]
 ADOPTED_CUTOFF = 0.4309         # test 12 (afib_hybrid_test.ADOPTED_CUTOFF, to 4 places)
 INPUT = {"cv": "log(cv)", "nrmssd": "log(nrmssd)"}
+RECOMPUTED = "data/pac_dev_multilead12_recomputed.pkl"   # the features again, from the signals, with n_p_beats
+BEAT_FEATURES = ["cv", "nrmssd", "entropy", "entropy_norm", "tpr", "pnn50", "ectopic_frac"]          # depend only on the beats found
+
+
+def development_units():
+    """The saved development features the model was fitted on, with n_p_beats added.
+
+    The saved features predate n_p_beats (the number of regular,
+    non-ventricular beats P waves were measured on), which predict.py's
+    "P waves can't be measured" rule needs. They are recomputed from the
+    signals with the current code (cached in RECOMPUTED) and n_p_beats is
+    taken from there. The model is still fitted on the saved features, so
+    it reproduces exactly. n_p_beats is valid for them because it depends
+    only on the beats found, and the beat-derived features come out
+    identical. The other features differ by filter rounding (relative 1e-7)
+    and, in one duplicated recording (CPSC-extra Q0343 = Q2979), one beat's
+    V2 P-wave match crosses its threshold; both are reported, not used.
+    """
+    saved = dev_units("multilead12")
+    new = dev_units("multilead12", cache=RECOMPUTED)
+    assert len(new) == len(saved), (len(new), len(saved))
+    for c in ["record", "label", "source", "af"]:
+        assert (new[c].values == saved[c].values).all(), c
+    for c in BEAT_FEATURES:                     # same beats, so the same n_p_beats
+        assert np.array_equal(new[c].values, saved[c].values, equal_nan=True), c
+    for c in saved.columns:
+        if saved[c].dtype.kind == "f" and c not in BEAT_FEATURES:
+            a, b = saved[c].values, new[c].values
+            off = ~np.isclose(a, b, rtol=1e-6, atol=1e-9, equal_nan=True)
+            if off.any():
+                print(f"recomputed {c} differs from the saved feature in {int(off.sum())} units "
+                      f"(max {np.nanmax(np.abs(a - b)):.3g}); the saved values are used")
+    return saved.assign(n_p_beats=new.n_p_beats.values)
+
 
 if __name__ == "__main__":
-    raw = dev_units("multilead12")
+    raw = development_units()
     units = prepare(raw)
-    # The old rule (p_match_mean == 0), kept so this reproduces the published model exactly; the saved
-    # development features have no n_p_beats. If the model is ever retrained, recompute the features and
-    # use af.p_unmeasured instead (as predict.py does), so training and scoring agree.
-    train = units.assign(patient=units.record, p_unmeasured=(units.p_match_mean == 0).astype(float))
+    # "P waves can't be measured": the same rule as predict.py (af.p_unmeasured: fewer than 3 usable
+    # beats), not the p_match_mean == 0 that test 12 fitted the model with.
+    flag = np.array([p_unmeasured(r) for r in units.to_dict("records")])
+    old_rule = (units.p_match_mean == 0).values.astype(float)
+    print(f"P waves unmeasurable: {int(flag.sum())} of {len(units)} units by beat count, "
+          f"{int(old_rule.sum())} by p_match_mean == 0; they differ on {int((flag != old_rule).sum())}")
+    train = units.assign(patient=units.record, p_unmeasured=flag)
     model, cutoff = fit(train, FEATURES, True)
     assert abs(cutoff - ADOPTED_CUTOFF) < 5e-5, cutoff
     scaler, lr = model.named_steps["standardscaler"], model.named_steps["logisticregression"]
@@ -54,10 +91,13 @@ if __name__ == "__main__":
                  "fill_when": "AF if probability >= value"})
     out = pd.DataFrame(rows)
 
+    # With predict.py's rule the model must come out as published.
     old = pd.read_csv("results/final_af_model.csv").set_index("feature")
-    for col in ["mean", "sd", "coef_per_sd", "coef_raw"]:
+    for col in ["mean", "sd", "coef_per_sd", "coef_raw", "fill", "value"]:
         new = out.set_index("feature").loc[old.index, col]
-        assert np.allclose(new.values.astype(float), old[col].values, equal_nan=True, rtol=1e-9), col
+        assert np.allclose(new.values.astype(float), old[col].values, equal_nan=True, rtol=1e-9), \
+            f"{col} changed with predict.py's unmeasured rule"
+    print("coefficients, means, SDs, fills and cutoff unchanged with predict.py's rule: yes")
     out.to_csv(write_path("results/final_af_model.csv"), index=False)
     print(out.to_string())
 

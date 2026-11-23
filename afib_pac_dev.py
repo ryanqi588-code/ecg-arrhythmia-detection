@@ -34,9 +34,13 @@ def unit_features(sig12, fs, is_af, detector):
     return clinical_features(sig12[:, I_II_V1], fs, is_af, detector)
 
 
-def dev_units(detector="lead2"):
-    """Clinical features (with the RR-pattern ones) of every development unit (cached)."""
-    cache = f"data/pac_dev_{detector}.pkl"
+def dev_units(detector="lead2", cache=None):
+    """Clinical features (with the RR-pattern ones) of every development unit (cached).
+
+    `cache` defaults to the saved features the published models were fitted
+    on; pass another path to recompute them with the current code.
+    """
+    cache = cache or f"data/pac_dev_{detector}.pkl"
     try:
         return pd.read_pickle(cache)
     except FileNotFoundError:
