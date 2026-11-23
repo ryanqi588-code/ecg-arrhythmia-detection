@@ -8,7 +8,9 @@ regression gives it can be plotted over time: if they trace a P-wave-like
 bump, the explanation is "a waveform shaped like this counts against AF",
 which a cardiologist can check.
 
-Fixed before running:
+Set before running (not committed separately: the rule, this script and
+its results arrived in one commit, so unlike a registered test there is
+no earlier timestamp to check this against):
   - Waveform: for each development unit and each of leads II, III, aVF and
     V1, the median over regular, non-ventricular beats (as for p_match) of
     ecg.pr_segments (300 to 60 ms before the R peak, band-passed),
@@ -40,7 +42,8 @@ Not a first look at these data for PAC false alarms: several earlier
 feature ideas were developed on them (supplement S8), so a pass here is
 more likely to be chance than a first attempt's would be.
 
-    python afib_pwave_shape_dev.py    # computes the waveforms once (~25 min, cached in data/), then minutes
+    python afib_pwave_shape_dev.py            # computes the waveforms once (~25 min, cached in data/), then minutes
+    python afib_pwave_shape_dev.py widegrid   # the same with lambda 0, 0.01 and 0.1 added (a check made afterwards)
 """
 
 from outputs import write_path      # committed outputs go to rerun/ unless --force
@@ -58,7 +61,8 @@ FEATURES = CLINICAL_FEATURES_12 + ["p_unmeasured"]
 P_LEADS = ["II", "III", "AVF", "V1"]
 N_BINS, BIN_S, BASE_S, QRS_S = 24, 0.010, 0.020, 0.060
 WAVE = [f"pw_{lead}_{k}" for lead in P_LEADS for k in range(N_BINS)]
-LAMBDAS = [1, 10, 100, 1000, 10000]
+LAMBDAS = [1, 10, 100, 1000, 10000]                 # the grid set before the run
+WIDE_LAMBDAS = [0, 0.01, 0.1] + LAMBDAS              # added afterwards: the first run chose 1, the grid's edge, every time
 CACHE = "data/pac_dev_multilead12_pwave.pkl"
 BEAT_FEATURES = ["cv", "nrmssd", "entropy", "entropy_norm", "tpr", "pnn50", "ectopic_frac"]
 
@@ -178,11 +182,11 @@ class SmoothLogit:
         return self.beta[self.nf:].reshape(len(P_LEADS), N_BINS)
 
 
-def choose_lambda(train):
+def choose_lambda(train, lambdas=LAMBDAS):
     folds = np.array_split(np.random.default_rng(3).permutation(train.patient.unique()), 5)
     y = train.af.values
     scores = {}
-    for lam in LAMBDAS:
+    for lam in lambdas:
         p = np.zeros(len(train))
         for fold in folds:
             held = train.patient.isin(fold).values
@@ -194,9 +198,9 @@ def choose_lambda(train):
     return min(scores, key=scores.get)
 
 
-def fit_smooth(train):
+def fit_smooth(train, lambdas=LAMBDAS):
     """As afib_fa_dev.fit: the model on all of `train`, and its cutoff from 10-fold out-of-fold probabilities."""
-    lam = choose_lambda(train)
+    lam = choose_lambda(train, lambdas)
     oof = np.zeros(len(train))
     for fold in np.array_split(np.random.default_rng(0).permutation(train.patient.unique()), 10):
         held = train.patient.isin(fold).values
@@ -208,7 +212,7 @@ def fit_smooth(train):
 
 # ------------------------------------------------------------ comparison
 
-def main():
+def main(lambdas=LAMBDAS, tag=""):
     d = units()
     af, pac = d.af.values, (d.label == "PAC").values
     other = ~af & ~pac
@@ -223,7 +227,7 @@ def main():
         test = with_unmeasured_fix(d[~held], d[held])[1]
         res["adopted"][0][held] = model.predict_proba(model_inputs(test, FEATURES))[:, 1]
         res["adopted"][1][held] = res["adopted"][0][held] >= cutoff
-        sm, cut, lam = fit_smooth(d[~held])
+        sm, cut, lam = fit_smooth(d[~held], lambdas)
         lams.append(lam)
         res["shape"][0][held] = sm.predict_proba(test)
         res["shape"][1][held] = res["shape"][0][held] >= cut
@@ -260,7 +264,7 @@ def main():
     print(f"DECISION RULE: {verdict}")
 
     # The explanation: weights over time, fitted on all the development data.
-    final, cut, lam = fit_smooth(d)
+    final, cut, lam = fit_smooth(d, lambdas)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -281,13 +285,17 @@ def main():
     ax[1, 0].legend(fontsize=8)
     fig.suptitle(f"P-wave window weights, fitted on all development data (lambda {lam}); {verdict}")
     plt.tight_layout()
-    plt.savefig(write_path("figures/afib_pwave_shape_weights.png"), dpi=110)
-    out.to_csv(write_path("results/afib_pwave_shape_dev.csv"))
+    plt.savefig(write_path(f"figures/afib_pwave_shape_weights{tag}.png"), dpi=110)
+    out.to_csv(write_path(f"results/afib_pwave_shape_dev{tag}.csv"))
     pd.DataFrame([{"comparison": f"shape minus adopted, {k}", "diff": v, "lo": lo, "hi": hi} for k, (v, lo, hi) in diffs.items()]
-                 ).assign(verdict=verdict, lambdas=str(lams)).to_csv(write_path("results/afib_pwave_shape_dev_diffs.csv"), index=False)
-    pd.DataFrame(ww, index=P_LEADS, columns=[f"{x:.0f} ms" for x in t]).to_csv(write_path("results/afib_pwave_shape_weights.csv"))
+                 ).assign(verdict=verdict, lambdas=str(lams)).to_csv(write_path(f"results/afib_pwave_shape_dev{tag}_diffs.csv"), index=False)
+    pd.DataFrame(ww, index=P_LEADS, columns=[f"{x:.0f} ms" for x in t]).to_csv(write_path(f"results/afib_pwave_shape_weights{tag}.csv"))
     return d, res, diffs, final
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if "widegrid" in sys.argv:          # the check added afterwards: 0, 0.01 and 0.1 too
+        main(WIDE_LAMBDAS, "_widegrid")
+    else:
+        main()
