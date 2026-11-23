@@ -5,6 +5,7 @@
                                                 #   or no header and the standard order I..V6), in mV
     python predict.py ecg.csv --fs 500 --units uV   # a CSV in microvolts (or V)
     python predict.py path/to/record --json
+    python predict.py path/to/record --resample # score a recording sampled outside 400-500 Hz
 
 The model is read from results/final_af_model.csv (written by
 export_final_model.py), so no training data is needed. Features come from
@@ -26,7 +27,10 @@ regular, non-ectopic beats): the model can't tell AF from non-AF there,
 so it makes no call (test 17); the probability and contributions are
 still shown. "Unscored" means the recording can't be scored, and the
 reason says why:
-  - sampling rate outside 400-500 Hz (resample first);
+  - sampling rate outside 400-500 Hz, unless --resample (resample=True):
+    then 250-2000 Hz is resampled to 500 Hz first. On 1500 SPH recordings
+    taken to 250-2000 Hz and back, 99.7-99.9% of calls were unchanged
+    (check_resampling.py);
   - amplitudes that can't be millivolts: the median lead's amplitude
     range under 0.05 or over 100 (real ECGs: 0.28-36 mV), as from a signal
     in volts or microvolts. Signals must be in mV: WFDB records are
@@ -61,6 +65,8 @@ I_II_V1 = [0, 1, 6]
 SECONDS = 10
 MIN_SECONDS = 7              # shortest standard length in the test sets (CODE-15%'s 7.3 s recordings)
 FS_RANGE = (400, 500)        # sampling rates the model was developed and tested at
+FS_RESAMPLE = 500            # with resample=True, other rates are resampled to this
+RESAMPLE_FROM = (250, 2000)  # ... but only from this range (check_resampling.py: calls 99.7-99.9% unchanged)
 FLAT_MV = 0.05               # amplitude range below this: lead flat or disconnected
 SCALE_MV = (0.05, 100)       # median lead range outside this isn't millivolts (real ECGs: 0.28-36 mV)
 TO_MV = {"mv": 1.0, "uv": 1e-3, "µv": 1e-3, "μv": 1e-3, "v": 1e3, "nv": 1e-6}
@@ -223,7 +229,15 @@ def lead_problems(sig, fs):
     return out
 
 
-def predict(sig, fs, model=None, checks=True):
+def resample_to(sig, fs, target=FS_RESAMPLE):
+    """Polyphase resampling (anti-aliased), as afib_compare_dnn.to_ribeiro does."""
+    from fractions import Fraction
+    from scipy.signal import resample_poly
+    r = Fraction(target) / Fraction(fs).limit_denominator(1000)
+    return resample_poly(sig, r.numerator, r.denominator, axis=0), target
+
+
+def predict(sig, fs, model=None, checks=True, resample=False):
     """Score an n x 12 signal in millivolts. Returns a dict with "result" and, unless unscored, the score.
 
     checks=False runs the model exactly as it was tested and as the
@@ -231,16 +245,30 @@ def predict(sig, fs, model=None, checks=True):
     stripped and no input checks beyond missing samples and too few beats.
     The test scripts use it, so they reproduce their saved results; use
     the default for scoring new recordings.
+
+    resample=True scores a recording sampled outside 400-500 Hz (but
+    within RESAMPLE_FROM) by resampling it to 500 Hz first, after
+    stripping padding; the result then has "resampled_from". Without it
+    such recordings are unscored.
     """
     sig = np.asarray(sig, float)
     if sig.ndim != 2 or sig.shape[1] != 12:
         raise ValueError("expected an n x 12 signal")
+    resampled_from = None
     if checks:
-        if not FS_RANGE[0] <= fs <= FS_RANGE[1]:
-            return {"result": "unscored", "reason": f"sampling rate {fs:g} Hz; the model was tested at "
-                    f"{FS_RANGE[0]}-{FS_RANGE[1]} Hz, so resample first"}
-        # Strip padding before taking the first 10 s, so a padded recording keeps all its signal.
+        # Strip padding before taking the first 10 s, so a padded recording keeps all its signal
+        # (and before any resampling, whose filter would smear the edges of the padding).
         sig = strip_flat_edges(sig)
+        if not FS_RANGE[0] <= fs <= FS_RANGE[1]:
+            if not resample:
+                return {"result": "unscored", "reason": f"sampling rate {fs:g} Hz; the model was tested at "
+                        f"{FS_RANGE[0]}-{FS_RANGE[1]} Hz (resample first, or predict.py --resample)"}
+            if not RESAMPLE_FROM[0] <= fs <= RESAMPLE_FROM[1]:
+                return {"result": "unscored", "reason": f"sampling rate {fs:g} Hz; resampling is only "
+                        f"supported from {RESAMPLE_FROM[0]}-{RESAMPLE_FROM[1]} Hz"}
+            if len(sig) and np.isfinite(sig).all():
+                resampled_from = fs
+                sig, fs = resample_to(sig, fs)
         if len(sig) == 0:
             return {"result": "unscored", "reason": "flat signal"}
         if len(sig) < MIN_SECONDS * fs:
@@ -259,7 +287,10 @@ def predict(sig, fs, model=None, checks=True):
     row = clinical_features(sig[:, I_II_V1], fs, False, "multilead", sig)
     if row is None:
         return {"result": "unscored", "reason": "too few beats to measure the rhythm"}
-    return score_features(row, model)
+    out = score_features(row, model)
+    if resampled_from is not None:
+        out["resampled_from"] = resampled_from
+    return out
 
 
 def main():
@@ -268,10 +299,12 @@ def main():
     ap.add_argument("--fs", type=float, help="sampling rate in Hz (CSV only)")
     ap.add_argument("--units", default="mV", help="amplitude units of a CSV: mV (default), uV or V; "
                     "WFDB records use their header's")
+    ap.add_argument("--resample", action="store_true",
+                    help="resample a recording sampled outside 400-500 Hz to 500 Hz instead of leaving it unscored")
     ap.add_argument("--json", action="store_true", help="print JSON")
     a = ap.parse_args()
     sig, fs = read_ecg(a.record, a.fs, a.units)
-    out = predict(sig, fs)
+    out = predict(sig, fs, resample=a.resample)
     if a.json:
         print(json.dumps(out, indent=1))
         return
@@ -279,6 +312,8 @@ def main():
         print(f"unscored: {out['reason']}")
         return
     note = "; P waves can't be measured, so no call" if out["result"] == "needs review" else ""
+    if "resampled_from" in out:
+        note += f"; resampled from {out['resampled_from']:g} Hz to {FS_RESAMPLE} Hz"
     print(f"{out['result']}  (probability {out['probability']:.3f}; AF if >= {out['cutoff']:.4f}{note})")
     print(f"\n{'feature':<16}{'value':>10}{'standardized':>14}{'contribution':>14}")
     for c in out["contributions"]:

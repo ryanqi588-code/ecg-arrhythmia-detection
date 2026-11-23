@@ -707,7 +707,15 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
   III, aVR, aVL, aVF, V1–V6). All 12 leads are needed: the loaders reject
   recordings without them, and the P-wave features use leads across the
   ECG. Recordings at 400 and 500 Hz were tested; `predict.py` leaves
-  other sampling rates, and recordings under 7 s, unscored. Amplitudes
+  other sampling rates, and recordings under 7 s, unscored. With
+  `--resample` it scores 250–2000 Hz recordings by resampling them to
+  500 Hz: 1500 SPH test recordings taken to 250, 300, 360, 1000 and
+  2000 Hz and scored that way kept 99.7–99.9% of their calls, with AF
+  caught and PAC false alarms within half a point
+  ([`check_resampling.py`](check_resampling.py),
+  [results](results/resampling_check.csv)). These are simulations from
+  500 Hz recordings: a real device's own filtering at another rate
+  wasn't tested. Amplitudes
   must be in millivolts: `predict.py` converts WFDB records from the
   units in their header and a CSV given `--units` (uV or V), and leaves a
   signal whose amplitudes can't be millivolts unscored (median lead range

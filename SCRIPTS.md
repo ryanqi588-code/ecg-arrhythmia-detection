@@ -47,6 +47,7 @@ Setup and data: README, *Running it*.
 | Registration evidence for archiving | [`export_registration_evidence.py`](export_registration_evidence.py) | `registration_evidence/` |
 | Data checksums | [`data_manifest.py`](data_manifest.py) | `results/data_sha256sums.txt.gz`, `results/data_manifest_summary.csv`, `results/data_manifest_problems.csv` |
 | Old vs new "unmeasurable" rule | [`check_unmeasured_definition.py`](check_unmeasured_definition.py) | `results/unmeasured_definition_check.csv` |
+| Resampling other sampling rates (`predict.py --resample`) | [`check_resampling.py`](check_resampling.py) | `results/resampling_check.csv` |
 | Duplicate recordings within and across datasets | [`check_duplicates.py`](check_duplicates.py) | `results/duplicate_check.csv`, `results/duplicate_check_sources.csv` |
 | Golden test data | [`tests/golden/build_golden.py`](tests/golden/build_golden.py) | `tests/golden/` |
 

@@ -161,3 +161,17 @@ def test_wfdb_and_csv_are_converted_to_millivolts(tmp_path):
     assert np.allclose(got, sig)
     assert predict(read_ecg(str(tmp_path / "ecg_uv.csv"), fs)[0], fs)["result"] == "unscored"   # default mV: refused
 
+
+def test_other_sampling_rates_are_resampled_only_when_asked():
+    from predict import resample_to
+    sig, fs = _golden("A22886")                                     # AF at 500 Hz
+    base = predict(sig, fs)
+    for rate in (250, 1000):
+        x, _ = resample_to(sig, fs, target=rate)                    # as a device at that rate would record it
+        assert "sampling rate" in predict(x, rate)["reason"]        # refused by default
+        out = predict(x, rate, resample=True)
+        assert out["result"] == base["result"] and out["resampled_from"] == rate
+        assert abs(out["probability"] - base["probability"]) < 0.02
+    x, _ = resample_to(sig, fs, target=100)
+    assert "only supported" in predict(x, 100, resample=True)["reason"]
+    assert "resampled_from" not in base                             # 400-500 Hz is never resampled
