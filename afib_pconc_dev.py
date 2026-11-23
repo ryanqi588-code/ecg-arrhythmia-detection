@@ -16,6 +16,7 @@ cutoff rule as afib_fa_dev.py (strictest per-source cutoff on CPSC, PTB-XL
 and Chapman).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import h5py
@@ -158,4 +159,4 @@ if __name__ == "__main__":
         r["other_fa"] = pred[(u.label == "other").values].mean()
         rows.append(r)
         print(pd.DataFrame([r]).round(3).T.to_string(header=False), "\n", flush=True)
-    pd.DataFrame(rows).to_csv("results/afib_pconc_dev.csv", index=False)
+    pd.DataFrame(rows).to_csv(write_path("results/afib_pconc_dev.csv"), index=False)

@@ -21,6 +21,7 @@ Chapman (as for the final model). Features come from the saved test outputs (the
 af.clinical_features pipeline), so nothing is recomputed.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -128,4 +129,4 @@ if __name__ == "__main__":
         r["sens_p_unmeasured_AF"] = pred[(u.p_unmeasured == 1).values & u.af.values].mean()
         rows.append(r)
         print(pd.DataFrame([r]).round(3).T.to_string(header=False), "\n", flush=True)
-    pd.DataFrame(rows).to_csv("results/afib_fa_dev.csv", index=False)
+    pd.DataFrame(rows).to_csv(write_path("results/afib_fa_dev.csv"), index=False)

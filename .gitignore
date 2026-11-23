@@ -8,3 +8,6 @@ __pycache__/
 # downloaded PhysioNet signals (re-fetched automatically)
 data/
 .pytest_cache/
+
+# re-runs of scripts whose outputs are committed (see outputs.py)
+rerun/

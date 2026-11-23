@@ -8,6 +8,7 @@ wrong way round. Uses test 11's saved per-recording probabilities only.
 Paired bootstrap by patient (2000 resamples).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
@@ -32,4 +33,4 @@ if __name__ == "__main__":
     out = pd.DataFrame(rows)
     print(f"SPH: {y.sum()} AF, {(~y).sum()} PAC")
     print(out.round(4).to_string(index=False))
-    out.to_csv("results/afib_comparison_afpac.csv", index=False)
+    out.to_csv(write_path("results/afib_comparison_afpac.csv"), index=False)

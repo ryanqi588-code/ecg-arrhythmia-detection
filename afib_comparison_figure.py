@@ -1,5 +1,6 @@
 """Figure for test 11: share of PAC recordings called AF by each model, at its own cutoff."""
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -45,4 +46,4 @@ if __name__ == "__main__":
                  fontsize=10, color="#1a1a19", loc="left")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
     plt.tight_layout()
-    plt.savefig("figures/afib_comparison.png", dpi=130, facecolor=fig.get_facecolor())
+    plt.savefig(write_path("figures/afib_comparison.png"), dpi=130, facecolor=fig.get_facecolor())

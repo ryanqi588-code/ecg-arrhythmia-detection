@@ -18,6 +18,7 @@ highest passing value keeps most of the PAC gain.
 Then a preview (not a test) on the sets already used, including test 14.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -51,8 +52,8 @@ if __name__ == "__main__":
     print(f"chosen t_high = {best}")
     assert best is not None
     pd.DataFrame([{"t_lr": t_lr, "t_cnn": t_cnn, "t_high": best}]).to_csv(
-        "results/afib_hybrid2_thresholds.csv", index=False)
-    grid.to_csv("results/afib_hybrid2_dev.csv", index=False)
+        write_path("results/afib_hybrid2_thresholds.csv"), index=False)
+    grid.to_csv(write_path("results/afib_hybrid2_dev.csv"), index=False)
 
     # Preview on used sets: probabilities saved by tests 13 and 14.
     model, c_alone = fit(d, aligned_dev.__globals__["ADOPTED"], True)
@@ -72,4 +73,4 @@ if __name__ == "__main__":
     prev = pd.DataFrame(rows)
     print("\nPreview on used sets (not a test):")
     print(prev.round(4).to_string(index=False))
-    prev.to_csv("results/afib_hybrid2_preview.csv", index=False)
+    prev.to_csv(write_path("results/afib_hybrid2_preview.csv"), index=False)

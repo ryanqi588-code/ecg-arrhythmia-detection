@@ -20,6 +20,7 @@ scikit-learn, so its loaders mirror af.load_12lead_all.
     python afib_cnn.py   # builds data/cnn_dev.npz, cross-validates, trains the final network
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -158,9 +159,10 @@ if __name__ == "__main__":
         rows[f"sens_{s}"] = pred[(meta.source == s).values & is_af].mean()
     for lab in ["PAC", "N", "other"]:
         rows[f"fa_{lab}"] = pred[(meta.label == lab).values].mean()
-    pd.DataFrame([rows]).to_csv(CUTOFF_PATH, index=False)
+    pd.DataFrame([rows]).to_csv(write_path(CUTOFF_PATH), index=False)
     print(pd.DataFrame([rows]).round(3).to_string(index=False), flush=True)
-    meta.assign(prob_cnn=oof).to_csv("results/afib_cnn_dev_oof.csv", index=False)
+    meta.assign(prob_cnn=oof).to_csv(write_path("results/afib_cnn_dev_oof.csv"), index=False)
     final = fit(x, y)
-    final.save(MODEL_PATH)
-    print("saved", MODEL_PATH)
+    path = write_path(MODEL_PATH)                    # rerun/models/... unless --force: the registered network stays
+    final.save(path)
+    print("saved", path)

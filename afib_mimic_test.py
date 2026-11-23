@@ -4,6 +4,7 @@ Test 13's PAC result came from INCART, where 2 of 14 patients supplied 410 of
 the 447 PAC crops. This test repeats the comparison, with nothing changed, on
 many more people: MIMIC-IV-ECG (Boston, USA; a new hospital, country and ECG
 machine for this project), one 10 s 12-lead recording per patient, chosen
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 from the machine's report only (afib_mimic_select.py,
 results/mimic_selected.txt): 2000 patients whose report says sinus rhythm
 with PACs and 1000 other patients whose report says atrial fibrillation.
@@ -107,9 +108,9 @@ if __name__ == "__main__":
     print(f"PRIMARY 1 (PAC false alarms lower): {'yes' if ok1 else 'NO'}; "
           f"PRIMARY 2 (sensitivity non-inferior): {'yes' if ok2 else 'NO'}; "
           f"VERDICT: {'test 13 confirmed on 2000 patients' if ok1 and ok2 else 'test 13 not confirmed'}")
-    pd.DataFrame(out).to_csv("results/afib_mimic_test.csv", index=False)
+    pd.DataFrame(out).to_csv(write_path("results/afib_mimic_test.csv"), index=False)
     pd.DataFrame([{"comparison": n, "diff": v, "lo": lo, "hi": hi} for n, (v, lo, hi) in diffs.items()]
-                 ).assign(primary1=ok1, primary2=ok2).to_csv("results/afib_mimic_test_diffs.csv", index=False)
+                 ).assign(primary1=ok1, primary2=ok2).to_csv(write_path("results/afib_mimic_test_diffs.csv"), index=False)
     t.assign(called_alone=alone, called_hybrid=hybrid)[["record", "patient", "label", "prob_lr", "prob_cnn",
                                                         "called_alone", "called_hybrid"]].to_csv(
-        "results/afib_mimic_test_recordings.csv", index=False)
+        write_path("results/afib_mimic_test_recordings.csv"), index=False)

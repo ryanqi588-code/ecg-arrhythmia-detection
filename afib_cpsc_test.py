@@ -18,6 +18,7 @@ without the P-wave override (af.p_wave_override):
              cutoff for short recordings (af.fit_with_source_cutoffs)
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -82,8 +83,8 @@ for name, (pred, prob) in preds.items():
     s["false_alarm_rate_N"] = pred[(test.label == "N").values].mean()
     out.append(s)
 results = pd.DataFrame(out)
-results.to_csv("results/afib_cpsc_test.csv", index=False)
-test.assign(prob_previous=p_prev, prob_new=p_new).to_csv("results/afib_cpsc_test_recordings.csv", index=False)
+results.to_csv(write_path("results/afib_cpsc_test.csv"), index=False)
+test.assign(prob_previous=p_prev, prob_new=p_new).to_csv(write_path("results/afib_cpsc_test_recordings.csv"), index=False)
 print(results.set_index("classifier")[["sensitivity", "false_alarm_rate_PAC", "false_alarm_rate_N",
                                        "auc", "false_alarms", "missed_af"]].round(3).to_string())
 
@@ -99,5 +100,5 @@ plt.ylabel("Sensitivity")
 plt.title("CPSC 2018, lead I (circles: cutoff; squares: + override)")
 plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/afib_cpsc_test_roc.png", dpi=120)
+plt.savefig(write_path("figures/afib_cpsc_test_roc.png"), dpi=120)
 plt.show()

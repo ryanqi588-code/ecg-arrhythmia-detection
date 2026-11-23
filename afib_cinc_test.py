@@ -19,6 +19,7 @@ the test was run, and it is run once.
     4. model 3 + P-wave override (af.p_wave_override, threshold 0.95)
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -102,8 +103,8 @@ for name, (pred, prob) in preds.items():
     out.append(s)
     test[f"pred_{len(out)}"] = pred
 results = pd.DataFrame(out)
-results.to_csv("results/afib_cinc_test.csv", index=False)
-test.drop(columns=plain_cols.columns).to_csv("results/afib_cinc_test_recordings.csv", index=False)
+results.to_csv(write_path("results/afib_cinc_test.csv"), index=False)
+test.drop(columns=plain_cols.columns).to_csv(write_path("results/afib_cinc_test_recordings.csv"), index=False)
 print(results.set_index("classifier")[["sensitivity", "specificity", "precision", "auc",
                                        "false_alarm_rate_N", "false_alarm_rate_O",
                                        "false_alarms", "missed_af"]].round(3).to_string())

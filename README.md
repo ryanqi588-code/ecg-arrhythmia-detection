@@ -879,12 +879,18 @@ Test 11's neural networks need a separate TensorFlow environment
 tested with Python 3.12 on an Apple M3):
 
 ```bash
-python afib_cnn.py            # trains the same-data CNN (models/cnn_model.keras is the registered one)
+python afib_cnn.py            # retrains the same-data CNN into rerun/models/ (models/cnn_model.keras is the registered one)
 python afib_compare_dnn.py    # both networks' probabilities on every comparison set
 ```
 
 Results are written to [`results/`](results/) (the `*_recordings.csv`
 files list every recording scored) and plots to [`figures/`](figures/).
+These, the registered network in `models/` and the golden test data are
+committed, so re-running a script never overwrites them: a file that
+already exists is written to `rerun/` under the same path instead (e.g.
+`rerun/results/afib_cpsc_test.csv`), ready to compare with the committed
+one. Add `--force` to replace the committed file
+([`outputs.py`](outputs.py)).
 The data need downloading first; "chosen as above" means by the
 definitions in that test's section, from headers or label tables only.
 The chosen recordings are committed as `results/<source>_selected.txt`

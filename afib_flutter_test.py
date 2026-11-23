@@ -31,6 +31,7 @@ Primary results:
   3. share of flutter named flutter (62.9%) and of AF named flutter (6.8%)
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     af_call, fl_call = p_af >= c_af, p_fl >= c_fl
     either = af_call | fl_call
     t = t.assign(prob_af=p_af, prob_flutter=p_fl, called_af=af_call, named_flutter=fl_call, af_or_flutter=either)
-    t.to_csv("results/afib_flutter_test_recordings.csv", index=False)
+    t.to_csv(write_path("results/afib_flutter_test_recordings.csv"), index=False)
 
     print(f"\nSPH flutter test: {len(t)} scored {t.label.value_counts().to_dict()}; skipped: {skipped}")
     out = []
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     fl = (t.label == "AFL").values
     others = t.label.isin(["ST", "JT", "A"]).values
     results.attrs["auc"] = auc(p_fl[fl | others], fl[fl | others])
-    results.to_csv("results/afib_flutter_test.csv", index=False)
+    results.to_csv(write_path("results/afib_flutter_test.csv"), index=False)
     pd.set_option("display.width", 220)
     print(results.round(3).to_string(index=False))
     print(f"\nFlutter model AUC, flutter vs the rest: {results.attrs['auc']:.3f}; "

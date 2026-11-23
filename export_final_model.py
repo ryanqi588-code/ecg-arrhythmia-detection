@@ -16,6 +16,7 @@ Columns:
   value                 - only for the cutoff row: AF if probability >= value
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     for col in ["mean", "sd", "coef_per_sd", "coef_raw"]:
         new = out.set_index("feature").loc[old.index, col]
         assert np.allclose(new.values.astype(float), old[col].values, equal_nan=True, rtol=1e-9), col
-    out.to_csv("results/final_af_model.csv", index=False)
+    out.to_csv(write_path("results/final_af_model.csv"), index=False)
     print(out.to_string())
 
     # The table alone must give the fitted model's probabilities.

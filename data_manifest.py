@@ -32,6 +32,7 @@ repository root), results/data_manifest_summary.csv (per dataset) and
 results/data_manifest_problems.csv (every file that didn't verify).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import gzip
 import hashlib
 import io
@@ -231,7 +232,7 @@ if __name__ == "__main__":
 
     os.makedirs("results", exist_ok=True)
     text = "".join(f"{r.sha256}  data/{r.file}\n" for r in d.itertuples())
-    with open("results/data_sha256sums.txt.gz", "wb") as fo, gzip.GzipFile(fileobj=fo, mode="wb", mtime=0) as g:
+    with open(write_path("results/data_sha256sums.txt.gz"), "wb") as fo, gzip.GzipFile(fileobj=fo, mode="wb", mtime=0) as g:
         g.write(text.encode())
     summary = d.pivot_table(index="dataset", columns="status", values="file", aggfunc="count", fill_value=0)
     summary.insert(0, "GB", (d.groupby("dataset").bytes.sum() / 1e9).round(2))
@@ -240,9 +241,9 @@ if __name__ == "__main__":
                                                          else ", ".join(map(str, SOURCES[k][1]))) for k in summary.index])
     for h in HOLTER:
         summary.loc[h, "source"] = "PhysioNet via wfdb (streamed; only .npy caches on disk, not checkable)"
-    summary.to_csv("results/data_manifest_summary.csv")
+    summary.to_csv(write_path("results/data_manifest_summary.csv"))
     ok = d.status.isin(["publisher SHA-256 match", "publisher MD5 match", "unpacked: matches archive member"])
-    d[~ok].drop(columns="sha256").to_csv("results/data_manifest_problems.csv", index=False)
+    d[~ok].drop(columns="sha256").to_csv(write_path("results/data_manifest_problems.csv"), index=False)
     pd.set_option("display.width", 250)
     print(summary.to_string())
     print(f"\nverified against the publisher (directly or via its archive): {ok.sum()} of {len(d)} files")

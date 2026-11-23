@@ -29,6 +29,7 @@ This script uses only the first 2 hours of each record. Hours 2-10 are kept
 as an untouched test set for afib_test.py. Signals are cached in data/afdb/.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -105,7 +106,7 @@ for rec_id in RECORDS:
 
 df = pd.DataFrame(windows)
 det = pd.DataFrame(det_rows, columns=["record", "TP", "FP", "FN", "sensitivity", "precision"])
-det.to_csv("results/afib_beat_detection.csv", index=False)
+det.to_csv(write_path("results/afib_beat_detection.csv"), index=False)
 
 # The qrs annotations are machine-generated and unaudited. On record 07162
 # they mostly fall between beats (checked by plotting), so it is also
@@ -150,12 +151,12 @@ print(f"ROC AUC alone, P-wave features: p_match={auc(-ect_df.p_match.values, af)
       f"p_match_regular={auc(-ect_df.p_match_regular.values, af):.3f}  "
       f"p_snr={auc(-ect_df.p_snr.values, af):.3f}  (lower = more likely AF)")
 pred5e_override = p_wave_override(pred5e_sens, ect_df)
-ect_df.to_csv("results/afib_windows_ectopic_removed.csv", index=False)
+ect_df.to_csv(write_path("results/afib_windows_ectopic_removed.csv"), index=False)
 print(f"\nBeats flagged ectopic: {ect_df[ect_df.af].ectopic_frac.mean():.1%} in AF windows, "
       f"{ect_df[~ect_df.af].ectopic_frac.mean():.1%} in non-AF windows")
 
 df["prob_logreg2"], df["prob_logreg5"], df["prob_pnn50"] = prob2, prob5, prob1
-df.to_csv("results/afib_windows.csv", index=False)
+df.to_csv(write_path("results/afib_windows.csv"), index=False)
 
 comparison = pd.DataFrame([
     summarise("threshold rule (CV, nRMSSD)", af, df.pred.values),
@@ -163,7 +164,7 @@ comparison = pd.DataFrame([
     summarise("logistic regression (5 features)", af, prob5 >= 0.5, prob5),
     summarise("logistic regression (pNN50 only)", af, prob1 >= 0.5, prob1),
 ])
-comparison.to_csv("results/afib_classifiers.csv", index=False)
+comparison.to_csv(write_path("results/afib_classifiers.csv"), index=False)
 print("\nDefault operating points (rule: best balanced accuracy; logistic: probability >= 0.5):")
 print(comparison.set_index("classifier").round(3).to_string())
 
@@ -176,7 +177,7 @@ at_sens = pd.DataFrame([
     summarise("logistic regression (5 features + p_match, ectopic beats removed)", af, pred6e_sens, prob6e),
     summarise("logistic regression (5 features, ectopic beats removed) + P-wave override", af, pred5e_override),
 ])
-at_sens.to_csv("results/afib_classifiers_95sens.csv", index=False)
+at_sens.to_csv(write_path("results/afib_classifiers_95sens.csv"), index=False)
 print(f"\nCutoffs chosen on the training folds for {TARGET_SENS:.0%} sensitivity (records weighted equally):")
 print(at_sens.set_index("classifier").round(3).to_string())
 
@@ -221,7 +222,7 @@ for axis in (plt.gca().xaxis, plt.gca().yaxis):
 plt.title("60 s windows: RR irregularity (dashed = median thresholds)")
 plt.legend()
 plt.tight_layout()
-plt.savefig("figures/afib_scatter.png", dpi=120)
+plt.savefig(write_path("figures/afib_scatter.png"), dpi=120)
 plt.show()
 
 # ROC curves: every operating point of each model, vs the rule's points
@@ -242,7 +243,7 @@ plt.ylabel("Sensitivity")
 plt.title("AF detection, leave-one-record-out")
 plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/afib_roc.png", dpi=120)
+plt.savefig(write_path("figures/afib_roc.png"), dpi=120)
 plt.show()
 
 # RR tachogram for the record with the most even mix of AF and non-AF
@@ -261,7 +262,7 @@ plt.ylabel("RR interval (s)")
 plt.title(f"AFDB record {rec_id}: RR intervals from our detector")
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig("figures/afib_tachogram.png", dpi=120)
+plt.savefig(write_path("figures/afib_tachogram.png"), dpi=120)
 plt.show()
 
 # Record 07162: our detections vs the unaudited qrs annotations
@@ -280,5 +281,5 @@ plt.ylabel("Amplitude (mV)")
 plt.title("AFDB record 07162: the reference annotations miss the QRS complexes")
 plt.legend(loc="upper left", bbox_to_anchor=(1.01, 1))
 plt.tight_layout()
-plt.savefig("figures/afib_07162_reference.png", dpi=120)
+plt.savefig(write_path("figures/afib_07162_reference.png"), dpi=120)
 plt.show()

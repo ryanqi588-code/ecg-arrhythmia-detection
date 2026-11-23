@@ -13,6 +13,7 @@ against that group). Paired bootstrap by patient (2000 resamples) for this
 model minus each network. Uses saved test 11 probabilities only.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import csv
 
 import numpy as np
@@ -75,4 +76,4 @@ if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.max_columns", 20)
     print(out.round(4).to_string(index=False))
-    out.to_csv("results/afib_comparison_ectopy.csv", index=False)
+    out.to_csv(write_path("results/afib_comparison_ectopy.csv"), index=False)

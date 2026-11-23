@@ -32,6 +32,7 @@ group; PAC recordings called AF, split by whether the patient has an AF ECG
 within 24 h; the primary repeated with a 6 h window. Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -141,12 +142,12 @@ if __name__ == "__main__":
     print(f"6 h window: confirmed {int(c6.sum())}, sinus nearby {int(s6.sum())}; "
           f"difference {v6[0]:+.4f} (95% CI {v6[1]:+.4f} to {v6[2]:+.4f})")
 
-    pd.DataFrame(rows).to_csv("results/afib_mimic_labels.csv", index=False)
-    pd.DataFrame(pac_rows).to_csv("results/afib_mimic_labels_pac.csv", index=False)
-    reg.to_csv("results/afib_mimic_labels_regular.csv")
+    pd.DataFrame(rows).to_csv(write_path("results/afib_mimic_labels.csv"), index=False)
+    pd.DataFrame(pac_rows).to_csv(write_path("results/afib_mimic_labels_pac.csv"), index=False)
+    reg.to_csv(write_path("results/afib_mimic_labels_regular.csv"))
     pd.DataFrame([{"comparison": "confirmed - sinus nearby (24 h)", "diff": v, "lo": lo, "hi": hi, "primary": ok},
                   {"comparison": "confirmed - sinus nearby (6 h)", "diff": v6[0], "lo": v6[1], "hi": v6[2]},
                   {"comparison": "test 16 confirmed AF, new - adopted", "diff": dv[0], "lo": dv[1], "hi": dv[2]}]
-                 ).to_csv("results/afib_mimic_labels_diffs.csv", index=False)
+                 ).to_csv(write_path("results/afib_mimic_labels_diffs.csv"), index=False)
     d[["record", "patient", "label", "test", "group", "af_near", "sinus_near", "hr", "called_alone"]].to_csv(
-        "results/afib_mimic_labels_recordings.csv", index=False)
+        write_path("results/afib_mimic_labels_recordings.csv"), index=False)

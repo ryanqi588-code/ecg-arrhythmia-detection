@@ -18,6 +18,7 @@ Development data, all from sources already used:
 Cross-validation is grouped by recording (CPSC, Chapman) or patient (PTB-XL).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -182,7 +183,7 @@ if __name__ == "__main__":
     for lab in ["AFL", "A", "ST", "SVT", "AT", "PAC", "N", "other"]:
         base[f"af_or_flutter_{lab}"] = af_call[(d.label == lab).values].mean()
     results = pd.DataFrame([base] + rows)
-    results.to_csv("results/afib_flutter_dev.csv", index=False)
+    results.to_csv(write_path("results/afib_flutter_dev.csv"), index=False)
     pd.set_option("display.width", 250)
     print("\nFlutter models (CV). named_flutter: share of flutter called flutter; af_or_flutter_X: share of X "
           "called AF or flutter (AF model or flutter model)")

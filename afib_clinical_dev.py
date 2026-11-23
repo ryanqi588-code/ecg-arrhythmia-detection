@@ -12,6 +12,7 @@ AF: CPSC label A, or AF among CPSC-extra diagnoses. Non-AF: everything else
 selected (PAC and normal from CPSC; no AF or flutter in CPSC-extra).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -88,5 +89,5 @@ if __name__ == "__main__":
                      "sensitivity": pred[is_af].mean(), "false_alarm_rate": pred[~is_af].mean(),
                      "override_sensitivity": ov[is_af].mean(), "override_false_alarm_rate": ov[~is_af].mean()})
     results = pd.DataFrame(rows)
-    results.to_csv("results/afib_clinical_dev.csv", index=False)
+    results.to_csv(write_path("results/afib_clinical_dev.csv"), index=False)
     print(results.round(3).to_string(index=False))

@@ -17,6 +17,7 @@ Uses test 11's saved recordings (CODE-15% part 0 and SPH) only:
   3. CODE-15% "not-AF" recordings called AF, regular and irregular.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -65,4 +66,4 @@ if __name__ == "__main__":
         fa.append(r)
         print(r)
     pd.concat([pd.DataFrame(rows), pd.DataFrame(by), pd.DataFrame(fa)]).to_csv(
-        "results/afib_code15_labels.csv", index=False)
+        write_path("results/afib_code15_labels.csv"), index=False)

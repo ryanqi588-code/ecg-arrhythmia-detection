@@ -4,7 +4,10 @@ Which script produces each result, for reviewers. The paper numbers its
 tests 1–5; the scripts keep the project's own numbers (9, 11, 12, 17, 18),
 because the registration commits and [`check_registrations.py`](check_registrations.py)
 refer to them. Nothing has been moved or renamed, for the same reason.
-Results go to [`results/`](results/), figures to [`figures/`](figures/).
+Results go to [`results/`](results/), figures to [`figures/`](figures/). Those are the committed
+outputs, so a re-run writes to `rerun/` instead (e.g. `rerun/results/afib_cpsc_test.csv`, to compare
+with the committed file); pass `--force` to overwrite the committed one. The same goes for
+`models/cnn_model.keras` (the registered network), `tests/golden/` and `registration_evidence/`.
 Setup and data: README, *Running it*.
 
 ## The paper
@@ -34,6 +37,7 @@ Setup and data: README, *Running it*.
 | Score one ECG | [`predict.py`](predict.py) | (prints the call and contributions) |
 | The adopted model as a table | [`export_final_model.py`](export_final_model.py) | `results/final_af_model.csv` |
 | Confidence intervals (for new code) | [`stats.py`](stats.py) | (library) |
+| Where outputs are written: committed files are never overwritten unless `--force` | [`outputs.py`](outputs.py) | (library) |
 | 12-lead model development | [`afib_pac_dev.py`](afib_pac_dev.py); still imported: [`afib_clinical_dev.py`](afib_clinical_dev.py), [`afib_pwave_dev.py`](afib_pwave_dev.py) | `results/afib_pac_dev.csv`, `results/afib_clinical_dev.csv`, `results/afib_pwave_dev.csv` |
 | Test 3's fix, development | [`afib_fa_dev.py`](afib_fa_dev.py) | `results/afib_fa_dev.csv` |
 | Same-data CNN | [`afib_cnn.py`](afib_cnn.py) | `models/cnn_model.keras`, `results/afib_cnn_dev.csv` |

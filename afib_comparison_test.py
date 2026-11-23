@@ -43,6 +43,7 @@ patient where known); on codetest, sensitivity and specificity against the
 doctors. Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import h5py
@@ -193,11 +194,11 @@ if __name__ == "__main__":
                 rows.append({"reader": f"model: {m}", "on": "scored by ours", "sensitivity": rate_str(pred[y]),
                              "specificity": rate_str(~pred[~y])})
             readers = pd.DataFrame(rows)
-            readers.to_csv("results/afib_comparison_doctors.csv", index=False)
+            readers.to_csv(write_path("results/afib_comparison_doctors.csv"), index=False)
             print(readers.to_string(index=False))
-        t.to_csv(f"results/afib_comparison_{name}_recordings.csv", index=False)
-    pd.DataFrame(summary).to_csv("results/afib_comparison_test.csv", index=False)
-    pd.DataFrame(diffs).to_csv("results/afib_comparison_diffs.csv", index=False)
+        t.to_csv(write_path(f"results/afib_comparison_{name}_recordings.csv"), index=False)
+    pd.DataFrame(summary).to_csv(write_path("results/afib_comparison_test.csv"), index=False)
+    pd.DataFrame(diffs).to_csv(write_path("results/afib_comparison_diffs.csv"), index=False)
     sph = [d for d in diffs if d["set"] == "sph"]
     for d in sph:
         lo, hi = d["auc_diff_ci"]

@@ -14,6 +14,7 @@ on GitHub. This writes:
 Then run check_registrations.py as usual. Run in a full clone.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import hashlib
 import json
 import os
@@ -24,16 +25,17 @@ from check_registrations import activity
 OUT = "registration_evidence"
 
 if __name__ == "__main__":
-    os.makedirs(OUT, exist_ok=True)
-    with open(f"{OUT}/github_push_log.json", "w") as f:
+    out = write_path(OUT)                  # the whole folder: rerun/registration_evidence unless --force
+    os.makedirs(out, exist_ok=True)
+    with open(f"{out}/github_push_log.json", "w") as f:
         json.dump(activity(), f, indent=1)
     log = subprocess.run(["git", "log", "--format=fuller", "--format=commit %H%ntree %T%nparents %P%n"
                           "author %an %aI%ncommitter %cn %cI%n%n    %s%n", "--name-status", "HEAD"],
                          capture_output=True, text=True, check=True).stdout
-    open(f"{OUT}/git_log.txt", "w").write(log)
-    subprocess.run(["git", "bundle", "create", f"{OUT}/repo.bundle", "HEAD", "main"], check=True,
+    open(f"{out}/git_log.txt", "w").write(log)
+    subprocess.run(["git", "bundle", "create", f"{out}/repo.bundle", "HEAD", "main"], check=True,
                    capture_output=True)
-    with open(f"{OUT}/SHA256SUMS", "w") as f:
+    with open(f"{out}/SHA256SUMS", "w") as f:
         for name in ["github_push_log.json", "git_log.txt", "repo.bundle"]:
-            f.write(f"{hashlib.sha256(open(f'{OUT}/{name}', 'rb').read()).hexdigest()}  {name}\n")
-    print(open(f"{OUT}/SHA256SUMS").read())
+            f.write(f"{hashlib.sha256(open(f'{out}/{name}', 'rb').read()).hexdigest()}  {name}\n")
+    print(open(f"{out}/SHA256SUMS").read())

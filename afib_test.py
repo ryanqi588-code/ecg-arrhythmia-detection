@@ -19,6 +19,7 @@ the threshold rule; logistic regression on 5 features; on pNN50 alone; and
 on 5 features after removing RR intervals around likely ectopic beats.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -78,8 +79,8 @@ def evaluate(tests, label, name):
     test["ectopic_frac"] = test_ect.ectopic_frac.values
 
     results = pd.DataFrame(rows)
-    results.to_csv(f"results/{name}.csv", index=False)
-    test.to_csv(f"results/{name}_windows.csv", index=False)
+    results.to_csv(write_path(f"results/{name}.csv"), index=False)
+    test.to_csv(write_path(f"results/{name}_windows.csv"), index=False)
     print(f"\n{label}: {len(test)} windows, {af.sum()} AF, "
           f"{test.record[test.af].nunique()} of {test.record.nunique()} records with AF")
     print(results.set_index("classifier").round(3).to_string())
@@ -109,7 +110,7 @@ def evaluate(tests, label, name):
     plt.title(label)
     plt.legend(loc="lower right", fontsize=8)
     plt.tight_layout()
-    plt.savefig(f"figures/{name}_roc.png", dpi=120)
+    plt.savefig(write_path(f"figures/{name}_roc.png"), dpi=120)
     plt.show()
 
 

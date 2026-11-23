@@ -9,6 +9,7 @@ The adaptive detector's settings were tuned while looking at the 10 DEV
 records, so its fair score is the one on the HELD_OUT records.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import time
 
 import numpy as np
@@ -49,7 +50,7 @@ plt.ylabel("Amplitude (mV)")
 plt.title("Record 100: filtered signal with detected vs annotated beats")
 plt.legend()
 plt.tight_layout()
-plt.savefig("figures/record100_beats.png", dpi=120)
+plt.savefig(write_path("figures/record100_beats.png"), dpi=120)
 plt.show()
 
 tp, fp, fn, sens, ppv = score(ref, peaks, tol=int(0.15 * FS), excluded=excluded)
@@ -71,7 +72,7 @@ plt.xlabel("Time (s)")
 plt.ylabel("Heart rate (BPM)")
 plt.title("Record 100: heart rate over time")
 plt.tight_layout()
-plt.savefig("figures/record100_heart_rate.png", dpi=120)
+plt.savefig(write_path("figures/record100_heart_rate.png"), dpi=120)
 plt.show()
 
 
@@ -94,7 +95,7 @@ for split, records in [("dev", DEV), ("held-out", HELD_OUT)]:
 
 df = pd.DataFrame(rows, columns=["split", "record", "detector", "TP", "FP", "FN",
                                  "sensitivity", "precision", "seconds"])
-df.to_csv("results/qrs_benchmark.csv", index=False)
+df.to_csv(write_path("results/qrs_benchmark.csv"), index=False)
 
 print("\nDev records (detector tuned on these):")
 side_by_side = df[df.split == "dev"].pivot(index="record", columns="detector",
@@ -133,5 +134,5 @@ plt.ylabel("Amplitude (mV)")
 plt.title("Record 215: fixed vs adaptive threshold")
 plt.legend()
 plt.tight_layout()
-plt.savefig("figures/record215_thresholds.png", dpi=120)
+plt.savefig(write_path("figures/record215_thresholds.png"), dpi=120)
 plt.show()

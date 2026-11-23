@@ -17,6 +17,7 @@ ectopic, V = ventricular ectopic). Records with no rhythm label count as
 non-AF, as in every other test here.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -108,15 +109,15 @@ for name, features, clean, _ in CLASSIFIERS:
     rows.append(summarise(name, af, prob >= models[name][1], prob))
 
 results = pd.DataFrame(rows)
-results.to_csv("results/afib_svdb_test.csv", index=False)
+results.to_csv(write_path("results/afib_svdb_test.csv"), index=False)
 test_plain["p_match"] = test_clean.p_match.values
-test_plain.to_csv("results/afib_svdb_test_windows.csv", index=False)
+test_plain.to_csv(write_path("results/afib_svdb_test_windows.csv"), index=False)
 print(results.set_index("classifier").round(3).to_string())
 
 # ------------------------------------------------- beat-level detectors
 
 b = pd.DataFrame(beats, columns=["record", "cls", "v_flag", "a_flag"])
-b.to_csv("results/svdb_beat_flags.csv", index=False)
+b.to_csv(write_path("results/svdb_beat_flags.csv"), index=False)
 print("\nBeat-level ectopic detectors vs SVDB beat labels:")
 for flag, label in [("v_flag", "ventricular detector (flag_ectopic)"),
                     ("a_flag", "atrial detector (flag_atrial_ectopic)")]:
@@ -136,7 +137,7 @@ fa = test_plain.groupby("record").apply(
                          "fa_5_clean": (~g.af & g.pred_5_clean).sum(),
                          "fa_6_clean": (~g.af & g.pred_6_clean).sum()}),
     include_groups=False).astype(int).assign(s_beat_frac=s_frac.round(3))
-fa.to_csv("results/svdb_records.csv")
+fa.to_csv(write_path("results/svdb_records.csv"))
 print("\nRecords with the most false alarms (5-feature model):")
 print(fa.sort_values("fa_5", ascending=False).head(8).to_string())
 
@@ -155,5 +156,5 @@ if af.any():
     plt.title("AF detection, SVDB (78 new patients, atrial ectopy)")
     plt.legend(loc="lower right", fontsize=7)
     plt.tight_layout()
-    plt.savefig("figures/afib_svdb_test_roc.png", dpi=120)
+    plt.savefig(write_path("figures/afib_svdb_test_roc.png"), dpi=120)
     plt.show()

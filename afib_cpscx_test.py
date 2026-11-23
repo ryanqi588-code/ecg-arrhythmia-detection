@@ -23,6 +23,7 @@ P-wave override:
   clinical cutoff - same model, cutoff for 95% sensitivity on CPSC 2018
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -106,8 +107,8 @@ for name, cutoff in [("Holter cutoff", holter_cutoff), ("clinical cutoff", clini
                   "false_alarm_rate_other": pred[(test.label == "other").values].mean()})
         out.append(s)
 results = pd.DataFrame(out)
-results.to_csv("results/afib_cpscx_test.csv", index=False)
-test.assign(prob=prob).to_csv("results/afib_cpscx_test_recordings.csv", index=False)
+results.to_csv(write_path("results/afib_cpscx_test.csv"), index=False)
+test.assign(prob=prob).to_csv(write_path("results/afib_cpscx_test_recordings.csv"), index=False)
 print(results.set_index("classifier")[["sensitivity", "sens_ci_low", "sens_ci_high", "specificity",
                                        "false_alarm_rate_PAC", "false_alarm_rate_other",
                                        "false_alarms", "missed_af", "auc"]].round(3).to_string())

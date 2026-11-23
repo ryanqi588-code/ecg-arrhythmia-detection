@@ -13,6 +13,7 @@ grouped by recording (CPSC, Chapman) or patient (PTB-XL); the cutoff is
 the strictest per-source 95% cutoff, as in the Chapman test.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -134,6 +135,6 @@ if __name__ == "__main__":
             r["fa_other"] = pred[(d.label == "other").values].mean()
             rows.append(r)
     results = pd.DataFrame(rows)
-    results.to_csv("results/afib_pac_dev.csv", index=False)
+    results.to_csv(write_path("results/afib_pac_dev.csv"), index=False)
     print("\n5-fold CV, strictest per-source cutoff:")
     print(results.round(3).to_string(index=False))

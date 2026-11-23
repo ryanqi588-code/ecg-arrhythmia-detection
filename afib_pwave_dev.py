@@ -14,6 +14,7 @@ CPSC-extra (as afib_clinical_dev.py), and the 2867 PTB-XL recordings.
 Cross-validation is grouped by recording (CPSC) or patient (PTB-XL).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -146,6 +147,6 @@ if __name__ == "__main__":
         r["fa_N"] = pred[(d.label == "N").values].mean()
         rows.append(r)
     results = pd.DataFrame(rows)
-    results.to_csv("results/afib_pwave_dev.csv", index=False)
+    results.to_csv(write_path("results/afib_pwave_dev.csv"), index=False)
     print("\nModel RR (5N) + P-wave measure + f-waves, 5-fold CV grouped by recording/patient:")
     print(results.round(3).to_string(index=False))

@@ -43,6 +43,7 @@ reproduces test 12's adopted-model numbers exactly):
   2 (test 13)     3.8% -> 2.7% (-1.13, -1.28 to -0.97)            1.58% (1.76%)             6/409
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import sys
 
 import numpy as np
@@ -108,7 +109,7 @@ if __name__ == "__main__":
             print(f"CODE-15% {name}:")
             t, skipped = units(part)
             rows.append(evaluate(calls(t, model), skipped, name)[0])
-        pd.DataFrame(rows).to_csv("results/afib_abstain_preview.csv", index=False)
+        pd.DataFrame(rows).to_csv(write_path("results/afib_abstain_preview.csv"), index=False)
         sys.exit()
 
     t, skipped = units(PART)
@@ -117,6 +118,6 @@ if __name__ == "__main__":
     r, fa = evaluate(t, skipped, "part 3 (test 17)")
     verdict = "needs-review output adopted" if r["PRIMARY 1"] and r["PRIMARY 2"] else "adopted model stays"
     print(f"VERDICT: {verdict}")
-    pd.DataFrame([r]).assign(verdict=verdict).to_csv("results/afib_abstain_test.csv", index=False)
+    pd.DataFrame([r]).assign(verdict=verdict).to_csv(write_path("results/afib_abstain_test.csv"), index=False)
     t[["record", "patient", "label", "prob", "p_unmeasured", "adopted", "abstain"]].to_csv(
-        "results/afib_abstain_test_recordings.csv", index=False)
+        write_path("results/afib_abstain_test_recordings.csv"), index=False)

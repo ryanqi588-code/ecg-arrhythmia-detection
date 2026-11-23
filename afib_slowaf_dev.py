@@ -41,6 +41,7 @@ rate, false alarms on PAC (per source) and sinus/normal/other rhythms.
 Then a preview (not a test) on test 14-15's MIMIC recordings and on SPH.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -91,7 +92,7 @@ def select_dev(out="mimic_dev_selected", seed=2, n=None,
         taken |= set(pick.subject_id)
         rows_out += [(paths[s], subj, lab) for s, subj in zip(pick.study_id, pick.subject_id)]
         print(f"{lab}: {len(rows)} recordings from {rows.subject_id.nunique()} patients; {len(pick)} chosen")
-    with open(f"results/{out}.txt", "w") as f:
+    with open(write_path(f"results/{out}.txt"), "w") as f:
         f.writelines(f"{p} {s} {lab}\n" for p, s, lab in rows_out)
 
 
@@ -203,7 +204,7 @@ if __name__ == "__main__":
         rows.append(summarise(name, pred, prob, u))
         print(pd.DataFrame([rows[-1]]).round(3).T.to_string(header=False), "\n", flush=True)
     afib_fa_dev.CUTOFF_SOURCES = ORIGINAL
-    pd.DataFrame(rows).to_csv("results/afib_slowaf_dev.csv", index=False)
+    pd.DataFrame(rows).to_csv(write_path("results/afib_slowaf_dev.csv"), index=False)
 
     # Preview on used sets: models fitted on all development data of their sources.
     used = pd.concat([mimic_units("mimic_selected", "mimic14", "data/mimic14_units.pkl"),
@@ -224,7 +225,7 @@ if __name__ == "__main__":
     prev = pd.DataFrame(prev)
     print("Preview on test 14-15's MIMIC recordings (used; not a test):")
     print(prev.round(3).to_string(index=False))
-    prev.to_csv("results/afib_slowaf_preview.csv", index=False)
+    prev.to_csv(write_path("results/afib_slowaf_preview.csv"), index=False)
 
     # Chosen: candidate 7 (best AF-vs-PAC separation and sensitivity at matched PAC false alarms).
     # Preview on SPH and Ningbo (used in tests 9 and 11), where the adopted model already works.
@@ -248,4 +249,4 @@ if __name__ == "__main__":
     sp = pd.DataFrame(rows)
     print("Preview on SPH and Ningbo (used; not a test):")
     print(sp.round(3).to_string(index=False))
-    sp.to_csv("results/afib_slowaf_preview_sph_ningbo.csv", index=False)
+    sp.to_csv(write_path("results/afib_slowaf_preview_sph_ningbo.csv"), index=False)

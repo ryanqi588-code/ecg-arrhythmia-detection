@@ -10,6 +10,7 @@ sensitivity on the training folds, with and without the P-wave override):
   - Challenge 2017 only, entropy_norm
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -34,5 +35,5 @@ for name, features in [("Challenge only, 5 features", FEATURES_5),
                      "false_alarm_rate_O": p[(cinc.label == "O").values].mean(),
                      "auc": np.nan if override else auc(prob, is_af)})
 results = pd.DataFrame(rows)
-results.to_csv("results/afib_handheld_cv.csv", index=False)
+results.to_csv(write_path("results/afib_handheld_cv.csv"), index=False)
 print(results.round(3).to_string(index=False))

@@ -32,6 +32,7 @@ false alarms; AF-vs-PAC AUC of both; sensitivity at matched PAC false
 alarms. Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import sys
 
 import numpy as np
@@ -90,9 +91,9 @@ if __name__ == "__main__":
     print(f"PRIMARY 1 (sensitivity higher): {'yes' if ok1 else 'NO'}; "
           f"PRIMARY 2 (PAC false alarms not more than 2 points higher): {'yes' if ok2 else 'NO'}; "
           f"VERDICT: {'new model recommended' if ok1 and ok2 else 'adopted model stays'}")
-    pd.DataFrame(out).to_csv("results/afib_slowaf_test.csv", index=False)
+    pd.DataFrame(out).to_csv(write_path("results/afib_slowaf_test.csv"), index=False)
     pd.DataFrame([{"comparison": c, "diff": v, "lo": lo, "hi": hi} for c, (v, lo, hi) in diffs.items()]
-                 ).assign(primary1=ok1, primary2=ok2).to_csv("results/afib_slowaf_test_diffs.csv", index=False)
+                 ).assign(primary1=ok1, primary2=ok2).to_csv(write_path("results/afib_slowaf_test_diffs.csv"), index=False)
     t.assign(prob_adopted=p_old, prob_new=p_new, called_adopted=a_old, called_new=a_new)[
         ["record", "patient", "label", "machine_hr", "prob_adopted", "prob_new", "called_adopted", "called_new"]
-    ].to_csv("results/afib_slowaf_test_recordings.csv", index=False)
+    ].to_csv(write_path("results/afib_slowaf_test_recordings.csv"), index=False)

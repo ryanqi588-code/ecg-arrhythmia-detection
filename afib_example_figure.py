@@ -11,6 +11,7 @@ Writes results/afib_example_scores.csv (cached), figures/afib_examples.png, and 
 figures/Figure_1.pdf (vector) and figures/Figure_1.tiff (600 dpi), sized for a 17 cm page width.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import matplotlib.pyplot as plt
@@ -44,7 +45,7 @@ def score_all(model):
         rows.append({"record": ecg_id, "patient": patient, "label": label, "result": o["result"],
                      "probability": o.get("probability", np.nan)})
     d = pd.DataFrame(rows)
-    d.to_csv(CACHE, index=False)
+    d.to_csv(write_path(CACHE), index=False)
     return d
 
 
@@ -130,9 +131,9 @@ if __name__ == "__main__":
             ax.set_xlabel("Contribution (log-odds)\n← against AF  |  towards AF →")
     fig.subplots_adjust(left=0.045, right=0.975, top=0.91, bottom=0.09, wspace=0.62)
     os.makedirs("figures", exist_ok=True)
-    fig.savefig("figures/afib_examples.png", dpi=130, facecolor="white")
-    fig.savefig("figures/Figure_1.pdf", facecolor="white")
-    fig.savefig("figures/Figure_1.tiff", dpi=600, facecolor="white", pil_kwargs={"compression": "tiff_lzw"})
+    fig.savefig(write_path("figures/afib_examples.png"), dpi=130, facecolor="white")
+    fig.savefig(write_path("figures/Figure_1.pdf"), facecolor="white")
+    fig.savefig(write_path("figures/Figure_1.tiff"), dpi=600, facecolor="white", pil_kwargs={"compression": "tiff_lzw"})
     for title, r, o in outs:
         top = ", ".join(f"{x['feature']} {x['contribution']:+.2f}" for x in o["contributions"][:4])
         print(f"{title}: SPH {r.record}, p={o['probability']:.3f}, intercept {o['intercept']:+.2f}; top: {top}")

@@ -20,6 +20,7 @@ already used), 5-fold CV grouped by recording or patient, strictest
 per-source 95% cutoff.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -129,4 +130,4 @@ if __name__ == "__main__":
             rows.append(r)
             print(pd.DataFrame([r]).round(3).to_string(index=False, header=len(rows) == 1), flush=True)
     results = pd.DataFrame(rows)
-    results.to_csv("results/afib_ectopy_dev.csv", index=False)
+    results.to_csv(write_path("results/afib_ectopy_dev.csv"), index=False)

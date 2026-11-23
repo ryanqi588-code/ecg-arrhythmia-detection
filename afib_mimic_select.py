@@ -21,6 +21,7 @@ One recording per patient, drawn at random (seed 0): 2000 PAC patients, then
 Writes results/mimic_selected.txt: path, subject, label.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import re
 
 import numpy as np
@@ -79,7 +80,7 @@ def select(out_name, seed=0, exclude_files=()):
     pac = one_per_patient(m[is_pac], N_PAC)
     af = one_per_patient(m[is_af], N_AF, set(pac.subject_id))
     out = [(paths[s], subj, lab) for df, lab in [(pac, "PAC"), (af, "A")] for s, subj in zip(df.study_id, df.subject_id)]
-    with open(f"results/{out_name}.txt", "w") as f:
+    with open(write_path(f"results/{out_name}.txt"), "w") as f:
         f.writelines(f"{p} {s} {lab}\n" for p, s, lab in out)
     print(f"{len(pac)} PAC, {len(af)} AF written to results/{out_name}.txt")
 

@@ -25,6 +25,7 @@ resamples):
 The fix is adopted only if both hold. Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import h5py
@@ -108,6 +109,6 @@ if __name__ == "__main__":
     print(f"VERDICT: {'adopt the fix' if ok1 and ok2 else 'keep the final model'}")
     res.assign(fa_diff=fa_d, fa_diff_lo=fa_ci[0], fa_diff_hi=fa_ci[1], sens_diff=se_d, sens_diff_lo=se_ci[0],
                sens_diff_hi=se_ci[1], auc_diff=auc_d, auc_diff_lo=auc_ci[0], auc_diff_hi=auc_ci[1],
-               adopt=ok1 and ok2).to_csv("results/afib_unmeasured_test.csv", index=False)
+               adopt=ok1 and ok2).to_csv(write_path("results/afib_unmeasured_test.csv"), index=False)
     t[["record", "patient", "label", "p_unmeasured", "prob_final", "prob_fixed"]].to_csv(
-        "results/afib_unmeasured_test_recordings.csv", index=False)
+        write_path("results/afib_unmeasured_test_recordings.csv"), index=False)

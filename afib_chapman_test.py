@@ -25,6 +25,7 @@ None of it was used before. This plan is committed before the test
 signals are downloaded; the test is run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -97,8 +98,8 @@ for name, (pred, prob) in preds.items():
               "false_alarm_rate_N": pred[(test.label == "N").values].mean()})
     out.append(s)
 results = pd.DataFrame(out)
-results.to_csv("results/afib_chapman_test.csv", index=False)
-test.assign(prob_retrained=p_new, prob_previous=p_old).to_csv("results/afib_chapman_test_recordings.csv",
+results.to_csv(write_path("results/afib_chapman_test.csv"), index=False)
+test.assign(prob_retrained=p_new, prob_previous=p_old).to_csv(write_path("results/afib_chapman_test_recordings.csv"),
                                                                index=False)
 print(results.set_index("classifier")[["sensitivity", "sens_ci_low", "sens_ci_high", "false_alarm_rate_PAC",
                                        "false_alarm_rate_N", "false_alarms", "missed_af", "auc"]].round(3).to_string())
@@ -118,5 +119,5 @@ plt.ylabel("Sensitivity")
 plt.title("Chapman-Shaoxing, 10 s 12-lead\n(circles: strictest/own cutoff; square: shared cutoff)")
 plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/afib_chapman_test_roc.png", dpi=120)
+plt.savefig(write_path("figures/afib_chapman_test_roc.png"), dpi=120)
 plt.show()

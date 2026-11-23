@@ -27,6 +27,7 @@ None of it was used before. This plan is committed before the signal
 archive is opened; the test is run once. Some patients have several ECGs.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import h5py
@@ -130,8 +131,8 @@ if __name__ == "__main__":
                   "false_alarm_rate_N": pred[(new_df.label == "N").values].mean()})
         out.append(s)
     results = pd.DataFrame(out)
-    results.to_csv("results/afib_sph_test.csv", index=False)
-    new_df.assign(prob_new=p_new, prob_previous=p_old).to_csv("results/afib_sph_test_recordings.csv", index=False)
+    results.to_csv(write_path("results/afib_sph_test.csv"), index=False)
+    new_df.assign(prob_new=p_new, prob_previous=p_old).to_csv(write_path("results/afib_sph_test_recordings.csv"), index=False)
     print(results.set_index("classifier")[["sensitivity", "sens_ci_low", "sens_ci_high", "false_alarm_rate_PAC",
                                            "fa_PAC_ci_low", "fa_PAC_ci_high", "false_alarm_rate_N",
                                            "missed_af", "auc"]].round(3).to_string())
@@ -147,5 +148,5 @@ if __name__ == "__main__":
     plt.title("Shandong (SPH), first 10 s, 12-lead (circles: cutoffs)")
     plt.legend(loc="lower right", fontsize=8)
     plt.tight_layout()
-    plt.savefig("figures/afib_sph_test_roc.png", dpi=120)
+    plt.savefig(write_path("figures/afib_sph_test_roc.png"), dpi=120)
     plt.show()

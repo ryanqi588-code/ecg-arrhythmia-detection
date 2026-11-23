@@ -25,6 +25,7 @@ Sets (see afib_comparison_test.py for how each was chosen):
   mimic18  - test 18's set (afib_afpac_test.py select); both networks
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 import sys
 
@@ -159,5 +160,5 @@ if __name__ == "__main__":
             out["prob_ribeiro"] = ribeiro.predict(np.stack(xr), batch_size=64, verbose=0)[:, 4]
         if use_cnn:
             out["prob_cnn"] = cnn.predict(np.stack(xc), batch_size=256, verbose=0)[:, 0]
-        out.to_csv(f"results/compare_probs_{name}.csv", index=False)
+        out.to_csv(write_path(f"results/compare_probs_{name}.csv"), index=False)
         print(f"{name}: {len(out)} recordings written", flush=True)

@@ -28,6 +28,7 @@ does show is that each registered plan was public, in a form that can't
 later be changed without a force push on record, before the results were.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import csv
 import json
 import os
@@ -152,7 +153,7 @@ def main():
     print("Every registration commit is in the published history before its results, "
           "contains its test script, and was pushed:", "yes" if ok_all else "NO")
 
-    with open("results/registration_check.csv", "w", newline="") as f:
+    with open(write_path("results/registration_check.csv"), "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=list(rows[0]))
         wr.writeheader()
         wr.writerows(rows)

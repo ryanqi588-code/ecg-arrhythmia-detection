@@ -16,6 +16,7 @@ re-tuned). The plan was committed before the test was run; it is run once.
 Several recordings can come from one patient (984 AF from 854 patients).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -94,8 +95,8 @@ for name, (pred, prob) in preds.items():
               "false_alarm_rate_N": pred[(test.label == "N").values].mean()})
     out.append(s)
 results = pd.DataFrame(out)
-results.to_csv("results/afib_ptbxl_test.csv", index=False)
-test.assign(prob_current=p_cur, prob_clinical=p_cli).to_csv("results/afib_ptbxl_test_recordings.csv", index=False)
+results.to_csv(write_path("results/afib_ptbxl_test.csv"), index=False)
+test.assign(prob_current=p_cur, prob_clinical=p_cli).to_csv(write_path("results/afib_ptbxl_test_recordings.csv"), index=False)
 print(results.set_index("classifier")[["sensitivity", "sens_ci_low", "sens_ci_high", "false_alarm_rate_PAC",
                                        "false_alarm_rate_N", "false_alarms", "missed_af", "auc"]].round(3).to_string())
 
@@ -116,5 +117,5 @@ plt.ylabel("Sensitivity")
 plt.title("PTB-XL, 10 s 12-lead (circles: cutoff; squares: + override)")
 plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/afib_ptbxl_test_roc.png", dpi=120)
+plt.savefig(write_path("figures/afib_ptbxl_test_roc.png"), dpi=120)
 plt.show()

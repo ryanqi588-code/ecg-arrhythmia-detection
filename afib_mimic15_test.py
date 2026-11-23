@@ -29,6 +29,7 @@ only if both hold. Secondary: test 13's hybrid on the same recordings.
 Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import pandas as pd
 
 from af import auc
@@ -82,9 +83,9 @@ if __name__ == "__main__":
     print(f"PRIMARY 1 (PAC false alarms lower): {'yes' if ok1 else 'NO'}; "
           f"PRIMARY 2 (sensitivity non-inferior): {'yes' if ok2 else 'NO'}; "
           f"VERDICT: {'override hybrid offered as the alternative' if ok1 and ok2 else 'override hybrid not confirmed'}")
-    pd.DataFrame(out).to_csv("results/afib_mimic15_test.csv", index=False)
+    pd.DataFrame(out).to_csv(write_path("results/afib_mimic15_test.csv"), index=False)
     pd.DataFrame([{"comparison": n, "diff": v, "lo": lo, "hi": hi} for n, (v, lo, hi) in diffs.items()]
-                 ).assign(primary1=ok1, primary2=ok2).to_csv("results/afib_mimic15_test_diffs.csv", index=False)
+                 ).assign(primary1=ok1, primary2=ok2).to_csv(write_path("results/afib_mimic15_test_diffs.csv"), index=False)
     t.assign(called_alone=alone, called_hybrid=hybrid, called_override=override)[
         ["record", "patient", "label", "prob_lr", "prob_cnn", "called_alone", "called_hybrid", "called_override"]
-    ].to_csv("results/afib_mimic15_test_recordings.csv", index=False)
+    ].to_csv(write_path("results/afib_mimic15_test_recordings.csv"), index=False)

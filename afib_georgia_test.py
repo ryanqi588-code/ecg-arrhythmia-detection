@@ -19,6 +19,7 @@ Models, each with and without the P-wave override:
              already in the model.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -97,8 +98,8 @@ for name, (pred, prob) in preds.items():
               "false_alarm_rate_N": pred[(test.label == "N").values].mean()})
     out.append(s)
 results = pd.DataFrame(out)
-results.to_csv("results/afib_georgia_test.csv", index=False)
-test.assign(prob_current=p_cur, prob_clinical=p_cli).to_csv("results/afib_georgia_test_recordings.csv", index=False)
+results.to_csv(write_path("results/afib_georgia_test.csv"), index=False)
+test.assign(prob_current=p_cur, prob_clinical=p_cli).to_csv(write_path("results/afib_georgia_test_recordings.csv"), index=False)
 print(results.set_index("classifier")[["sensitivity", "sens_ci_low", "sens_ci_high", "false_alarm_rate_PAC",
                                        "false_alarm_rate_N", "false_alarms", "missed_af", "auc"]].round(3).to_string())
 
@@ -114,7 +115,7 @@ plt.ylabel("Sensitivity")
 plt.title("Georgia, 10 s 12-lead (circles: cutoff; squares: + override)")
 plt.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/afib_georgia_test_roc.png", dpi=120)
+plt.savefig(write_path("figures/afib_georgia_test_roc.png"), dpi=120)
 plt.show()
 
 # ------------------- error analysis (added after the test was first run)
@@ -146,5 +147,5 @@ for ax, rec_id in zip(axes, examples):
 axes[-1].set_xlabel("Time (s)")
 plt.suptitle("Georgia recordings labelled AF that the clinical model missed: regular, with P waves", fontsize=10)
 plt.tight_layout()
-plt.savefig("figures/georgia_missed_af.png", dpi=110)
+plt.savefig(write_path("figures/georgia_missed_af.png"), dpi=110)
 plt.show()

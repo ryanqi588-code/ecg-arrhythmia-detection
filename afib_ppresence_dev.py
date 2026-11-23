@@ -17,6 +17,7 @@ PTB-XL, Chapman, SPH, Ningbo; 5-fold CV grouped by patient; training on
 the original three sources; adopted model of test 12 as baseline).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import h5py
@@ -172,7 +173,7 @@ if __name__ == "__main__":
         rows.append(r)
         probs[name] = prob
         print(pd.DataFrame([r]).round(3).T.to_string(header=False), "\n", flush=True)
-    pd.DataFrame(rows).to_csv("results/afib_ppresence_dev.csv", index=False)
+    pd.DataFrame(rows).to_csv(write_path("results/afib_ppresence_dev.csv"), index=False)
     # The cutoff rule lands at different sensitivities for different models, so compare
     # PAC false alarms at matched pooled sensitivity too.
     matched = []
@@ -183,5 +184,5 @@ if __name__ == "__main__":
                             "PAC_fa_sph": (p[pac & (u.source == "sph").values] >= thr).mean(),
                             "PAC_fa_ningbo": (p[pac & (u.source == "ningbo").values] >= thr).mean()})
     matched = pd.DataFrame(matched)
-    matched.to_csv("results/afib_ppresence_dev_matched.csv", index=False)
+    matched.to_csv(write_path("results/afib_ppresence_dev_matched.csv"), index=False)
     print(matched.round(3).to_string(index=False))

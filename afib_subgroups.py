@@ -6,6 +6,7 @@ nothing is refitted. Subgroups by sex and age group (18-49, 50-64, 65-79,
 and test source, from their headers or metadata.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import os
 
 import numpy as np
@@ -73,7 +74,7 @@ if __name__ == "__main__":
                 "sinus tach flagged (test 10)": rate(t10.af_or_flutter[st]),
             })
     sub = pd.DataFrame(rows)
-    sub.to_csv("results/afib_subgroups.csv", index=False)
+    sub.to_csv(write_path("results/afib_subgroups.csv"), index=False)
     pd.set_option("display.width", 250, "display.max_colwidth", 40)
     print(sub.to_string(index=False))
 
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     for name, t in [("SPH test 9", t9), ("SPH test 10 (new recordings)", t10[t10.label != "A"])]:
         demo.append(describe(name, t.Age, (t.Sex == "F").mean(), len(t)))
     demo = pd.DataFrame(demo)
-    demo.to_csv("results/demographics.csv", index=False)
+    demo.to_csv(write_path("results/demographics.csv"), index=False)
     print()
     print(demo.to_string(index=False))
     print("\nPTB-XL recording dates:", p.recording_date.min(), "to", p.recording_date.max())

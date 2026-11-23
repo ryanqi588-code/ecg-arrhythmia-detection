@@ -26,6 +26,7 @@ The expected probabilities are the ones in the published results, not
 recomputed here, so the tests check today's code against those results.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import json
 import os
 
@@ -54,8 +55,9 @@ if __name__ == "__main__":
     expected = {}
     for rec in SPH + [NEEDS_REVIEW, normal]:
         sig = load_sph(rec)                                   # 5000 x 12, values from float16
-        np.savez_compressed(f"{OUT}/sph_{rec}.npz", signal=sig.astype(np.float16), fs=FS)
-        sig = np.load(f"{OUT}/sph_{rec}.npz")["signal"].astype(float)
+        path = write_path(f"{OUT}/sph_{rec}.npz")
+        np.savez_compressed(path, signal=sig.astype(np.float16), fs=FS)
+        sig = np.load(path)["signal"].astype(float)
         assert np.array_equal(sig, load_sph(rec)), rec       # lossless
         peaks = detect_peaks_multilead(sig[:, I_II_V1], FS)
         ectopic = flag_ectopic(sig[:, 1], FS, peaks)
@@ -73,7 +75,7 @@ if __name__ == "__main__":
                          "ventricular_ectopic": int(ectopic.sum()), "regular": int(regular_beats(peaks, FS).sum()),
                          "contributions_at_build": {c["feature"]: c["contribution"] for c in o["contributions"]}}
         print(rec, expected[rec]["result"], expected[rec]["probability"], f"beats {len(peaks)}, ectopic {ectopic.sum()}")
-    with open(f"{OUT}/expected.json", "w") as f:
+    with open(write_path(f"{OUT}/expected.json"), "w") as f:
         json.dump(expected, f, indent=1)
 
     t, _ = pd.read_pickle("data/code15_exams_part3_units.pkl")
@@ -94,5 +96,5 @@ if __name__ == "__main__":
     g["expected_result"] = np.where(g.p_unmeasured, "needs review", np.where(g.adopted, "AF", "not AF"))
     g[["group", "record", "label"] + FEATURES + ["prob", "expected_result"]].rename(
         columns={"prob": "saved_probability"}).to_csv(
-        f"{OUT}/code15_feature_rows.csv", index=False, float_format="%.17g")
+        write_path(f"{OUT}/code15_feature_rows.csv"), index=False, float_format="%.17g")
     print(g.groupby("group").size().to_dict())

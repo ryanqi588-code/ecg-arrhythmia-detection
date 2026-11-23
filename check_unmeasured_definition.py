@@ -15,6 +15,7 @@ and the cached features data/code15_exams_part{2,3}_units.pkl (written by
 `python afib_abstain_test.py preview` and by test 17).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import h5py
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ if __name__ == "__main__":
                              "unmeasurable_by_count": bool(use.sum() < CLINICAL_MIN_REGULAR)})
         print(f"{part}: {len(zero)} recordings with p_match_mean == 0")
     d = pd.DataFrame(rows)
-    d.to_csv("results/unmeasured_definition_check.csv", index=False)
+    d.to_csv(write_path("results/unmeasured_definition_check.csv"), index=False)
     print(d.groupby("part").agg(recordings=("record", "size"), fewer_than_3=("unmeasurable_by_count", "sum"),
                                 max_usable_beats=("n_p_beats", "max")).to_string())
     print("all zero-match recordings had fewer than 3 usable beats:", bool(d.unmeasurable_by_count.all()))

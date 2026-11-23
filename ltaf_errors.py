@@ -7,6 +7,7 @@ rhythm labels appear. This doesn't change any model; it explains where the
 test's false alarms came from.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import collections
 
 import numpy as np
@@ -42,7 +43,7 @@ for rec_id in LTAF_RECORDS:
     })
 
 df = pd.DataFrame(rows).sort_values("false_alarms", ascending=False)
-df.to_csv("results/ltaf_errors.csv", index=False)
+df.to_csv(write_path("results/ltaf_errors.csv"), index=False)
 
 tot = df[["TP", "FP", "FN"]].sum()
 print(f"\nBeat detection on all 84 records: sensitivity {tot.TP / (tot.TP + tot.FN):.4f}  "

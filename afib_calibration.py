@@ -17,6 +17,7 @@ intercept and slope (logistic regression of the outcome on the logit;
 ideal 0 and 1; slope < 1 means overconfident, > 1 underconfident).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -73,7 +74,7 @@ if __name__ == "__main__":
                      **{f"prevalence_{k}": v for k, v in a.items()}})
         curves[(test, model)] = (reliability(p, y, balanced_w), reliability(p_prev, y, ones))
     out = pd.DataFrame(rows)
-    out.to_csv("results/afib_calibration.csv", index=False)
+    out.to_csv(write_path("results/afib_calibration.csv"), index=False)
     pd.set_option("display.width", 200)
     print(out.round(3).to_string(index=False))
 
@@ -93,5 +94,5 @@ if __name__ == "__main__":
         ax.set_ylim(0, 1)
     axes[1].legend(fontsize=8, loc="upper left")
     plt.tight_layout()
-    plt.savefig("figures/afib_calibration.png", dpi=120)
+    plt.savefig(write_path("figures/afib_calibration.png"), dpi=120)
     plt.show()

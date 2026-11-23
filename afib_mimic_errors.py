@@ -9,6 +9,7 @@ their AF recordings, and breaks the misses down by
 and plots example missed strips (figures/mimic_missed_af.png).
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import re
 
 import matplotlib.pyplot as plt
@@ -85,9 +86,9 @@ if __name__ == "__main__":
     print(f"missed with p_match_mean >= 0.8: {(a[a.missed].p_match_mean >= 0.8).mean():.1%}; "
           f"caught: {(a[~a.missed].p_match_mean >= 0.8).mean():.1%}; development AF: "
           f"{(dev_af.p_match_mean >= 0.8).mean():.1%}")
-    a.drop(columns=["report"]).to_csv("results/afib_mimic_errors_af.csv", index=False)
-    cats.to_csv("results/afib_mimic_errors_categories.csv", index=False)
-    comp.to_csv("results/afib_mimic_errors_features.csv")
+    a.drop(columns=["report"]).to_csv(write_path("results/afib_mimic_errors_af.csv"), index=False)
+    cats.to_csv(write_path("results/afib_mimic_errors_categories.csv"), index=False)
+    comp.to_csv(write_path("results/afib_mimic_errors_features.csv"))
 
     # Example missed strips: lead II, 6 drawn at random (seed 0).
     ex = a[a.missed].sample(6, random_state=0)
@@ -102,4 +103,4 @@ if __name__ == "__main__":
         ax.set_yticks([])
     axes[-1].set_xlabel("seconds (lead II)")
     fig.tight_layout()
-    fig.savefig("figures/mimic_missed_af.png", dpi=110)
+    fig.savefig(write_path("figures/mimic_missed_af.png"), dpi=110)

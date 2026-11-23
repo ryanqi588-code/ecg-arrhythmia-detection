@@ -32,6 +32,7 @@ Secondary: CODE-15% part 2 non-AF false alarms; per-patient INCART results.
 Run once.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import h5py
 import numpy as np
 import pandas as pd
@@ -125,7 +126,7 @@ if __name__ == "__main__":
             diffs["incart_pac_fa"] = (d1, *ci1)
             per = pd.DataFrame({"patient": g[k], "alone": alone[k], "hybrid": hybrid[k]}).groupby("patient").agg(
                 crops=("alone", "size"), alone=("alone", "mean"), hybrid=("hybrid", "mean"))
-            per.to_csv("results/afib_hybrid_test_incart_patients.csv")
+            per.to_csv(write_path("results/afib_hybrid_test_incart_patients.csv"))
             print(per.round(3).to_string())
         else:
             d2 = hybrid[y].mean() - alone[y].mean()
@@ -136,8 +137,8 @@ if __name__ == "__main__":
             diffs["code15_nonaf_fa"] = (d3, *ci3)
         t.assign(called_alone=alone, called_hybrid=hybrid)[["record", "patient", "label", "prob_lr", "prob_cnn",
                                                             "called_alone", "called_hybrid"]].to_csv(
-            f"results/afib_hybrid_test_{name}_recordings.csv", index=False)
-    pd.DataFrame(out).to_csv("results/afib_hybrid_test.csv", index=False)
+            write_path(f"results/afib_hybrid_test_{name}_recordings.csv"), index=False)
+    pd.DataFrame(out).to_csv(write_path("results/afib_hybrid_test.csv"), index=False)
     ok1 = diffs["incart_pac_fa"][2] < 0
     ok2 = diffs["code15_sens"][1] > -0.02
     for k, (v, lo, hi) in diffs.items():
@@ -146,4 +147,4 @@ if __name__ == "__main__":
           f"PRIMARY 2 (CODE-15% sensitivity non-inferior): {'yes' if ok2 else 'NO'}; "
           f"VERDICT: {'offer the hybrid as an alternative' if ok1 and ok2 else 'interpretable model only'}")
     pd.DataFrame([{"comparison": k, "diff": v, "lo": lo, "hi": hi} for k, (v, lo, hi) in diffs.items()]
-                 ).assign(primary1=ok1, primary2=ok2).to_csv("results/afib_hybrid_test_diffs.csv", index=False)
+                 ).assign(primary1=ok1, primary2=ok2).to_csv(write_path("results/afib_hybrid_test_diffs.csv"), index=False)

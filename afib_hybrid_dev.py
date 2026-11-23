@@ -19,6 +19,7 @@ The script then shows, as a preview and not a test, what the fixed rule
 would have done on the sets already used in tests 9-11.
 """
 
+from outputs import write_path      # committed outputs go to rerun/ unless --force
 import numpy as np
 import pandas as pd
 
@@ -101,8 +102,8 @@ if __name__ == "__main__":
     dev = pd.DataFrame(rows)
     print(f"thresholds: interpretable {t_lr:.4f}, CNN confirmation {t_cnn:.4g}")
     print(dev.round(3).to_string(index=False))
-    pd.DataFrame([{"t_lr": t_lr, "t_cnn": t_cnn}]).to_csv("results/afib_hybrid_thresholds.csv", index=False)
-    dev.to_csv("results/afib_hybrid_dev.csv", index=False)
+    pd.DataFrame([{"t_lr": t_lr, "t_cnn": t_cnn}]).to_csv(write_path("results/afib_hybrid_thresholds.csv"), index=False)
+    dev.to_csv(write_path("results/afib_hybrid_dev.csv"), index=False)
 
     # Preview on the used sets: the interpretable model refitted on all development units.
     model, c_alone = fit(d, ADOPTED, True)
@@ -127,4 +128,4 @@ if __name__ == "__main__":
     pd.set_option("display.width", 220)
     print("\nPreview on used sets (not a test):")
     print(prev.round(3).to_string(index=False))
-    prev.to_csv("results/afib_hybrid_preview.csv", index=False)
+    prev.to_csv(write_path("results/afib_hybrid_preview.csv"), index=False)
