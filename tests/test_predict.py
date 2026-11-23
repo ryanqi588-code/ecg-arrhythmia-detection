@@ -122,8 +122,10 @@ def test_coarsely_quantized_wave_tops_are_not_clipping():
     r_wave = 1.5 * np.exp(-(phase - 0.1) ** 2 / (2 * 0.01 ** 2))
     quantize = lambda x: np.tile(np.round(x / 0.02) * 0.02, (12, 1)).T
     assert lead_problems(quantize(t_wave - 0.3 * r_wave / 1.5), fs) == []
-    # Clipping is recognised by its steep edges: sharp R waves cut flat are flagged.
-    assert "clipped" in lead_problems(quantize(np.minimum(r_wave + t_wave, 1.0)), fs)[0]
+    # Clipping is recognised by its steep edges: sharp R waves cut flat are flagged. At 0.02 mV steps a
+    # plateau must last 20 ms (a natural peak sits on one value longer when quantization is coarse), so
+    # these narrow R waves (40 ms QRS) are cut at half height; cut at 2/3 (18 ms plateaus) they'd be missed.
+    assert "clipped" in lead_problems(quantize(np.minimum(r_wave + t_wave, 0.75)), fs)[0]
 
 
 def test_short_recordings_and_untested_sampling_rates_are_unscored():
@@ -175,3 +177,26 @@ def test_other_sampling_rates_are_resampled_only_when_asked():
     x, _ = resample_to(sig, fs, target=100)
     assert "only supported" in predict(x, 100, resample=True)["reason"]
     assert "resampled_from" not in base                             # 400-500 Hz is never resampled
+
+
+def test_clipping_is_caught_past_an_artifact_spike_and_on_one_side():
+    from predict import lead_problems
+    sig, fs = _golden("A00002")
+    ii = sig[:, 1]
+    clipped = sig.copy(); clipped[:, 1] = np.minimum(ii, 0.6 * ii.max())
+    spike = clipped.copy(); spike[2500:2502, 1] = 10.0              # the spike is now the lead's maximum
+    assert any("II clipped" in p for p in lead_problems(spike, fs))
+    deep = clipped.copy()                                            # R waves cut; negative waves 6x deeper
+    deep[:, 1] = np.where(deep[:, 1] < np.median(deep[:, 1]) - 0.05, deep[:, 1] * 6, deep[:, 1])
+    assert any("II clipped" in p for p in lead_problems(deep, fs))
+    assert lead_problems(sig, fs) == []
+
+
+def test_checks_run_before_resampling():
+    from predict import resample_to
+    sig, fs = _golden("A22886")
+    for rate in (250, 1000):
+        x, _ = resample_to(sig, fs, target=rate)                    # a device at that rate
+        off = x.copy(); off[: 2 * rate, 9] = off[2 * rate, 9]       # V4 off for 2 s
+        assert "lead V4 flat for over 1 s" in predict(off, rate, resample=True)["reason"]
+        assert "clipped" in predict(np.clip(x, -1.0, 1.0), rate, resample=True)["reason"]

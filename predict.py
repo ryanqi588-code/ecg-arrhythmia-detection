@@ -41,12 +41,16 @@ reason says why:
     percentile) under 0.05 mV;
   - a lead off for part of the recording: constant for more than 1 s;
   - a lead clipped: flattened at its extreme value for 10 ms or more on
-    at least 3 beats, with a steep approach (>= 0.1 mV in the 6 ms either
-    side; a smooth wave top flattened by coarse quantization isn't flagged);
+    at least 3 beats at the same level, at least 20% of the way out to
+    the lead's tallest beats, with a steep approach (>= 0.1 mV in the 6 ms either side; a
+    smooth wave top flattened by coarse quantization isn't flagged);
   - too few beats to measure the rhythm (fewer than 7 detected).
-The lead checks were set on real recordings (2,000 from seven sources:
-none flagged except leads that really were flat, off or noise-only, and 1
-in 2,000 for clipping) and on the golden ECGs clipped artificially.
+The checks run on the signal as recorded, at its own rate, before any
+resampling (which would blur the exact flatness they look for). They were
+set on real recordings (2,000 from seven sources: none flagged except
+leads that really were flat, off or noise-only; with every lead clipped
+at 70% of its peak height, 99-100% caught per source, with or without an
+artifact spike) and on the golden ECGs clipped artificially.
 The model is a research tool, not a medical device.
 """
 
@@ -74,7 +78,11 @@ DROPOUT_SECONDS = 1.0        # constant for longer than this: lead off for part 
 CLIP_MS = 10                 # clipping: plateau at the extreme value at least this long,
 CLIP_EDGE_MS = 6             #   rising/falling at least CLIP_EDGE_MV within CLIP_EDGE_MS either side,
 CLIP_EDGE_MV = 0.1
-CLIP_MIN_BEATS = 3           #   on at least this many beats
+CLIP_MIN_BEATS = 3           #   on at least this many beats,
+CLIP_MIN_HEIGHT = 0.2        #   at least this fraction of the lead's tallest beats from its median,
+CLIP_MAX_BEYOND = 0.005      #   and with at most this share of samples beyond it (an artifact spike).
+CLIP_Q_REF = 0.005           # Coarser quantization than this (mV) lengthens the minimum plateau by sqrt(step / this):
+                             #   a natural peak stays within one step for a time that grows with the step's square root
 
 
 def load_model(path=MODEL):
@@ -170,26 +178,47 @@ def _runs(mask):
 
 
 def _clipped_beats(x, fs):
-    """Number of clipped peaks in one lead: steep-edged plateaus at its maximum or minimum.
+    """Number of clipped peaks in one lead: the most steep-edged plateaus at any one level.
 
-    Only an extreme at least half the lead's range from its median counts
-    (a baseline that happens to be the minimum isn't clipping), and the
-    signal must still be moving fast just before and after the plateau: a
-    smooth wave top flattened by coarse quantization (MIMIC-IV, 0.02 mV
-    steps) rises to it slowly.
+    A clipping rail flattens every beat that reaches it at the same value,
+    and nothing goes beyond it but the odd artifact. So plateaus (runs of
+    identical samples, CLIP_MS or longer) are grouped by value, and a
+    level counts only if at most CLIP_MAX_BEYOND of the samples lie beyond
+    it: a lone artifact spike past the rail doesn't hide it (as it would
+    if only the lead's maximum were checked), while a level many beats go
+    past (coarsely quantized S waves bottoming out at the same value) is
+    no rail. With coarse quantization a natural peak sits on one value
+    longer, so the minimum plateau grows with the step's square root
+    (CLIP_Q_REF): 10 ms at 5 µV steps or finer, 20 ms at 20 µV.
+    A plateau counts if it is at least CLIP_MIN_HEIGHT of the way out to
+    the lead's tallest beats (the larger of the 99.5th and 0.5th
+    percentiles' distance from the median, so a lone spike doesn't set the
+    scale and one-sided clipping counts however deep the other side goes):
+    a flat baseline isn't clipping. And the signal must come towards the
+    baseline by CLIP_EDGE_MV within CLIP_EDGE_MS on both sides: a smooth
+    wave top flattened by coarse quantization (MIMIC-IV, 0.02 mV steps)
+    rises to it slowly.
     """
     k = max(1, round(CLIP_EDGE_MS * fs / 1000))
-    med, span, worst = np.median(x), x.max() - x.min(), 0
-    for v in (x.max(), x.min()):
-        if abs(v - med) < 0.5 * span:
+    med = np.median(x)
+    lo, hi = np.percentile(x, [0.5, 99.5])
+    tallest = max(hi - med, med - lo)
+    if tallest <= 0:
+        return 0
+    steps = np.diff(np.unique(x))
+    step = steps.min() if len(steps) else 0.0         # the lead's quantization step
+    min_ms = CLIP_MS * max(1.0, np.sqrt(step / CLIP_Q_REF))
+    counts = {}
+    for a, e in zip(*_runs(np.diff(x) == 0)):      # samples a..e equal (e inclusive)
+        if (e - a + 1) * 1000 / fs < min_ms or a < k or e + k >= len(x):
             continue
-        n = 0
-        for a, b in zip(*_runs(x == v)):
-            if (b - a) * 1000 / fs >= CLIP_MS and a >= k and b - 1 + k < len(x) \
-                    and min(abs(v - x[a - k]), abs(v - x[b - 1 + k])) >= CLIP_EDGE_MV:
-                n += 1
-        worst = max(worst, n)
-    return worst
+        v = x[a]
+        side = np.sign(v - med)
+        if abs(v - med) < CLIP_MIN_HEIGHT * tallest or np.mean(side * (x - v) > 0) > CLIP_MAX_BEYOND:
+            continue
+        if side * (v - x[a - k]) >= CLIP_EDGE_MV and side * (v - x[e + k]) >= CLIP_EDGE_MV:
+            counts[v] = counts.get(v, 0) + 1
+    return max(counts.values(), default=0)
 
 
 def scale_problem(sig):
@@ -247,17 +276,17 @@ def predict(sig, fs, model=None, checks=True, resample=False):
     the default for scoring new recordings.
 
     resample=True scores a recording sampled outside 400-500 Hz (but
-    within RESAMPLE_FROM) by resampling it to 500 Hz first, after
-    stripping padding; the result then has "resampled_from". Without it
-    such recordings are unscored.
+    within RESAMPLE_FROM) by resampling it to 500 Hz, after stripping
+    padding and after the input checks, which run on the signal as
+    recorded; the result then has "resampled_from". Without it such
+    recordings are unscored.
     """
     sig = np.asarray(sig, float)
     if sig.ndim != 2 or sig.shape[1] != 12:
         raise ValueError("expected an n x 12 signal")
-    resampled_from = None
+    resampled_from, to_resample = None, False
     if checks:
-        # Strip padding before taking the first 10 s, so a padded recording keeps all its signal
-        # (and before any resampling, whose filter would smear the edges of the padding).
+        # Strip padding before taking the first 10 s, so a padded recording keeps all its signal.
         sig = strip_flat_edges(sig)
         if not FS_RANGE[0] <= fs <= FS_RANGE[1]:
             if not resample:
@@ -266,9 +295,7 @@ def predict(sig, fs, model=None, checks=True, resample=False):
             if not RESAMPLE_FROM[0] <= fs <= RESAMPLE_FROM[1]:
                 return {"result": "unscored", "reason": f"sampling rate {fs:g} Hz; resampling is only "
                         f"supported from {RESAMPLE_FROM[0]}-{RESAMPLE_FROM[1]} Hz"}
-            if len(sig) and np.isfinite(sig).all():
-                resampled_from = fs
-                sig, fs = resample_to(sig, fs)
+            to_resample = True
         if len(sig) == 0:
             return {"result": "unscored", "reason": "flat signal"}
         if len(sig) < MIN_SECONDS * fs:
@@ -284,6 +311,12 @@ def predict(sig, fs, model=None, checks=True, resample=False):
         problems = lead_problems(sig, fs)
         if problems:
             return {"result": "unscored", "reason": "; ".join(problems)}
+        # Resample only now: the checks above look for exact flatness (dead leads, clipped
+        # plateaus), which resampling's interpolation would blur, so they run on the signal
+        # as recorded, at its own rate.
+        if to_resample:
+            resampled_from = fs
+            sig, fs = resample_to(sig, fs)
     row = clinical_features(sig[:, I_II_V1], fs, False, "multilead", sig)
     if row is None:
         return {"result": "unscored", "reason": "too few beats to measure the rhythm"}

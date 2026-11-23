@@ -729,14 +729,20 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
   risks.
 - **Poor-quality input:** `predict.py` leaves a recording unscored if a
   lead is flat or disconnected (amplitude under 0.05 mV), off for part of
-  the recording (constant for over 1 s), or clipped (peaks cut flat on 3
-  or more beats), or if it has too few detected beats. These checks were
-  set after the tests, on 2,000 recordings from seven sources: they
-  flagged none in SPH, PTB-XL, CPSC or Georgia, 1 MIMIC-IV recording
-  wrongly (as clipped), and in CODE-15%, Chapman and MIMIC-IV only
-  leads that were flat, noise-only or connected late. They don't catch clipping
-  of slow waves, lead-off stretches under 1 s, noise that adds false
-  beats, and lead swaps, which can still produce a wrong call. The test
+  the recording (constant for over 1 s), or clipped (peaks cut flat at
+  one level on 3 or more beats, with nothing beyond it but a brief
+  artifact), or if it has too few detected beats. The checks run on the
+  signal as recorded, before any resampling. They were set after the
+  tests, on 2,000 recordings from seven sources: they flagged none in SPH,
+  PTB-XL, CPSC or Georgia, and in CODE-15%, Chapman and MIMIC-IV only
+  leads that were flat, noise-only or connected late. Every lead of 100
+  of those recordings per source clipped at 70% of its peak height was
+  caught in 99–100% of recordings, with or without a 10 mV artifact
+  spike added (an earlier rule, which only looked at each lead's
+  extreme, caught 0–3% with the spike). They don't catch clipping of
+  slow waves or of very small leads, lead-off stretches under 1 s, noise
+  that adds false beats, and lead swaps, which can still produce a wrong
+  call. The test
   results above didn't use these checks. Development showed that a small
   or biphasic lead II used to cause false irregularity, which the
   three-lead beat detector reduced.

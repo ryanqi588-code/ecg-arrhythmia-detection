@@ -4,8 +4,9 @@ The model was developed and tested at 400-500 Hz. predict.py can resample
 other rates to 500 Hz. To see what that costs, 1500 SPH recordings from
 test 9 (500 Hz; 500 each of AF, PAC and sinus rhythm, seed 0) are taken to
 each rate as a device recording there would be (anti-aliased polyphase
-resampling), then scored the way predict.py --resample scores them
-(resampled back to 500 Hz), and compared with the call on the original.
+resampling), then scored by predict.py --resample (the input checks at
+that rate, then resampled to 500 Hz), and compared with the call on the
+original; "unscored" counts recordings the checks wrongly refused.
 Rates below RESAMPLE_FROM are included to show where it breaks down.
 
 Writes results/resampling_check.csv: per rate, how often the call is the
@@ -28,7 +29,7 @@ N_EACH, SEED = 500, 0
 
 def _score(item):
     from afib_sph_test import FS, load_sph
-    from predict import load_model, predict, resample_to
+    from predict import RESAMPLE_FROM, load_model, predict, resample_to
     rec, label = item
     model = load_model()
     sig = load_sph(rec)
@@ -37,8 +38,11 @@ def _score(item):
     out["result_500"], out["prob_500"] = o["result"], o.get("probability", np.nan)
     for r in RATES:
         x, _ = resample_to(sig, FS, target=r)                    # the recording as a device at r Hz would give it
-        y, fs = resample_to(x, r)                                 # what predict.py --resample does with it
-        o = predict(y, fs, model)
+        if RESAMPLE_FROM[0] <= r <= RESAMPLE_FROM[1]:
+            o = predict(x, r, model, resample=True)               # exactly predict.py --resample: checks at r, then 500 Hz
+        else:                                                     # below the supported range: resampled directly
+            y, fs = resample_to(x, r)
+            o = predict(y, fs, model)
         out[f"result_{r}"], out[f"prob_{r}"] = o["result"], o.get("probability", np.nan)
     return out
 
