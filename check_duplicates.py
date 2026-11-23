@@ -33,7 +33,8 @@ Georgia (the lists in results/), all of SPH, CODE-15% parts 0-3, the CODE
 test set, and MIMIC-IV-ECG's selected recordings. Not scanned: INCART and
 the Holter databases (long recordings, not 10 s ECGs) and CinC 2017
 (single lead). Writes results/duplicate_check.csv (each pair found) and
-results/duplicate_check_sources.csv (recordings scanned per source).
+results/duplicate_check_sources.csv (per source: recordings scanned, and
+positive controls made from it and found).
 
     python check_duplicates.py      # ~10 min with all cores; fingerprints cached in data/
 """
@@ -368,7 +369,11 @@ def main(todo=None, cache=CACHE, write=True):
     dup = res[res.duplicate]
     print(f"\nduplicates: {len(dup)} pairs")
     print(dup.groupby(["source_a", "source_b", "method"]).size().to_string())
-    src = src.assign(positive_controls_found=f"{len(found)}/{present}")
+    # Positive controls per source they were made from (20 each from CPSC, Chapman and SPH); none elsewhere.
+    ctrl_src = d.id[d.source == "control"].str.split(":").str[0]
+    src["controls_planted"] = ctrl_src.value_counts().reindex(src.index).fillna(0).astype(int)
+    src["controls_found"] = (pd.Series([c.split(":")[0] for c in found]).value_counts()
+                             .reindex(src.index).fillna(0).astype("Int64").mask(src.controls_planted == 0))
     if write:
         res.to_csv(write_path("results/duplicate_check.csv"), index=False)
         src.to_csv(write_path("results/duplicate_check_sources.csv"))
