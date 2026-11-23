@@ -2,7 +2,8 @@
 
     python predict.py path/to/record            # WFDB record (.hea/.dat; leads matched by name)
     python predict.py ecg.csv --fs 500          # CSV, one column per lead (header with lead names,
-                                                #   or no header and the standard order I..V6)
+                                                #   or no header and the standard order I..V6), in mV
+    python predict.py ecg.csv --fs 500 --units uV   # a CSV in microvolts (or V)
     python predict.py path/to/record --json
 
 The model is read from results/final_af_model.csv (written by
@@ -26,6 +27,10 @@ so it makes no call (test 17); the probability and contributions are
 still shown. "Unscored" means the recording can't be scored, and the
 reason says why:
   - sampling rate outside 400-500 Hz (resample first);
+  - amplitudes that can't be millivolts: the median lead's amplitude
+    range under 0.05 or over 100 (real ECGs: 0.28-36 mV), as from a signal
+    in volts or microvolts. Signals must be in mV: WFDB records are
+    converted from the units in their header; for a CSV, give --units;
   - shorter than 7 s once flat edges are stripped;
   - missing samples;
   - a lead flat or disconnected: its amplitude range (0.5th to 99.5th
@@ -57,6 +62,8 @@ SECONDS = 10
 MIN_SECONDS = 7              # shortest standard length in the test sets (CODE-15%'s 7.3 s recordings)
 FS_RANGE = (400, 500)        # sampling rates the model was developed and tested at
 FLAT_MV = 0.05               # amplitude range below this: lead flat or disconnected
+SCALE_MV = (0.05, 100)       # median lead range outside this isn't millivolts (real ECGs: 0.28-36 mV)
+TO_MV = {"mv": 1.0, "uv": 1e-3, "µv": 1e-3, "μv": 1e-3, "v": 1e3, "nv": 1e-6}
 DROPOUT_SECONDS = 1.0        # constant for longer than this: lead off for part of the recording
 CLIP_MS = 10                 # clipping: plateau at the extreme value at least this long,
 CLIP_EDGE_MS = 6             #   rising/falling at least CLIP_EDGE_MV within CLIP_EDGE_MS either side,
@@ -69,8 +76,20 @@ def load_model(path=MODEL):
     return t.drop(["intercept", "cutoff"]), float(t.loc["intercept", "coef_per_sd"]), float(t.loc["cutoff", "value"])
 
 
-def read_ecg(path, fs=None):
-    """(n x 12 signal in the standard lead order, sampling rate)."""
+def to_mv(units):
+    """Factor converting `units` (mV, uV, V, ...) to millivolts."""
+    k = str(units).strip().lower()
+    if k not in TO_MV:
+        sys.exit(f"unknown units {units!r}; expected one of mV, uV, V")
+    return TO_MV[k]
+
+
+def read_ecg(path, fs=None, units="mV"):
+    """(n x 12 signal in mV in the standard lead order, sampling rate).
+
+    WFDB records are converted from the units in their header; a CSV is
+    taken to be in `units`.
+    """
     if path.lower().endswith((".csv", ".txt")):
         if fs is None:
             sys.exit("--fs is needed for a CSV file")
@@ -78,18 +97,20 @@ def read_ecg(path, fs=None):
         names = [str(c).strip().upper() for c in d.columns]
         if set(LEADS_12) <= set(names):
             d.columns = names
-            return d[LEADS_12].to_numpy(float), fs
+            return d[LEADS_12].to_numpy(float) * to_mv(units), fs
         d = pd.read_csv(path, header=None)
         if d.shape[1] != 12:
             sys.exit(f"expected 12 columns (I, II, III, aVR, aVL, aVF, V1-V6), found {d.shape[1]}")
-        return d.to_numpy(float), fs
+        return d.to_numpy(float) * to_mv(units), fs
     import wfdb
     rec = wfdb.rdrecord(os.path.splitext(path)[0] if path.endswith((".hea", ".dat")) else path)
     names = [n.strip().upper() for n in rec.sig_name]
     missing = [n for n in LEADS_12 if n not in names]
     if missing:
         sys.exit(f"all 12 leads are needed; missing {missing} (found {rec.sig_name})")
-    return rec.p_signal[:, [names.index(n) for n in LEADS_12]], rec.fs
+    idx = [names.index(n) for n in LEADS_12]
+    scale = np.array([to_mv(rec.units[i]) for i in idx])
+    return rec.p_signal[:, idx] * scale, rec.fs
 
 
 def score_features(row, model=None):
@@ -165,6 +186,19 @@ def _clipped_beats(x, fs):
     return worst
 
 
+def scale_problem(sig):
+    """A message if the signal's amplitudes can't be millivolts (as from volts or microvolts), else None."""
+    lo, hi = np.percentile(sig, [0.5, 99.5], axis=0)
+    r = float(np.median(hi - lo))
+    if r < SCALE_MV[0]:
+        return (f"amplitudes far too small for millivolts (median lead range {r:.3g}): no signal, or "
+                f"in volts (convert to mV; predict.py --units V)")
+    if r > SCALE_MV[1]:
+        return (f"amplitudes far too large for millivolts (median lead range {r:.3g}): "
+                f"in microvolts? (convert to mV; predict.py --units uV)")
+    return None
+
+
 def lead_problems(sig, fs):
     """Problems with individual leads of an n x 12 signal (finite values), as messages; empty if none."""
     lo, hi = np.percentile(sig, [0.5, 99.5], axis=0)
@@ -190,7 +224,7 @@ def lead_problems(sig, fs):
 
 
 def predict(sig, fs, model=None, checks=True):
-    """Score an n x 12 signal (mV). Returns a dict with "result" and, unless unscored, the score.
+    """Score an n x 12 signal in millivolts. Returns a dict with "result" and, unless unscored, the score.
 
     checks=False runs the model exactly as it was tested and as the
     published results were made: the first 10 s as given, no padding
@@ -216,6 +250,9 @@ def predict(sig, fs, model=None, checks=True):
     if not np.isfinite(sig).all():
         return {"result": "unscored", "reason": "missing samples"}
     if checks:
+        scale = scale_problem(sig)
+        if scale:
+            return {"result": "unscored", "reason": scale}
         problems = lead_problems(sig, fs)
         if problems:
             return {"result": "unscored", "reason": "; ".join(problems)}
@@ -229,9 +266,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("record", help="WFDB record path (without extension) or a CSV file")
     ap.add_argument("--fs", type=float, help="sampling rate in Hz (CSV only)")
+    ap.add_argument("--units", default="mV", help="amplitude units of a CSV: mV (default), uV or V; "
+                    "WFDB records use their header's")
     ap.add_argument("--json", action="store_true", help="print JSON")
     a = ap.parse_args()
-    sig, fs = read_ecg(a.record, a.fs)
+    sig, fs = read_ecg(a.record, a.fs, a.units)
     out = predict(sig, fs)
     if a.json:
         print(json.dumps(out, indent=1))

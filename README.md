@@ -678,7 +678,13 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
   III, aVR, aVL, aVF, V1–V6). All 12 leads are needed: the loaders reject
   recordings without them, and the P-wave features use leads across the
   ECG. Recordings at 400 and 500 Hz were tested; `predict.py` leaves
-  other sampling rates, and recordings under 7 s, unscored.
+  other sampling rates, and recordings under 7 s, unscored. Amplitudes
+  must be in millivolts: `predict.py` converts WFDB records from the
+  units in their header and a CSV given `--units` (uV or V), and leaves a
+  signal whose amplitudes can't be millivolts unscored (median lead range
+  under 0.05 or over 100; on 2,000 real ECGs it was 0.28–36 mV), so a
+  signal in volts isn't misread as flat leads, nor one in microvolts as
+  free of them.
 - **Output:** "AF", "not AF", "needs review" (P waves can't be measured,
   so no call; test 17), or "unscored" (with the reason: too few beats,
   or one of the input checks below). Both of the last

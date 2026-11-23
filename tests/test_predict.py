@@ -132,3 +132,32 @@ def test_short_recordings_and_untested_sampling_rates_are_unscored():
     assert predict(sig[: 7 * fs], fs)["result"] != "unscored"
     assert "sampling rate 250 Hz" in predict(sig[::2], 250)["reason"]
     assert "sampling rate 1000 Hz" in predict(sig, 1000)["reason"]
+
+
+def test_signal_in_volts_or_microvolts_is_refused_not_misread():
+    sig, fs = _golden("A22886")                                     # an AF ECG
+    assert predict(sig, fs)["result"] == "AF"
+    volts = predict(sig / 1000, fs)                                 # used to be "all 12 leads flat"
+    assert volts["result"] == "unscored" and "too small for millivolts" in volts["reason"]
+    micro = predict(sig * 1000, fs)                                 # used to skip the flat-lead check
+    assert micro["result"] == "unscored" and "too large for millivolts" in micro["reason"]
+    micro_flat = sig * 1000; micro_flat[:, 6] = 0                   # a dead lead in a µV signal is still caught
+    assert predict(micro_flat, fs)["result"] == "unscored"
+
+
+def test_wfdb_and_csv_are_converted_to_millivolts(tmp_path):
+    import wfdb
+    from predict import LEADS_12, read_ecg
+    sig, fs = _golden("A22886")
+    for units, k in [("uV", 1000), ("V", 0.001), ("mV", 1)]:
+        wfdb.wrsamp(f"rec_{units}", fs=fs, units=[units] * 12, sig_name=LEADS_12, p_signal=sig * k,
+                    fmt=["32"] * 12, adc_gain=[1e6 / k] * 12, baseline=[0] * 12, write_dir=str(tmp_path))
+        got, got_fs = read_ecg(str(tmp_path / f"rec_{units}"))
+        assert got_fs == fs and np.allclose(got, sig, atol=1e-5), units
+        assert predict(got, got_fs)["result"] == "AF"
+    import pandas as pd
+    pd.DataFrame(sig * 1000, columns=LEADS_12).to_csv(tmp_path / "ecg_uv.csv", index=False)
+    got, _ = read_ecg(str(tmp_path / "ecg_uv.csv"), fs, units="uV")
+    assert np.allclose(got, sig)
+    assert predict(read_ecg(str(tmp_path / "ecg_uv.csv"), fs)[0], fs)["result"] == "unscored"   # default mV: refused
+
