@@ -103,6 +103,32 @@ with `git diff <registration> <results> -- '*.py'`):
 | 17 | `predict.py` (+10, −5); `tests/test_predict.py` (+1, −0) | the "needs review" output, added because the test passed (as its plan says); `afib_abstain_test.py` unchanged |
 | 18 | `afib_afpac_test.py` (+21, −2) | the download helper only: certificates (certifi) and retries after PhysioNet 502 errors; selection and analysis unchanged |
 
+**Edits after the results.** The registered scripts were edited again
+after their results, also without changing the test logic, so comparing a
+registration commit with the current version shows these too (see each
+with `git log <results>..HEAD -- <script>`):
+
+| Commit | Date | Scripts (test: lines) | What |
+|---|---|---|---|
+| `041a560` | 2026-11-14 | `afib_mimic_test.py` (14: +2, −2) | `mimic_features` takes the list's name, defaulting to test 14's, so test 15 can reuse it |
+| `163cc29` | 2026-11-19 | `afib_afpac_test.py` (18: +3, −2) | the differences file's `verdict` column filled on the primary rows only, not the secondary confirmed-AF rows |
+| `3fe8f63` | 2026-11-22 | `afib_cpscx_test.py` (5), `afib_georgia_test.py` (6), `afib_ptbxl_test.py` (7), `afib_chapman_test.py` (8), `afib_comparison_test.py` (11) (+1, −1 each); `afib_hybrid_test.py` (13: +2, −2) | the recording lists read from the committed `results/<source>_selected.txt` (byte-identical copies) instead of the uncommitted `data/<source>/SELECTED` |
+| `854d58b` | 2026-11-22 | `afib_afpac_test.py` (18: +13, −3) | `predict(..., checks=False)`, so the input checks added to `predict.py` afterwards don't apply; new "output:" columns counting the model's actual output, next to the registered ones (unchanged) |
+| `a32adbe` | 2026-11-22 | all 18 registered scripts (+3, −2 to +6, −5 each) | each output written through `outputs.write_path`, so a re-run goes to `rerun/` instead of over the committed results |
+
+Modules the scripts import changed in the same commits: `af.py`,
+`afib_compare_dnn.py`, `afib_clinical_dev.py` and the other development
+scripts read the committed lists, and `predict.py` gained padding
+stripping and input checks (`0ab01fb`; a millivolt scale check in
+`c9316fb`), which only `predict(..., checks=True)` applies; of the registered
+scripts only test 18 calls `predict`, with `checks=False`. Re-run after
+these edits, test 5 reproduces its summary file exactly, and test 18 its
+differences file, every count and every call (its per-recording
+probabilities differ by up to 4 × 10⁻⁸, from numpy 2.2.6 instead of the
+1.26.4 it ran with). The other tests weren't re-run; their edits change
+only where inputs are read from (identical files) and where outputs are
+written.
+
 ## S2. Beat detection
 
 [`ecg.py`](ecg.py) contains the detector:

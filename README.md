@@ -773,7 +773,11 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
     constant moved in test 14's selection script, and, for test 17, the
     "needs review" output added to `predict.py` after the test passed,
     and test 18's download helper)
-    are listed in the supplement.
+    are listed in the supplement, and so are the later edits made after
+    the results: the scripts now read the committed recording lists and
+    write re-runs to `rerun/`, and test 18 calls `predict` as tested
+    (`checks=False`) and reports the model's actual output beside the
+    registered rates.
   - For tests 14–16 the registration commit also holds the list of test
     recordings, chosen by seeded code from the public machine reports, and
     re-running the selection (`python afib_mimic_select.py`, `... test15`,
