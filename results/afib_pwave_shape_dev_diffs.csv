@@ -1,0 +1,5 @@
+comparison,diff,lo,hi,verdict,lambdas
+"shape minus adopted, PAC called AF",-0.004248088360237892,-0.014697709651546218,0.004847413937017492,does not meet the rule,"[1, 1, 1, 1, 1]"
+"shape minus adopted, AF caught",0.002634660421545698,-0.00029508974744649473,0.0058431272539187515,does not meet the rule,"[1, 1, 1, 1, 1]"
+"shape minus adopted, other non-AF called AF",-0.0019884009942004975,-0.003671577403934117,-0.0004938962770566505,does not meet the rule,"[1, 1, 1, 1, 1]"
+"shape minus adopted, AUC AF vs PAC",0.0022692949765110715,0.0005768002688139012,0.003891784974503886,does not meet the rule,"[1, 1, 1, 1, 1]"

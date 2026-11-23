@@ -1177,6 +1177,45 @@ real AF at this hospital is most likely between 84% and 94%, and only
 cardiologist labels can pin it down. The tests' own numbers stand as
 reported.
 
+### The P-wave window's shape as inputs (after test 18; not adopted)
+
+**What was tried.** The model sees how well beats' P waves match each
+other, not what they look like.
+[`afib_pwave_shape_dev.py`](afib_pwave_shape_dev.py) gives it the P wave
+itself: in leads II, III, aVF and V1, the median over regular,
+non-ventricular beats of the 300 to 60 ms before the R peak (the stretch
+[`ecg.pr_segments`](ecg.py) cuts for `p_match`), averaged into 24 bins of
+10 ms, minus its first 20 ms (baseline) and divided by the lead's QRS
+height: 96 numbers. They joined the adopted model's 11 inputs in a
+balanced logistic regression whose waveform weights were penalised for
+differing from their neighbours, so the weights can be plotted over time
+and read ([figure](figures/afib_pwave_shape_weights.png)); the penalty's
+strength came from inner cross-validation, which chose the weakest one
+tried in every fold. Development data only (CPSC 2018 and CPSC-extra
+crops, PTB-XL, Chapman; 10,628 units), 5-fold cross-validation grouped by
+patient with the usual cutoff rule, against the adopted model on the same
+folds.
+
+**The rule fixed in advance:** it would go on to a registered test only
+if PAC false alarms fell with the 95% interval (paired bootstrap over
+patients) wholly below 0, AF caught fell by no more than 1 point, and the
+AF-vs-PAC AUC didn't fall.
+
+| Development (CV, 10,628 units) | Adopted model | + P-wave shape | Difference (95% CI) |
+|---|---|---|---|
+| PAC called AF (1177) | 11.6% | 11.1% | −0.4 points (−1.5 to +0.5) ✗ |
+| AF caught (3416) | 97.6% | 97.9% | +0.3 points (−0.0 to +0.6) |
+| Other non-AF called AF (6035) | 1.7% | 1.5% | −0.2 points (−0.4 to −0.05) |
+| AF-vs-PAC AUC | 0.980 | 0.982 | +0.002 (+0.001 to +0.004) |
+
+- **Not adopted, and no test registered.** PAC false alarms, the one
+  measure it was meant to cut, didn't fall clearly: the interval includes
+  0, so it fails the rule. The small gains elsewhere come from
+  development data that earlier PAC attempts (above) had already used,
+  and weren't checked on new data.
+- **The remaining PAC gap isn't in the shape of the regular beats' P
+  waves.**
+
 ## S9. Reporting details for the supplementary tests
 
 The main paper's TRIPOD+AI section covers tests 9, 11 and 12 and the
