@@ -1224,7 +1224,14 @@ by no more than 1 point, and the AF-vs-PAC AUC didn't fall.
   development data that earlier PAC attempts (above) had already used,
   and weren't checked on new data.
 - **The remaining PAC gap isn't in the shape of the regular beats' P
-  waves.**
+  waves.** The shape pushes PAC recordings and the other non-AF ones
+  (mostly sinus rhythm) away from AF by nearly the same amount (bottom
+  row of the figure; summed over the window, lead II −0.31 and −0.36,
+  III −0.40 and −0.39, aVF −0.27 and −0.27 in log-odds): the regular
+  beats of a PAC recording have normal P waves. Whatever separates PAC
+  from sinus rhythm lies in what this window leaves out, such as the
+  early beats themselves, whose P waves sit on the preceding T wave;
+  that wasn't tested here.
 
 ## S9. Reporting details for the supplementary tests
 
