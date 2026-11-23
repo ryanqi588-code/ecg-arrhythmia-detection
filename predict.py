@@ -9,8 +9,10 @@ The model is read from results/final_af_model.csv (written by
 export_final_model.py), so no training data is needed. Features come from
 af.clinical_features, as in the tests: beats found on leads I, II and V1,
 rhythm features after removing ventricular ectopics, and P-wave and
-fibrillatory-wave features from all 12 leads. Only the first 10 s are
-used; the model was developed and tested on 10 s recordings (400-500 Hz).
+fibrillatory-wave features from all 12 leads. Flat stretches at the start
+and end (the zero padding of CODE-format ECGs) are stripped first, as the
+test scripts do, and then only the first 10 s are used; the model was
+developed and tested on 7-10 s recordings sampled at 400-500 Hz.
 
 Each feature's contribution is its coefficient times its standardized
 input, coef_per_sd * (input - mean) / sd, in log-odds. They add up, with
@@ -21,9 +23,22 @@ contributions push towards AF. The probability is not a calibrated risk.
 "Needs review" means the P waves couldn't be measured (fewer than 3
 regular, non-ectopic beats): the model can't tell AF from non-AF there,
 so it makes no call (test 17); the probability and contributions are
-still shown. "Unscored" means the recording has too few beats to measure
-the rhythm (fewer than 7 detected) or missing samples. The model is a research tool,
-not a medical device.
+still shown. "Unscored" means the recording can't be scored, and the
+reason says why:
+  - sampling rate outside 400-500 Hz (resample first);
+  - shorter than 7 s once flat edges are stripped;
+  - missing samples;
+  - a lead flat or disconnected: its amplitude range (0.5th to 99.5th
+    percentile) under 0.05 mV;
+  - a lead off for part of the recording: constant for more than 1 s;
+  - a lead clipped: flattened at its extreme value for 10 ms or more on
+    at least 3 beats, with a steep approach (>= 0.1 mV in the 6 ms either
+    side; a smooth wave top flattened by coarse quantization isn't flagged);
+  - too few beats to measure the rhythm (fewer than 7 detected).
+The lead checks were set on real recordings (2,000 from seven sources:
+none flagged except leads that really were flat, off or noise-only, and 1
+in 2,000 for clipping) and on the golden ECGs clipped artificially.
+The model is a research tool, not a medical device.
 """
 
 import argparse
@@ -39,6 +54,14 @@ from af import LEADS_12, clinical_features, p_unmeasured as unmeasured
 MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "final_af_model.csv")
 I_II_V1 = [0, 1, 6]
 SECONDS = 10
+MIN_SECONDS = 7              # shortest standard length in the test sets (CODE-15%'s 7.3 s recordings)
+FS_RANGE = (400, 500)        # sampling rates the model was developed and tested at
+FLAT_MV = 0.05               # amplitude range below this: lead flat or disconnected
+DROPOUT_SECONDS = 1.0        # constant for longer than this: lead off for part of the recording
+CLIP_MS = 10                 # clipping: plateau at the extreme value at least this long,
+CLIP_EDGE_MS = 6             #   rising/falling at least CLIP_EDGE_MV within CLIP_EDGE_MS either side,
+CLIP_EDGE_MV = 0.1
+CLIP_MIN_BEATS = 3           #   on at least this many beats
 
 
 def load_model(path=MODEL):
@@ -92,12 +115,110 @@ def score_features(row, model=None):
             "score": float(z), "intercept": intercept, "contributions": contributions}
 
 
-def predict(sig, fs, model=None):
-    sig = np.asarray(sig, float)[: int(round(SECONDS * fs))]
+def strip_flat_edges(sig):
+    """Drop flat stretches at the start and end: rows where all 12 leads equal the first (or last) row.
+
+    CODE-format ECGs are zero-padded on both sides (afib_compare_dnn.strip_padding,
+    which the test scripts apply); left in, the padding changes the filtered
+    signal near the edges and the beats and P waves found there. This also
+    catches padding with a constant non-zero value. A signal that is flat
+    throughout comes back empty.
+    """
+    if len(sig) == 0:
+        return sig
+    differs_from_first = np.flatnonzero((sig != sig[0]).any(axis=1))
+    if len(differs_from_first) == 0:
+        return sig[:0]
+    differs_from_last = np.flatnonzero((sig != sig[-1]).any(axis=1))
+    start = differs_from_first[0]                   # rows before this equal row 0
+    end = differs_from_last[-1] + 1                 # rows from here on equal the last row
+    # A stretch is two or more rows; a lone edge sample is signal, not padding.
+    return sig[start if start >= 2 else 0: end if len(sig) - end >= 2 else len(sig)]
+
+
+def _runs(mask):
+    """(start, end) indices of the runs of True in a 1-D boolean array."""
+    d = np.diff(np.r_[0, mask.astype(np.int8), 0])
+    return np.flatnonzero(d == 1), np.flatnonzero(d == -1)
+
+
+def _clipped_beats(x, fs):
+    """Number of clipped peaks in one lead: steep-edged plateaus at its maximum or minimum.
+
+    Only an extreme at least half the lead's range from its median counts
+    (a baseline that happens to be the minimum isn't clipping), and the
+    signal must still be moving fast just before and after the plateau: a
+    smooth wave top flattened by coarse quantization (MIMIC-IV, 0.02 mV
+    steps) rises to it slowly.
+    """
+    k = max(1, round(CLIP_EDGE_MS * fs / 1000))
+    med, span, worst = np.median(x), x.max() - x.min(), 0
+    for v in (x.max(), x.min()):
+        if abs(v - med) < 0.5 * span:
+            continue
+        n = 0
+        for a, b in zip(*_runs(x == v)):
+            if (b - a) * 1000 / fs >= CLIP_MS and a >= k and b - 1 + k < len(x) \
+                    and min(abs(v - x[a - k]), abs(v - x[b - 1 + k])) >= CLIP_EDGE_MV:
+                n += 1
+        worst = max(worst, n)
+    return worst
+
+
+def lead_problems(sig, fs):
+    """Problems with individual leads of an n x 12 signal (finite values), as messages; empty if none."""
+    lo, hi = np.percentile(sig, [0.5, 99.5], axis=0)
+    flat, off, clipped = [], [], []
+    for j, x in enumerate(sig.T):
+        if hi[j] - lo[j] < FLAT_MV:
+            flat.append(LEADS_12[j])
+            continue
+        start, end = _runs(np.diff(x) == 0)
+        if len(start) and (end - start).max() + 1 > DROPOUT_SECONDS * fs:
+            off.append(LEADS_12[j])
+        elif _clipped_beats(x, fs) >= CLIP_MIN_BEATS:
+            clipped.append(LEADS_12[j])
+    names = lambda leads: ("lead " if len(leads) == 1 else "leads ") + ", ".join(n.replace("AV", "aV") for n in leads)
+    out = []
+    if flat:
+        out.append(f"{names(flat)} flat or disconnected (amplitude under {FLAT_MV} mV)")
+    if off:
+        out.append(f"{names(off)} flat for over {DROPOUT_SECONDS:g} s (lead off for part of the recording)")
+    if clipped:
+        out.append(f"{names(clipped)} clipped (peaks cut flat)")
+    return out
+
+
+def predict(sig, fs, model=None, checks=True):
+    """Score an n x 12 signal (mV). Returns a dict with "result" and, unless unscored, the score.
+
+    checks=False runs the model exactly as it was tested and as the
+    published results were made: the first 10 s as given, no padding
+    stripped and no input checks beyond missing samples and too few beats.
+    The test scripts use it, so they reproduce their saved results; use
+    the default for scoring new recordings.
+    """
+    sig = np.asarray(sig, float)
     if sig.ndim != 2 or sig.shape[1] != 12:
         raise ValueError("expected an n x 12 signal")
+    if checks:
+        if not FS_RANGE[0] <= fs <= FS_RANGE[1]:
+            return {"result": "unscored", "reason": f"sampling rate {fs:g} Hz; the model was tested at "
+                    f"{FS_RANGE[0]}-{FS_RANGE[1]} Hz, so resample first"}
+        # Strip padding before taking the first 10 s, so a padded recording keeps all its signal.
+        sig = strip_flat_edges(sig)
+        if len(sig) == 0:
+            return {"result": "unscored", "reason": "flat signal"}
+        if len(sig) < MIN_SECONDS * fs:
+            return {"result": "unscored", "reason": f"recording too short: {len(sig) / fs:.1f} s of signal "
+                    f"(after stripping flat edges); at least {MIN_SECONDS} s needed"}
+    sig = sig[: int(round(SECONDS * fs))]
     if not np.isfinite(sig).all():
         return {"result": "unscored", "reason": "missing samples"}
+    if checks:
+        problems = lead_problems(sig, fs)
+        if problems:
+            return {"result": "unscored", "reason": "; ".join(problems)}
     row = clinical_features(sig[:, I_II_V1], fs, False, "multilead", sig)
     if row is None:
         return {"result": "unscored", "reason": "too few beats to measure the rhythm"}

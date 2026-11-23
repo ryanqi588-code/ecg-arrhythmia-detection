@@ -62,7 +62,8 @@ def test_raw_recording_reproduces_published_result(rec):
     assert int(flag_ectopic(sig[:, 1], fs, peaks).sum()) == exp["ventricular_ectopic"]
     assert int(regular_beats(peaks, fs).sum()) == exp["regular"]
     assert clinical_features(sig[:, I_II_V1], fs, False, "multilead", sig)["n_p_beats"] == exp["n_p_beats"]
-    out = predict(sig, fs, MODEL)
+    out = predict(sig, fs, MODEL, checks=False)                # as the published results were made
+    assert predict(sig, fs, MODEL) == out                       # clean ECGs: the input checks change nothing
     assert out["result"] == exp["result"]
     assert out["probability"] == pytest.approx(exp["probability"], rel=1e-8)
 

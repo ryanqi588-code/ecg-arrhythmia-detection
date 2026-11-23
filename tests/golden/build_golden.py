@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # probability is computed here, in the locked environment (requirements-lock.txt), not published.
     from afib_sph_test import sph_selected
     normal = next(r for r, _, lab in sorted(sph_selected()) if lab == "N"
-                  and predict(load_sph(r), FS, model)["result"] == "not AF")
+                  and predict(load_sph(r), FS, model, checks=False)["result"] == "not AF")
     expected = {}
     for rec in SPH + [NEEDS_REVIEW, normal]:
         sig = load_sph(rec)                                   # 5000 x 12, values from float16
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         assert np.array_equal(sig, load_sph(rec)), rec       # lossless
         peaks = detect_peaks_multilead(sig[:, I_II_V1], FS)
         ectopic = flag_ectopic(sig[:, 1], FS, peaks)
-        o = predict(sig, FS, model)
+        o = predict(sig, FS, model, checks=False)
         published = rec in saved.index
         # A06017 was saved (14 November) as "AF"; since test 17 that recording's output is "needs review".
         expected[rec] = {"label": saved.loc[rec, "label"] if published else "N",

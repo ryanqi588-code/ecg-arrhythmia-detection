@@ -660,17 +660,26 @@ should use `af.p_unmeasured` so training and scoring agree. The probabilities ar
 - **Input:** a 10 s, 12-lead ECG with leads in the standard order (I, II,
   III, aVR, aVL, aVF, V1–V6). All 12 leads are needed: the loaders reject
   recordings without them, and the P-wave features use leads across the
-  ECG. Recordings at 400 and 500 Hz were tested.
+  ECG. Recordings at 400 and 500 Hz were tested; `predict.py` leaves
+  other sampling rates, and recordings under 7 s, unscored.
 - **Output:** "AF", "not AF", "needs review" (P waves can't be measured,
-  so no call; test 17), or "unscored" (too few beats). Both of the last
+  so no call; test 17), or "unscored" (with the reason: too few beats,
+  or one of the input checks below). Both of the last
   two should be read by a person. The probabilities shouldn't be read as
   risks.
-- **Poor-quality input:** there is no separate noise check. Recordings
-  with too few detected beats are left unscored. Noise that adds false
-  beats, a flat or disconnected lead, or a lead swap isn't detected and
-  can produce a wrong call; these cases weren't tested. Development
-  showed that a small or biphasic lead II used to cause false
-  irregularity, which the three-lead beat detector reduced.
+- **Poor-quality input:** `predict.py` leaves a recording unscored if a
+  lead is flat or disconnected (amplitude under 0.05 mV), off for part of
+  the recording (constant for over 1 s), or clipped (peaks cut flat on 3
+  or more beats), or if it has too few detected beats. These checks were
+  set after the tests, on 2,000 recordings from seven sources: they
+  flagged none in SPH, PTB-XL, CPSC or Georgia, 1 MIMIC-IV recording
+  wrongly (as clipped), and in CODE-15%, Chapman and MIMIC-IV only
+  leads that were flat, noise-only or connected late. They don't catch clipping
+  of slow waves, lead-off stretches under 1 s, noise that adds false
+  beats, and lead swaps, which can still produce a wrong call. The test
+  results above didn't use these checks. Development showed that a small
+  or biphasic lead II used to cause false irregularity, which the
+  three-lead beat detector reduced.
 
 ### Open science and ethics
 

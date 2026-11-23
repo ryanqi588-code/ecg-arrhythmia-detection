@@ -40,7 +40,7 @@ def score_all(model):
     for i, (ecg_id, patient, label) in enumerate(r for r in sph_selected() if r[2] in ("A", "PAC")):
         if i % 200 == 0:
             print(f"{i} ...", flush=True)
-        o = predict(load_sph(ecg_id), FS, model)
+        o = predict(load_sph(ecg_id), FS, model, checks=False)
         rows.append({"record": ecg_id, "patient": patient, "label": label, "result": o["result"],
                      "probability": o.get("probability", np.nan)})
     d = pd.DataFrame(rows)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     lim = 0
     outs = []
     for title, r in picks:
-        o = predict(load_sph(r.record), FS, model)
+        o = predict(load_sph(r.record), FS, model, checks=False)
         outs.append((title, r, o))
         lim = max(lim, max(abs(c["contribution"]) for c in o["contributions"]))
     for row, (title, r, o) in enumerate(outs):
