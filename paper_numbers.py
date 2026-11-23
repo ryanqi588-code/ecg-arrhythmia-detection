@@ -185,8 +185,21 @@ def numbers():
         "afib_afpac_test.csv")
     add("Conclusion", "ranking-error ratio", f"({r18.iloc[0]:.1f} times the ranking errors)", "afib_afpac_test.csv")
     add("Discussion", "ranking-error ratio range", f"{r18.iloc[0]:.1f}–3 times as often", "afib_afpac_test.csv, afib_comparison_afpac.csv")
-    fa18 = [pct(frac(f.loc[mo, "PAC called AF"])) for mo in ["interpretable", "CNN", "Ribeiro"]]
-    add("Results table, test 18", "PAC false alarms", f"PAC false alarms {fa18[0]} against {fa18[1]} and {fa18[2]}",
+    # The model's actual output: "needs review" is no call (the registered rates counted it by probability).
+    fa18 = [pct(frac(f.loc[mo, "output: PAC called AF"])) for mo in ["interpretable", "CNN", "Ribeiro"]]
+    rv18 = pct(frac(f.loc["interpretable", "output: PAC needs review"]))
+    add("Results table, test 18", "PAC called AF (model output)",
+        f"PAC called AF {fa18[0]} against {fa18[1]} and {fa18[2]} (the adopted model's output; {rv18} more",
+        "afib_afpac_test.csv")
+    out18 = lambda col: [pct(frac(f.loc[mo, col])) for mo in ["interpretable", "CNN", "Ribeiro"]]
+    add("Test 18", "PAC called AF row", "| PAC called AF (model's output) | {} | {} | {} |".format(*out18("output: PAC called AF")),
+        "afib_afpac_test.csv")
+    add("Test 18", "AF called AF row", "| AF called AF (model's output) | {} | {} | {} |".format(*out18("output: AF called AF")),
+        "afib_afpac_test.csv")
+    add("Test 18", "needs review row", "| Needs review, no call (AF / PAC) | {} / {} |".format(
+        pct(frac(f.loc["interpretable", "output: AF needs review"])), rv18), "afib_afpac_test.csv")
+    reg = [f"{pct(frac(f.loc[mo, 'PAC called AF']))} / {pct(frac(f.loc[mo, 'AF caught']))}" for mo in ["interpretable", "CNN", "Ribeiro"]]
+    add("Test 18", "registered row", "| As registered, probability ≥ cutoff (PAC called AF / AF caught) | {} | {} | {} |".format(*reg),
         "afib_afpac_test.csv")
     nconf = int(re.search(r"confirmed AF \((\d+)\)", " ".join(df.index)).group(1))
     add("Test 18", "confirmed AF", f"the {nconf} AF recordings confirmed", "afib_afpac_test_diffs.csv")

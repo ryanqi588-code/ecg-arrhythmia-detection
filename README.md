@@ -24,7 +24,7 @@ opened, and run once.
 | 11: against doctors¹ | 793 Brazilian ECGs read by cardiologists, residents and students | caught as much AF as the best readers (12 of 13), at lower specificity (96.4% vs 98.8–100%) |
 | 12: fixing a failure test 11 exposed² | 18,875 ECGs, CODE-15% part 1 (Brazil) | false alarms 3.8% → **3.3%**, sensitivity unchanged (91.7%), AUC 0.960 → 0.971; adopted |
 | 17: follow-up to 12² | 18,883 ECGs, CODE-15% part 3 (Brazil) | when P waves can't be measured, "needs review" instead of a call: 215 false AF calls became "needs review", at the cost of 65 new flags and 16 AF calls; recordings needing a human look 1040 → 1105; adopted as an honest "can't tell" |
-| 18: test 11's AF-vs-PAC finding, registered | 2950 new US patients, MIMIC-IV-ECG (979 AF, 1971 PAC; machine labels) | **confirmed: worse than both networks at telling AF from PACs**, AUC 0.907 against 0.934 (CNN) and 0.935 (Ribeiro), differences −0.027 (95% CI −0.038 to −0.016) and −0.028 (−0.039 to −0.017); 1.4 times the ranking errors here, against about 3 times at SPH (after the test); PAC false alarms 14.7% against 8.9% and 11.5% |
+| 18: test 11's AF-vs-PAC finding, registered | 2950 new US patients, MIMIC-IV-ECG (979 AF, 1971 PAC; machine labels) | **confirmed: worse than both networks at telling AF from PACs**, AUC 0.907 against 0.934 (CNN) and 0.935 (Ribeiro), differences −0.027 (95% CI −0.038 to −0.016) and −0.028 (−0.039 to −0.017); 1.4 times the ranking errors here, against about 3 times at SPH (after the test); PAC called AF 13.7% against 8.9% and 11.5% (the adopted model's output; 1.0% more get "needs review") |
 
 ¹ The model version before the fix (commit `d8c5ce2`, cutoff 0.4736).
 
@@ -292,8 +292,19 @@ pool the 1500 were drawn from. The data are left as tested.
   | AF-vs-PAC AUC | **0.907** | 0.934 | 0.935 |
   | This model minus network (95% CI) | | −0.027 (−0.038 to −0.016) ✓ | −0.028 (−0.039 to −0.017) ✓ |
   | Pairs ranked wrong | 9.3% | 6.6% | 6.5% |
-  | PAC called AF (own cutoff) | 14.7% | 8.9% | 11.5% |
-  | AF caught (own cutoff) | 86.1% | 86.9% | 84.6% |
+  | PAC called AF (model's output) | 13.7% | 8.9% | 11.5% |
+  | AF called AF (model's output) | 83.0% | 86.9% | 84.6% |
+  | Needs review, no call (AF / PAC) | 3.2% / 1.0% | – | – |
+  | As registered, probability ≥ cutoff (PAC called AF / AF caught) | 14.7% / 86.1% | 8.9% / 86.9% | 11.5% / 84.6% |
+
+  The adopted model makes no call when it can't measure P waves ("needs
+  review", added in test 17): 51 recordings here, 31 AF and 20 PAC. The
+  registered secondary rates counted every recording by its probability
+  alone, so those 51 were counted as AF or not AF (30 of the AF and 18
+  of the PAC were over the cutoff). The first three rows, added after the
+  test, count what the model actually returns; the registered row is kept
+  for the record. The networks always make a call. The primary AUC
+  comparison ranks probabilities and is unaffected.
 
   **Confirmed against both networks.** The gap is real but smaller than
   SPH's: 1.4 times the ranking errors, not about 3 times. MIMIC's labels

@@ -34,7 +34,8 @@ resamples). Prediction: the interpretable model is worse, with the 95%
 interval's upper bound below 0, against both networks. Confirmed only if
 it holds against both.
 Secondary: PAC recordings called AF and AF caught at each model's
-cutoff; pairs ranked wrong (1 - AUC) and their ratio; the same AUC
+cutoff (probability alone; see run() for the adopted model's actual
+output, which makes no call on "needs review", added after the test); pairs ranked wrong (1 - AUC) and their ratio; the same AUC
 comparison on AF confirmed by another AF ECG of the patient within 24 h
 (afib_mimic_labels.neighbour_groups) against all PAC; the interpretable
 model's "needs review" count. Run once.
@@ -112,7 +113,7 @@ def interpretable(name=NAME):
     model, rows = load_model(), []
     for path, subject, label in read_selected(name):
         sig, fs = load_mimic(f"{MIMIC_DIR}/{path}")
-        o = predict(sig, fs, model)
+        o = predict(sig, fs, model, checks=False)        # as tested
         rows.append({"record": int(path.split("/")[-1]), "patient": f"mimic-{subject}", "label": label,
                      "result": o["result"], "prob_interp": o.get("probability", np.nan)})
     return pd.DataFrame(rows)
@@ -132,11 +133,20 @@ def run(name=NAME, nets_path="results/compare_probs_mimic18.csv", out="results/a
     y, g = (t.label == "A").values, t.patient.values
     print(f"scored: {y.sum()} AF, {(~y).sum()} PAC")
 
+    # "AF caught" and "PAC called AF" are as registered: probability >= cutoff, for every scored
+    # recording. The adopted model makes no call on "needs review" recordings (test 17), so
+    # its real output differs; added after the test, the "output:" columns count what it
+    # returns: AF, needs review (no call), not AF. The networks always make a call.
     rows = []
     for m, c in COL.items():
         p = t[c].values
+        called = (t.result == "AF").values if m == "interpretable" else p >= CUT[m]
+        review = (t.result == "needs review").values
         rows.append({"model": m, "AF vs PAC AUC": roc_auc_score(y, p), "pairs ranked wrong": 1 - roc_auc_score(y, p),
-                     "AF caught": rate_str(p[y] >= CUT[m]), "PAC called AF": rate_str(p[~y] >= CUT[m])})
+                     "AF caught": rate_str(p[y] >= CUT[m]), "PAC called AF": rate_str(p[~y] >= CUT[m]),
+                     "output: AF called AF": rate_str(called[y]), "output: PAC called AF": rate_str(called[~y]),
+                     "output: AF needs review": rate_str(review[y]) if m == "interpretable" else "–",
+                     "output: PAC needs review": rate_str(review[~y]) if m == "interpretable" else "–"})
     diffs, ok = {}, []
     for net in ["CNN", "Ribeiro"]:
         d = auc_diff(y, t.prob_interp.values, t[COL[net]].values, g)
