@@ -26,7 +26,7 @@ Setup and data: README, *Running it*.
 | After test 2: CODE-15% labels and regular AF | [`afib_code15_labels.py`](afib_code15_labels.py) | `results/afib_code15_labels.csv` |
 | Subgroups and demographics (TRIPOD+AI) | [`afib_subgroups.py`](afib_subgroups.py) | `results/afib_subgroups.csv`, `results/demographics.csv` |
 | Limitations: MIMIC label check | [`afib_mimic_labels.py`](afib_mimic_labels.py) | `results/afib_mimic_labels.csv`, `results/afib_mimic_labels_diffs.csv` |
-| Every number the paper quotes, checked against the README | [`paper_numbers.py`](paper_numbers.py) (`--check`) | (prints each number and its source) |
+| The paper's headline numbers, computed from results/ and checked against the README (detailed tables are not) | [`paper_numbers.py`](paper_numbers.py) (`--check`) | (prints each number and its source) |
 
 ## The model, its development, and tools
 

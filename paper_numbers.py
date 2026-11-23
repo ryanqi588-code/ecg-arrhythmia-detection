@@ -1,4 +1,4 @@
-"""Every number the paper (README.md) quotes, computed from results/*.csv.
+"""The paper's headline numbers (README.md), computed from results/*.csv.
 
     python paper_numbers.py            # print each number, its source, and the text it appears as
     python paper_numbers.py --check    # also confirm each text appears in README.md (exit 1 if not)
@@ -9,7 +9,8 @@ results and formatted the way the README writes it; --check (and
 tests/test_paper_numbers.py, run by CI) fails if the README says anything
 else. When a number changes, update the README from this output.
 Covers the summary, the results table, the conclusion and discussion, and
-the headline numbers in each test's section.
+the headline numbers in each test's section. The detailed tables in each
+test's section and in the supplement are typed by hand and not checked here.
 """
 
 import ast
@@ -203,6 +204,8 @@ def numbers():
         "afib_afpac_test.csv")
     nconf = int(re.search(r"confirmed AF \((\d+)\)", " ".join(df.index)).group(1))
     add("Test 18", "confirmed AF", f"the {nconf} AF recordings confirmed", "afib_afpac_test_diffs.csv")
+    # The README says how many numbers this checks; check that too, so it can't go stale.
+    add("Running it", "count of checked numbers", f"its {len(out)} headline numbers", "paper_numbers.py")
     return pd.DataFrame(out)
 
 

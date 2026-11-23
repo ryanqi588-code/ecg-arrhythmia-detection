@@ -817,9 +817,13 @@ development script (`afib_fa_dev.py`) and the registered scripts of tests
 
 Which script produces each test, figure and result file, and which early
 scripts are archived: [`SCRIPTS.md`](SCRIPTS.md).
-Every number this paper quotes is computed from `results/` by
-[`paper_numbers.py`](paper_numbers.py); `python paper_numbers.py --check`
-(also run as a test in CI) fails if the text says anything else.
+The paper's headline numbers (the summary, the results tables, the
+conclusion and discussion, and the main figures in each test's section)
+are computed from `results/` by [`paper_numbers.py`](paper_numbers.py):
+`python paper_numbers.py --check` (also run as a test in CI) fails if the
+text differs from any of its 40 headline numbers. The detailed tables in
+each test's section and in the supplement are typed by hand from the
+`results/` files and are not checked automatically.
 
 **Exact versions.** Two isolated environments, each pinned by a lock file
 (Python 3.12.2 from python.org, macOS arm64). The networks need their own
@@ -931,7 +935,7 @@ pip install pytest
 pytest
 ```
 
-The 80 tests in [`tests/`](tests/) run offline in a few seconds:
+The tests in [`tests/`](tests/) run offline in a few seconds:
 - **Synthetic ECG and RR series** check the detectors (upside-down beats,
   T waves, one tall spike, a small biphasic lead), each feature on series
   where the answer is known (e.g. TPR = 1 for alternating intervals,
